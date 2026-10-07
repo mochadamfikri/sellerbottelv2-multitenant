@@ -1,0 +1,164 @@
+status: discovery_complete
+timestamp: 2026-10-03T19:10:18Z
+production_touched: false
+production_database_used: false
+
+blocked_by:
+  - owner_architecture_review_and_tenant_isolation_decision
+  - owner_commercial_requirements_approval
+  - owner_phase_1_foundation_authorization
+
+discovery_outputs:
+  - /opt/sellerbottel-v2/repo/docs/v2/LEGACY_SYSTEM_AUDIT.md
+  - /opt/sellerbottel-v2/repo/docs/v2/LEGACY_DATA_INVENTORY.md
+  - /opt/sellerbottel-v2/repo/docs/v2/V2_ARCHITECTURE.md
+  - /opt/sellerbottel-v2/repo/docs/v2/DATA_MIGRATION_PLAN.md
+  - /opt/sellerbottel-v2/repo/docs/v2/V2_PHASE_PLAN.md
+  - /opt/sellerbottel-v2/repo/docs/v2/V2_TASK_GRAPH.yaml
+  - /opt/sellerbottel-v2/repo/docs/v2/RISK_REGISTER.md
+
+verified_evidence:
+  archive_sha256: ca74ff070c82dec5d0f66e7b5ea38afcb24748cd935db01c84382d9444c1ab39
+  archive_internal_checksums: PASS
+  repository_path: /opt/sellerbottel-v2/repo
+  repository_branch: renovation/sellerbottel-v2-platform
+  repository_baseline: 3a75b1cc2ab2fbe297556e098bba90d635d631a8
+  repository_status: clean
+  remote_status: matches_origin_main
+  development_database: mongodb://127.0.0.1:27018/sellerbottel_dev
+  database_restore_timestamp: 2026-10-03T19:04:48.336273Z
+  collections_expected: 46
+  collections_actual: 46
+  documents_expected: 3804
+  documents_actual: 3804
+  reconciliation_discrepancies: 0
+  index_verification: PASS
+
+tasks:
+  - id: discovery_checkout
+    phase: 0_discovery
+    status: complete
+    outcome: clean_development_repository_at_verified_production_baseline
+    evidence: /opt/sellerbottel-v2/repo at 3a75b1cc2ab2fbe297556e098bba90d635d631a8
+
+  - id: discovery_remote
+    phase: 0_discovery
+    depends_on: [discovery_checkout]
+    status: complete
+    outcome: remote_main_matches_verified_production_head
+    evidence: origin/main resolves to same SHA
+
+  - id: discovery_database_restore
+    phase: 0_discovery
+    status: complete
+    outcome: isolated_mongodb_restored_and_reconciled
+    evidence: /opt/sellerbottel-v2/_staging/discovery-20261003/dev_db_verification.json
+
+  - id: discovery_source_audit
+    phase: 0_discovery
+    depends_on: [discovery_checkout]
+    status: complete
+    outcome: source_architecture_and_gaps_documented
+    evidence: /opt/sellerbottel-v2/repo/docs/v2/LEGACY_SYSTEM_AUDIT.md
+
+  - id: discovery_data_inventory
+    phase: 0_discovery
+    depends_on: [discovery_database_restore]
+    status: complete
+    outcome: collection_structure_and_domain_classification
+    evidence: /opt/sellerbottel-v2/repo/docs/v2/LEGACY_DATA_INVENTORY.md
+
+  - id: discovery_architecture
+    phase: 0_discovery
+    depends_on: [discovery_source_audit, discovery_data_inventory]
+    status: complete
+    outcome: v2_tenant_architecture_recommendation
+    evidence: /opt/sellerbottel-v2/repo/docs/v2/V2_ARCHITECTURE.md
+
+  - id: discovery_migration_plan
+    phase: 0_discovery
+    depends_on: [discovery_data_inventory, discovery_architecture]
+    status: complete
+    outcome: data_migration_approach_and_reconciliation_requirements
+    evidence: /opt/sellerbottel-v2/repo/docs/v2/DATA_MIGRATION_PLAN.md
+
+  - id: discovery_risk_register
+    phase: 0_discovery
+    depends_on: [discovery_source_audit, discovery_data_inventory, discovery_architecture]
+    status: complete
+    outcome: identified_risks_and_required_controls
+    evidence: /opt/sellerbottel-v2/repo/docs/v2/RISK_REGISTER.md
+
+  - id: discovery_phase_plan
+    phase: 0_discovery
+    depends_on: [discovery_architecture, discovery_migration_plan, discovery_risk_register]
+    status: complete
+    outcome: six_phase_implementation_plan_with_approval_gates
+    evidence: /opt/sellerbottel-v2/repo/docs/v2/V2_PHASE_PLAN.md
+
+  - id: owner_architecture_review
+    phase: 1_foundation_gate
+    depends_on: [discovery_phase_plan]
+    status: blocked_awaiting_owner
+    outcome: approve_tenant_isolation_model_and_idse_mapping
+    required_decisions:
+      - database_per_tenant_vs_shared_database_with_tenant_keys
+      - confirm_idse_as_first_party_tenant_for_legacy_data
+      - commercial_licensing_subscription_and_source_transfer_model
+
+  - id: foundation
+    phase: 1_foundation
+    depends_on: [owner_architecture_review]
+    status: blocked
+    outcome: tenant_ready_development_environment_with_ci_and_tests
+
+  - id: tenant_core
+    phase: 2_tenant_core
+    depends_on: [foundation]
+    status: blocked
+    outcome: platform_control_plane_and_tenant_lifecycle
+
+  - id: commerce_core
+    phase: 3_commerce
+    depends_on: [tenant_core]
+    status: blocked
+    outcome: tenant_scoped_catalog_checkout_fulfillment_and_wallet
+
+  - id: channels_operations
+    phase: 4_channels
+    depends_on: [tenant_core, commerce_core]
+    status: blocked
+    outcome: telegram_admin_promotions_and_operational_tools
+
+  - id: commercialization
+    phase: 5_commercialization
+    depends_on: [tenant_core, commerce_core]
+    status: blocked
+    outcome: subscription_billing_and_source_transfer_implementation
+
+  - id: release_readiness
+    phase: 6_hardening
+    depends_on: [channels_operations, commercialization]
+    status: blocked
+    outcome: production_deployment_authorization_gate
+
+owner_review_required:
+  - V2_ARCHITECTURE.md — Tenant isolation model decision
+  - V2_PHASE_PLAN.md — Phase scope and gate approval
+  - RISK_REGISTER.md — Risk acceptance and control priorities
+  - DATA_MIGRATION_PLAN.md — Migration approach and reconciliation requirements
+
+key_findings:
+  - Legacy has NO tenant isolation — single database, no tenant context
+  - Database restored successfully — 3,804 documents, 46 collections, all verified
+  - Production secrets in archive — require rotation and secret management
+  - Financial data present — purchases, deposits, payments, commissions need preservation
+  - Uncommitted production changes — two files with edits preserved for review
+  - Tests exist but tenant isolation must be added
+
+next_actions:
+  - Owner reviews all seven discovery documents
+  - Owner decides tenant isolation model (database-per-tenant vs shared)
+  - Owner approves IDSE as first-party tenant mapping
+  - Owner defines commercial requirements and licensing model
+  - Owner authorizes Foundation phase (Phase 1) to begin implementation

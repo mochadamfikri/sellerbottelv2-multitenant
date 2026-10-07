@@ -1,0 +1,170 @@
+{
+  "project_name": "Telegram Digital Product Bot Admin Dashboard",
+  "app_type": "dashboard",
+  "language": "Indonesian (ID)",
+  "context_strategy": {
+    "archetype": "THE PERFORMANCE CONTROL CENTER (Tactical & Precision Admin)",
+    "vibe": "High-density command center for digital product automated sales via Telegram, managing crypto/bank deposits, inventory, exchange rates, and user privileges.",
+    "theme_mode": "Dark-first with sleek high-contrast toggle support (Obsidian Slate primary base)",
+    "target_audience": "Bot Admins / Operations Managers running Telegram digital store"
+  },
+  "typography": {
+    "font_pairings": {
+      "heading_font": "Outfit / Plus Jakarta Sans (Clean, Modern, Tactical)",
+      "body_font": "Inter / IBM Plex Sans (Highly legible for tables and numeric data)",
+      "mono_font": "JetBrains Mono / Source Code Pro (For wallet addresses, TX hashes, order IDs, exchange rates)"
+    },
+    "hierarchy_rules": {
+      "h1": "text-2xl md:text-3xl font-bold tracking-tight text-slate-100",
+      "h2": "text-xl font-semibold tracking-tight text-slate-200",
+      "h3": "text-lg font-medium text-slate-200",
+      "body": "text-sm text-slate-300 leading-normal",
+      "caption_mono": "font-mono text-xs text-slate-400 tracking-wide",
+      "stat_value": "font-mono text-2xl md:text-3xl font-bold tracking-tight"
+    },
+    "forbidden_fonts": [
+      "Space Grotesk",
+      "Comic Sans",
+      "Papyrus"
+    ]
+  },
+  "colors": {
+    "forbidden_colors": [
+      "#1B93A4",
+      "#7351B7"
+    ],
+    "palette": {
+      "background_dark": "#0B0F17",
+      "surface_dark": "#111827",
+      "surface_card": "#1E293B",
+      "surface_border": "#334155",
+      "primary_accent": "#00F0FF",
+      "primary_button": "#2563EB",
+      "primary_button_hover": "#1D4ED8",
+      "success_green": "#10B981",
+      "warning_amber": "#F59E0B",
+      "danger_red": "#EF4444",
+      "text_main": "#F8FAFC",
+      "text_muted": "#94A3B8"
+    },
+    "status_badges": {
+      "PENDING": "bg-amber-500/15 text-amber-400 border border-amber-500/30",
+      "APPROVED": "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30",
+      "REJECTED": "bg-rose-500/15 text-rose-400 border border-rose-500/30",
+      "ACTIVE": "bg-cyan-500/15 text-cyan-400 border border-cyan-500/30",
+      "FROZEN_BANNED": "bg-red-500/15 text-red-400 border border-red-500/30"
+    }
+  },
+  "layout_and_spacing": {
+    "layout_mode": "High Density Grid (MODE B)",
+    "sidebar": "Fixed left navigation sidebar on desktop (260px wide) with dark glass background, active section indicator, collapse mode on mobile",
+    "header": "Top sticky bar with z-40, title, quick metrics/status, exchange rate quick-toggle badge, dark backdrop blur (bg-slate-900/90 backdrop-blur-md) - NEVER transparent",
+    "main_container": "p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto",
+    "card_style": "bg-slate-900/80 border border-slate-800 rounded-xl p-5 shadow-lg relative overflow-hidden",
+    "table_style": "w-full text-left text-sm border-collapse bg-slate-900/60 rounded-lg overflow-hidden border border-slate-800"
+  },
+  "key_screens_and_components": {
+    "login_screen": {
+      "path": "/login",
+      "description": "Admin login modal/card centered with high security vibe, background subtle grid overlay, test credentials quick-fill trigger for demo ease",
+      "test_ids": {
+        "email_input": "admin-email-input",
+        "password_input": "admin-password-input",
+        "submit_button": "admin-login-submit"
+      }
+    },
+    "overview_dashboard": {
+      "path": "/",
+      "title": "Ringkasan Utam (Overview)",
+      "components": [
+        "4 Main Stat Cards: Total Deposit (USD/IDR), Total Penjualan Produk, Saldo Beredar (Circulating Balance), Pending Deposit Count",
+        "Recent Deposits List with quick actions (Setujui / Tolak)",
+        "Sales Activity Chart (Recharts / Shadcn Chart) showing weekly deposit vs sales trend",
+        "System Status Widget (Exchange rate USD/IDR status, Active payment channels)"
+      ],
+      "test_ids": {
+        "stat_total_deposit": "stat-total-deposit",
+        "stat_total_sales": "stat-total-sales",
+        "stat_circulating_balance": "stat-circulating-balance",
+        "stat_pending_deposit": "stat-pending-deposits"
+      }
+    },
+    "product_management": {
+      "path": "/products",
+      "title": "Kelola Produk Digital",
+      "features": [
+        "Table of products with columns: Image/Icon, Nama Produk, Kategori, Harga USD, Harga IDR, Tipe Pengiriman (File/Link/Kode Lisensi), Status Aktif Toggle, Aksi (Edit/Hapus)",
+        "Create/Edit Product Dialog with File upload support for digital files, auto IDR calculator based on active exchange rate",
+        "Active status toggle directly in table with instant feedback toast"
+      ],
+      "test_ids": {
+        "add_product_button": "add-product-button",
+        "product_table": "product-list-table",
+        "product_active_switch": "product-active-switch-{id}",
+        "edit_product_button": "edit-product-btn-{id}"
+      }
+    },
+    "deposit_management": {
+      "path": "/deposits",
+      "title": "Kelola Deposit Saldo",
+      "features": [
+        "Status Filter Tabs (Semua, Pending, Disetujui, Ditolak)",
+        "Table columns: ID Transaksi, User Telegram, Metode (Crypto Network/Bank), Jumlah (USD & IDR), Bukti Transfer / TX Hash, Status, Tanggal, Aksi",
+        "Bukti Transfer Preview Dialog (Image modal for bank proof or direct link for Tx Hash block explorer)",
+        "Approve/Reject modal with optional note input"
+      ],
+      "test_ids": {
+        "deposit_filter_pending": "filter-deposit-pending",
+        "deposit_table": "deposit-list-table",
+        "approve_deposit_btn": "approve-deposit-btn-{id}",
+        "reject_deposit_btn": "reject-deposit-btn-{id}",
+        "view_proof_btn": "view-proof-btn-{id}"
+      }
+    },
+    "user_management": {
+      "path": "/users",
+      "title": "Kelola Pengguna Telegram",
+      "features": [
+        "Table of users: Telegram ID, Username, Saldo USD, Saldo IDR, Total Order, Status (Aktif/Dibekukan), Tanggal Bergabung, Aksi",
+        "Adjust Balance Modal (Tambah/Kurang saldo manual dengan alasan)",
+        "Freeze / Ban User Modal with reason input + Unban trigger"
+      ],
+      "test_ids": {
+        "user_table": "user-list-table",
+        "adjust_balance_btn": "adjust-balance-btn-{id}",
+        "ban_user_btn": "ban-user-btn-{id}",
+        "unban_user_btn": "unban-user-btn-{id}"
+      }
+    },
+    "payment_settings": {
+      "path": "/settings",
+      "title": "Pengaturan Pembayaran & Kurs",
+      "features": [
+        "8 Crypto Wallet Slots (USDT / USDC on Solana, Polygon, BNB Chain, Avalanche) with deposit address input & QR preview",
+        "Bank Detail Config for IDR deposits (Bank Name, Account Number, Account Owner)",
+        "Exchange Rate Mode Switcher (Otomatis API / Manual Input) with live USD-IDR rate box",
+        "Minimum Deposit thresholds & Admin Telegram ID field"
+      ],
+      "test_ids": {
+        "crypto_address_input": "crypto-address-input-{net}",
+        "bank_account_number_input": "bank-account-number-input",
+        "exchange_rate_mode_toggle": "exchange-rate-mode-toggle",
+        "manual_exchange_rate_input": "manual-exchange-rate-input",
+        "save_settings_button": "save-settings-button"
+      }
+    }
+  },
+  "testing_and_accessibility": {
+    "mandatory_data_testid_rule": "Every button, input, tab, table row action, modal confirmation, and stat card value MUST include data-testid with kebab-case identifier.",
+    "keyboard_navigation": "Modals and dialogs must support Escape key closing and focus trap.",
+    "notifications": "Use Sonner toast notifications (located at /app/frontend/src/components/ui/sonner.jsx or custom setup) for action confirmations."
+  },
+  "instructions_to_main_agent": [
+    "Build the dashboard using React JS (all files are .jsx / .js) and Tailwind CSS with Shadcn UI primitives located in src/components/ui/",
+    "Ensure UI is strictly in Indonesian (ID) language as requested by problem statement",
+    "Provide interactive mock data persistence in React state or localStorage so demo flow (approving deposits, adjusting balances, creating products) works seamlessly",
+    "Keep navigation clean with a persistent Sidebar and sticky glass Header (never transparent background)",
+    "Always attach data-testid attributes to all interactive elements according to test_ids specification",
+    "Implement Sonner toast alerts for key actions (Product updated, Deposit approved, User banned, Settings saved)"
+  ]
+}

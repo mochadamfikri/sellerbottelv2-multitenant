@@ -1,0 +1,14 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dependencies first (cached layer)
+COPY package.json yarn.lock* package-lock.json* ./
+RUN yarn install --frozen-lockfile || yarn install
+
+# Copy application code
+COPY . .
+
+EXPOSE 3000
+
+CMD ["yarn", "start"]

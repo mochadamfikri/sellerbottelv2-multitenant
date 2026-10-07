@@ -1,0 +1,10 @@
+{
+  "name": "sellerbottel-gobiz-provider",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "moment-timezone": "^0.5.45",
+    "crc": "^4.3.2",
+    "qrcode": "^1.5.4"
+  }
+}

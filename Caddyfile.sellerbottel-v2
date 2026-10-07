@@ -1,0 +1,31 @@
+# SellerBottel V2 public site: storefront, admin routes, API, and Telegram webhook.
+dev-idse.duckdns.org {
+    encode zstd gzip
+
+    @api path /api /api/*
+    handle @api {
+        reverse_proxy 127.0.0.1:8002
+    }
+
+    handle {
+        root * /var/www/sellerbottel-v2
+        try_files {path} /index.html
+        file_server
+    }
+}
+
+# Existing non-SellerBottel application remains unchanged.
+developid.duckdns.org {
+    encode zstd gzip
+
+    @api path /api /api/*
+    handle @api {
+        reverse_proxy 127.0.0.1:8001
+    }
+
+    handle {
+        root * /var/www/sellerbottel-dev
+        try_files {path} /index.html
+        file_server
+    }
+}

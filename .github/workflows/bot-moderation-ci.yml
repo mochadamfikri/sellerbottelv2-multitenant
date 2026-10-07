@@ -1,0 +1,40 @@
+name: Bot Moderation CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - "feature/bot-moderation-panel"
+
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - ".github/workflows/bot-moderation-ci.yml"
+
+jobs:
+  backend-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile backend Python
+        run: python -m compileall -q backend
+      - name: Compile bot moderation module explicitly
+        run: python -m py_compile backend/bot.py backend/bot_moderation_routes.py backend/db.py backend/server.py
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install frontend dependencies
+        run: npm install --no-audit --no-fund
+      - name: Build frontend
+        run: npm run build

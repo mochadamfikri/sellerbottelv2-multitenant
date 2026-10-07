@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - dev/revision-2026-09-21
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements-ci.txt
+      - name: Compile Python
+        run: python -m compileall -q backend
+      - name: Install backend test dependencies
+        run: pip install -r backend/requirements-ci.txt
+      - name: Run backend tests (inventory upload)
+        working-directory: backend
+        run: python -m pytest tests/test_inventory_upload.py tests/test_bot2_flow.py -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package.json
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+  gopay:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/gobiz
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install GoBiz provider dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Check GoBiz JavaScript
+        run: |
+          node --check gobiz.js
+          node --check create_qris.mjs
+          node --check history.mjs

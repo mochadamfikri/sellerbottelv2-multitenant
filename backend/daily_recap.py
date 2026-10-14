@@ -1,4 +1,5 @@
 """Daily sales recap delivery at a configured Jakarta time."""
+from candidate_readonly import assert_service_writable
 import asyncio
 import logging
 from datetime import datetime, timedelta
@@ -76,6 +77,7 @@ async def send_due_recap(now=None):
 
 
 async def run_daily_recap(stop: asyncio.Event):
+    assert_service_writable("daily_recap")
     while not stop.is_set():
         try:
             await send_due_recap()

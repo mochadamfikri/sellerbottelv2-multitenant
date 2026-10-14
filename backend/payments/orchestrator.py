@@ -1,4 +1,5 @@
 """Durable order-payment saga. External actions are never blindly retried."""
+from candidate_readonly import assert_service_writable
 import os
 from datetime import timedelta
 from uuid import uuid4, uuid5, NAMESPACE_URL
@@ -65,6 +66,7 @@ async def release_order(database, order):
     await database.purchases.update_one({"_id": order["_id"]}, {"$set": {"stock_release_pending": False}})
 
 async def checkout(database, platform, customer, body):
+    assert_service_writable("payments.checkout")
     from direct_checkout import quote_items
     from commerce.physical.models import normalize_cart
     from commerce.order_items import normalize_order_items

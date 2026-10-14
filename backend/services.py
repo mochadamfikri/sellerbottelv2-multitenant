@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from candidate_readonly import assert_service_writable
 from db import db, get_settings
 from tgapi import send_message, send_photo_bytes
 from html import escape
@@ -65,6 +66,7 @@ async def apply_pending_wallet_merge(customer_id: str) -> bool:
 
 
 async def credit_deposit(deposit: dict, note: str = ""):
+    assert_service_writable("services.credit_deposit")
     amount = deposit.get("credited_amount") or deposit["amount"]
     field = CUR_FIELD[deposit["currency"]]
     deposit_id = deposit["_id"]

@@ -1,10 +1,12 @@
 from uuid import uuid5, NAMESPACE_URL
+from candidate_readonly import assert_service_writable
 from commerce.fulfillment_types import CommerceError, FulfillmentUnavailable
 from payments.models import now, money
 from payments.orchestrator import payment_adapter
 from payments.ledger import Ledger
 
 async def request_refund(database, platform, tenant, payment_id, key, amount, return_id=None):
+    assert_service_writable("commerce.request_refund")
     amount = money(amount, positive=True)
     rid = str(uuid5(NAMESPACE_URL, f"refund:{database.name}:{tenant}:{payment_id}:{key}"))
     for _ in range(50):

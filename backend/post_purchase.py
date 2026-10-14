@@ -1,4 +1,5 @@
 """Opt-in follow-up for newly completed purchases, with explicit exemptions."""
+from candidate_readonly import assert_service_writable
 import asyncio
 import logging
 import re
@@ -130,6 +131,7 @@ async def process_completed(order, settings):
 
 
 async def run_followup(stop):
+    assert_service_writable("post_purchase.followup")
     while not stop.is_set():
         try:
             settings = await get_settings()

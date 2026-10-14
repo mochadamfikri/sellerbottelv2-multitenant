@@ -1,4 +1,5 @@
 """The simple product broadcast composer used by the admin panel."""
+from candidate_readonly import assert_service_writable
 import asyncio
 import base64
 import re

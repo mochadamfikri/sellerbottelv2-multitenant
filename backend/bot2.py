@@ -1,4 +1,5 @@
 import asyncio
+from candidate_readonly import assert_service_writable
 import base64
 import logging
 import os
@@ -1243,6 +1244,7 @@ def _bot2_chat_lock(chat_id):
 
 
 async def process_update2(update):
+    assert_service_writable("telegram.process_update2")
     sender = (update.get("callback_query") or update.get("message") or {}).get("from", {})
     if sender.get("id") and await db.bot_users.find_one({"telegram_id": sender["id"], "silent_blocked": True}, {"_id": 1}):
         if update.get("callback_query"):

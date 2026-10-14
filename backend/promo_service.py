@@ -3,6 +3,7 @@ import uuid
 import hashlib
 from datetime import datetime, timezone
 
+from candidate_readonly import assert_service_writable
 from db import db
 
 
@@ -18,6 +19,7 @@ def normalize_coupon_code(code: str) -> str:
 
 
 async def create_coupon(data: dict):
+    assert_service_writable("promo_service.create_coupon")
     prepared = prepare_coupon(data)
     existing = await db.promo_coupons.find_one({"code": prepared["code"]})
     if existing:
@@ -105,6 +107,7 @@ def prepare_coupon(data: dict) -> dict:
 
 
 async def update_coupon(coupon_id: str, data: dict):
+    assert_service_writable("promo_service.update_coupon")
     prepared = prepare_coupon(data)
     current = await db.promo_coupons.find_one({"_id": coupon_id}, {"used_count": 1})
     if not current:
@@ -172,6 +175,7 @@ def coupon_discount(coupon: dict, amount: float) -> float:
 
 
 async def reserve_coupon(coupon: dict, buyer, order_id: str, discount_amount: float):
+    assert_service_writable("promo_service.reserve_coupon")
     query = {"_id": coupon["_id"], "active": True}
     quota = coupon.get("quota_total")
     if quota is not None:
@@ -223,6 +227,7 @@ async def reserve_coupon(coupon: dict, buyer, order_id: str, discount_amount: fl
 
 
 async def release_coupon(order_id: str):
+    assert_service_writable("promo_service.release_coupon")
     redemption = await db.promo_coupon_redemptions.find_one_and_delete({"order_id": order_id})
     if not redemption:
         return False

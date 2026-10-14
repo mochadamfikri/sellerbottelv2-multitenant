@@ -13,6 +13,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Mapping, Sequence
 
+from candidate_readonly import assert_service_writable
+
 from tenant_db import validate_tenant_id
 
 
@@ -124,6 +126,7 @@ class TenantInventoryRepository:
         If available items within the tenant are insufficient, any reserved items in this batch
         are rolled back and an empty list is returned. Never allocates inventory across tenants.
         """
+        assert_service_writable("tenant_inventory.reserve_items")
         validate_tenant_scope(self._tenant_id, tenant_id)
 
         if not reservation_id or not isinstance(reservation_id, str):
@@ -159,6 +162,7 @@ class TenantInventoryRepository:
         self, reservation_id: str, tenant_id: str | None = None
     ) -> int:
         """Release reserved items back to available, strictly scoped to context tenant."""
+        assert_service_writable("tenant_inventory.release_items")
         validate_tenant_scope(self._tenant_id, tenant_id)
 
         if not reservation_id:

@@ -1,6 +1,7 @@
 import os
 import json
 import httpx
+from candidate_readonly import assert_service_writable
 
 TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 
@@ -66,6 +67,7 @@ def get_shared_client() -> httpx.AsyncClient:
 
 
 async def tg(method: str, **payload):
+    assert_service_writable(f"telegram.{method}")
     c = get_shared_client()
     r = await c.post(f"{_api()}/{method}", json=payload)
     return r.json()

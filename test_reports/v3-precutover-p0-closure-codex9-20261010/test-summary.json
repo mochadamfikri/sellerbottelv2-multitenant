@@ -1,0 +1,19 @@
+{
+  "readiness": "BLOCKED",
+  "base_sha": "c3b7a6bebf0dfe9744ba271784ca76b537028dd1",
+  "candidate_branch": "candidate/v3-precutover-readonly",
+  "candidate_worktree": "/tmp/v3-candidate",
+  "focused_candidate_tests": {"passed": 46, "failed": 0},
+  "legacy_migration_tests": {"passed": 38, "failed": 0},
+  "real_migrated_runtime_exercised": false,
+  "frozen_artifact_created": false,
+  "blockers": [
+    "real_migrated_runtime_not_exercised",
+    "service_level_guards_incomplete",
+    "legacy_adapter_not_integrated_into_existing_routes",
+    "owner_mapping_not_wired_to_owner_routes",
+    "history_policy_not_applied_to_existing_routes",
+    "no_real_data_restart_or_network_evidence",
+    "candidate_not_frozen"
+  ]
+}

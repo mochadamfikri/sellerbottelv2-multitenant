@@ -1,4 +1,5 @@
 import json
+from candidate_readonly import assert_service_writable
 import os
 from uuid import uuid4
 from fastapi import APIRouter, Depends, Request, HTTPException
@@ -127,6 +128,7 @@ class PayoutBody(BaseModel):
 
 @owner.post("/payouts")
 async def payout_request(body: PayoutBody):
+    assert_service_writable("payments.payout_request")
     settings = await db.payment_settings.find_one({"_id": "main"}) or {}
     if settings.get("payment_mode") != "platform_settlement":
         raise CommerceError("Payout only applies to Settlement IDSE")
@@ -195,6 +197,7 @@ class RefundBody(PayoutBody):
 @owner.post("/transactions/{pid}/refunds")
 async def refund_request(pid: str, body: RefundBody):
     from commerce.aftercare.refunds import request_refund
+    assert_service_writable("payments.refund_request")
     return await request_refund(_resolve_db(), platform_db(), tenant_identity(_resolve_db()), pid, body.idempotency_key, body.amount, body.return_id)
 
 @owner.get("/refunds")

@@ -1,4 +1,5 @@
 import uuid
+from candidate_readonly import assert_service_writable
 import logging
 import math
 import os
@@ -3260,6 +3261,7 @@ async def handle_message(message):
 
 
 async def process_update(update: dict):
+    assert_service_writable("telegram.process_update")
     chat_id = None
     try:
         if "callback_query" in update:

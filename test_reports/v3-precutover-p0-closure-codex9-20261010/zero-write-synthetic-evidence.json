@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "zero_write": true,
+  "restart_idempotency": true,
+  "crash_recovery": true,
+  "counts": {
+    "store_customers": 5,
+    "bot_users": 53,
+    "products": 41,
+    "inventory_items": 1116
+  },
+  "hashes": {
+    "store_customers": "087767a6508906ff473913e23ddea09d238a979a90f98a4d926d16190dc66a93",
+    "bot_users": "7bd666e6de037c4716b6cafdc532bbc9b12e471c686b1782e37b69cd6130b93e",
+    "products": "a9f4af1bb34b20664fd7a49418468cd4500a2d9dd21833a058140078f6f7520d",
+    "inventory_items": "636472e2c1731dad09490668e32e40ddd4ab77b9882cd459df3112abf446935d"
+  }
+}

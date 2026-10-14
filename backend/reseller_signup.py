@@ -3,6 +3,7 @@ import asyncio
 import logging
 import os
 from datetime import datetime, timedelta, timezone
+from candidate_readonly import assert_service_writable
 from html import escape
 
 from db import db, get_settings
@@ -292,6 +293,7 @@ async def scan_subscriptions():
 
 
 async def run_subscription_monitor(stop: asyncio.Event):
+    assert_service_writable("reseller.subscription_monitor")
     while not stop.is_set():
         try:
             await scan_subscriptions()

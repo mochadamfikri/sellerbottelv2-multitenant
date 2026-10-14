@@ -8,7 +8,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import run_offline_tests  # noqa: F401,E402
 
 import asyncio
+import inspect
 import pytest
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_pyfunc_call(pyfuncitem):
+    """Run async offline tests without requiring a network-installed plugin."""
+    if not inspect.iscoroutinefunction(pyfuncitem.obj):
+        return None
+    kwargs = {name: pyfuncitem.funcargs[name] for name in pyfuncitem._fixtureinfo.argnames}
+    asyncio.run(pyfuncitem.obj(**kwargs))
+    return True
 
 
 @pytest.fixture(scope="module", autouse=True)

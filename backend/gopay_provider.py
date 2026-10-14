@@ -1,4 +1,5 @@
 import asyncio
+from candidate_readonly import assert_service_writable
 import base64
 import json
 import logging
@@ -90,6 +91,7 @@ def _run_node(script, args=None, timeout=90):
 
 
 async def create_gopay_payment(user, amount, platform_code=None):
+    assert_service_writable("gopay.create_payment")
     amount = int(round(amount))
     if amount < 1:
         raise ValueError("Nominal IDR tidak valid.")
@@ -376,6 +378,7 @@ async def poll_gopay_once():
 
 async def run_gopay_monitor(stop_event: asyncio.Event):
     interval = max(10, int(os.environ.get("GOPAY_POLL_INTERVAL", "15")))
+    assert_service_writable("gopay.run_monitor")
     while not stop_event.is_set():
         try:
             result = await poll_gopay_once()

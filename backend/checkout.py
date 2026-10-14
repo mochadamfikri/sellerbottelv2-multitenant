@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
+from candidate_readonly import assert_service_writable
 from db import db, _resolve_db
 from inventory import commit_items, release_items, reserve_items
 from rates import get_rate
@@ -126,6 +127,7 @@ def _cart_after_purchase(cart, purchased_items):
 
 async def execute_checkout(user, cart_items, preserve_cart=False, coupon_code=None,
                            unit_price_overrides=None, order_metadata=None, purchase_source="BOT", shipping_address=None, shipping_rate_id=None):
+    assert_service_writable("checkout.execute_checkout")
     if purchase_source not in {"WEB", "BOT"}:
         raise ValueError("Invalid checkout channel")
     currency = user["currency"]

@@ -50,8 +50,14 @@ from v2_customer_config_routes import (
     platform_router as v2_customer_config_platform_router,
 )
 from v2_tenant_routes import router as v2_tenant_router
+from candidate_legacy_routes import router as candidate_legacy_router
 from dependencies import get_tenant_registry
 from tenant_context import configure_tenant_registry_resolver
+from candidate_readonly import (
+    is_candidate_readonly,
+    CandidateReadonlyMiddleware,
+    should_start_worker,
+)
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -193,6 +199,7 @@ app.include_router(promo_config_router)
 app.include_router(v2_customer_config_platform_router)
 app.include_router(v2_customer_config_customer_router)
 app.include_router(v2_tenant_router, prefix="/api/v2/tenant")
+app.include_router(candidate_legacy_router)
 
 # Import and mount v2_commerce_routes
 from v2_commerce_routes import router as v2_commerce_router
@@ -208,21 +215,27 @@ register_error_handlers(app)
 
 app.add_middleware(
     CORSMiddleware,
+    # NOTE: CandidateReadonlyMiddleware is added below, AFTER CORSMiddleware
+    # so it runs on every request after CORS processing.
     allow_credentials=True,
     allow_origins=[o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Install candidate_readonly middleware globally (runs after CORS).
+app.add_middleware(CandidateReadonlyMiddleware)
+
 
 @app.on_event("startup")
 async def startup():
     environment = validate_environment()
     logger.info("Environment mode: %s", environment)
+    logger.info("Candidate readonly: %s", "ENABLED" if is_candidate_readonly() else "disabled")
 
     if not os.environ.get("CORS_ORIGINS"):
         raise RuntimeError("CORS_ORIGINS wajib di-set.")
-    if not os.environ.get("TELEGRAM_WEBHOOK_SECRET"):
+    if not os.environ.get("TELEGRAM_WEBHOOK_SECRET") and not is_candidate_readonly():
         raise RuntimeError("TELEGRAM_WEBHOOK_SECRET wajib di-set.")
 
     logger.info(
@@ -239,34 +252,47 @@ async def startup():
     configure_tenant_registry_resolver(mongo_registry, client)
     logger.info("Tenant registry resolver configured (MongoTenantRegistry)")
 
-    # Ensure platform indexes exist before any tenant operations
-    from platform_indexes import ensure_platform_indexes
-    platform_db = client[mongo_registry.platform_database_name]
-    await ensure_platform_indexes(platform_db)
-    from domain_registry import ensure_domain_indexes
-    await ensure_domain_indexes(client)
-    logger.info("Platform indexes ensured")
-
-    await ensure_settings()
-    await ensure_indexes()
+    # Index/settings initialization writes to Mongo.  A first-cutover
+    # candidate must use an already prepared target and never seed/migrate it.
+    if not is_candidate_readonly():
+        from platform_indexes import ensure_platform_indexes
+        platform_db = client[mongo_registry.platform_database_name]
+        await ensure_platform_indexes(platform_db)
+        from domain_registry import ensure_domain_indexes
+        await ensure_domain_indexes(client)
+        logger.info("Platform indexes ensured")
+        await ensure_settings()
+        await ensure_indexes()
+    else:
+        logger.info("candidate_readonly: skipping all index/settings initialization")
     await load_overrides(db.bot_messages)
-    await seed_admin()
-    from commerce.physical.expiry import run_physical_expiry
-    app.state.physical_expiry_stop = asyncio.Event()
-    app.state.physical_expiry_task = asyncio.create_task(run_physical_expiry(app.state.physical_expiry_stop))
-    from payments.maintenance import run as run_payment_maintenance
-    app.state.payment_maintenance_stop = asyncio.Event()
-    app.state.payment_maintenance_task = asyncio.create_task(run_payment_maintenance(app.state.payment_maintenance_stop))
-    app.state.marketing_stop = asyncio.Event()
-    app.state.marketing_task = asyncio.create_task(run_marketing(app.state.marketing_stop))
-    app.state.stock_monitor_stop = asyncio.Event()
-    app.state.stock_monitor_task = asyncio.create_task(run_stock_monitor(app.state.stock_monitor_stop))
-    app.state.daily_recap_stop = asyncio.Event()
-    app.state.daily_recap_task = asyncio.create_task(run_daily_recap(app.state.daily_recap_stop))
-    app.state.followup_stop = asyncio.Event()
-    app.state.followup_task = asyncio.create_task(run_followup(app.state.followup_stop))
-    app.state.reseller_monitor_stop = asyncio.Event()
-    app.state.reseller_monitor_task = asyncio.create_task(run_subscription_monitor(app.state.reseller_monitor_stop))
+    if not is_candidate_readonly():
+        await seed_admin()
+
+    # --- Background workers: guarded by candidate_readonly ---
+    if should_start_worker("physical_expiry"):
+        from commerce.physical.expiry import run_physical_expiry
+        app.state.physical_expiry_stop = asyncio.Event()
+        app.state.physical_expiry_task = asyncio.create_task(run_physical_expiry(app.state.physical_expiry_stop))
+    if should_start_worker("payment_maintenance"):
+        from payments.maintenance import run as run_payment_maintenance
+        app.state.payment_maintenance_stop = asyncio.Event()
+        app.state.payment_maintenance_task = asyncio.create_task(run_payment_maintenance(app.state.payment_maintenance_stop))
+    if should_start_worker("marketing"):
+        app.state.marketing_stop = asyncio.Event()
+        app.state.marketing_task = asyncio.create_task(run_marketing(app.state.marketing_stop))
+    if should_start_worker("stock_monitor"):
+        app.state.stock_monitor_stop = asyncio.Event()
+        app.state.stock_monitor_task = asyncio.create_task(run_stock_monitor(app.state.stock_monitor_stop))
+    if should_start_worker("daily_recap"):
+        app.state.daily_recap_stop = asyncio.Event()
+        app.state.daily_recap_task = asyncio.create_task(run_daily_recap(app.state.daily_recap_stop))
+    if should_start_worker("followup"):
+        app.state.followup_stop = asyncio.Event()
+        app.state.followup_task = asyncio.create_task(run_followup(app.state.followup_stop))
+    if should_start_worker("reseller_monitor"):
+        app.state.reseller_monitor_stop = asyncio.Event()
+        app.state.reseller_monitor_task = asyncio.create_task(run_subscription_monitor(app.state.reseller_monitor_stop))
 
     try:
         inv = await encryption_status()
@@ -277,11 +303,11 @@ async def startup():
 
     base = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
 
-    if os.environ.get("GOPAY_ENABLED", "").lower() in {"1", "true", "yes"}:
+    if os.environ.get("GOPAY_ENABLED", "").lower() in {"1", "true", "yes"} and should_start_worker("gopay_monitor"):
         app.state.gopay_stop = asyncio.Event()
         app.state.gopay_task = asyncio.create_task(run_gopay_monitor(app.state.gopay_stop))
 
-    if (
+    if should_start_worker("bot2_payment_monitor") and (
         os.environ.get("BOT2_ENABLED", "").lower() in {"1", "true", "yes"}
         and os.environ.get("BOT2_TELEGRAM_TOKEN")
         and os.environ.get("GOPAY_ENABLED", "").lower() in {"1", "true", "yes"}
@@ -291,10 +317,12 @@ async def startup():
             run_bot2_payment_monitor(app.state.bot2_payment_stop)
         )
 
-    await resume_service_waiters()
-    await start_promo_runtime()
+    if should_start_worker("resume_service_waiters"):
+        await resume_service_waiters()
+    if should_start_worker("promo_runtime"):
+        await start_promo_runtime()
 
-    if base and os.environ.get("TELEGRAM_TOKEN"):
+    if should_start_worker("telegram_webhook_setup") and base and os.environ.get("TELEGRAM_TOKEN"):
         try:
             res = await tg(
                 "setWebhook",
@@ -306,9 +334,12 @@ async def startup():
         except Exception as exc:
             logger.error("Bot 1 webhook setup failed: %s", exc)
 
-    bot2_base = os.environ.get("BOT2_PUBLIC_BASE_URL", "").rstrip("/") or base
-    if (
-        os.environ.get("BOT2_ENABLED", "").lower() in {"1", "true", "yes"}
+    if should_start_worker("telegram_webhook_setup"):
+        bot2_base = os.environ.get("BOT2_PUBLIC_BASE_URL", "").rstrip("/") or base
+    else:
+        bot2_base = ""
+    if bot2_base and should_start_worker("telegram_webhook_setup") and (
+        os.environ.get("BOT2_ENABLED", "").lower() in {"1", "true", "yes" }
         and bot2_base
         and os.environ.get("BOT2_TELEGRAM_TOKEN")
         and os.environ.get("BOT2_WEBHOOK_SECRET")
@@ -338,38 +369,22 @@ async def startup():
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
-    app.state.payment_maintenance_stop.set()
-    app.state.payment_maintenance_task.cancel()
-    await asyncio.gather(app.state.payment_maintenance_task, return_exceptions=True)
-    app.state.physical_expiry_stop.set()
-    app.state.physical_expiry_task.cancel()
-    await asyncio.gather(app.state.physical_expiry_task, return_exceptions=True)
-    app.state.marketing_stop.set()
-    app.state.marketing_task.cancel()
-    await asyncio.gather(app.state.marketing_task, return_exceptions=True)
-    await stop_promo_runtime()
-    app.state.stock_monitor_stop.set()
-    app.state.stock_monitor_task.cancel()
-    app.state.daily_recap_stop.set()
-    app.state.daily_recap_task.cancel()
-    app.state.followup_stop.set()
-    app.state.followup_task.cancel()
-    app.state.reseller_monitor_stop.set()
-    app.state.reseller_monitor_task.cancel()
+    # Safely stop any workers that were started
+    for name in (
+        "payment_maintenance", "physical_expiry", "marketing",
+        "stock_monitor", "daily_recap", "followup", "reseller_monitor",
+        "gopay", "bot2_payment",
+    ):
+        stop_ev = getattr(app.state, f"{name}_stop", None)
+        task = getattr(app.state, f"{name}_task", None)
+        if stop_ev:
+            stop_ev.set()
+        if task:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
 
-    stop = getattr(app.state, "gopay_stop", None)
-    task = getattr(app.state, "gopay_task", None)
-    if stop:
-        stop.set()
-    if task:
-        task.cancel()
-
-    bot2_stop = getattr(app.state, "bot2_payment_stop", None)
-    bot2_task = getattr(app.state, "bot2_payment_task", None)
-    if bot2_stop:
-        bot2_stop.set()
-    if bot2_task:
-        bot2_task.cancel()
+    if not is_candidate_readonly():
+        await stop_promo_runtime()
 
     client.close()
 

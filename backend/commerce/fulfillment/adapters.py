@@ -1,4 +1,5 @@
 """Channel adapters reuse V2 delivery, without owning wallets or reservations."""
+from candidate_readonly import assert_service_writable
 from ..fulfillment_types import FulfillmentType, FulfillmentUnavailable, uses_digital_inventory
 from ..order_items import product_for_line
 from .router import route_item, ensure_order_fulfillments
@@ -7,6 +8,7 @@ from .router import route_item, ensure_order_fulfillments
 async def fulfill_bot_line(order, line, product, *, chat_id, user, lang,
                            inventory_items=None, send_message_fn=None, send_document_fn=None,
                            queue_service_fn=None, inventory_delivery_fn=None, product_delivery_fn=None):
+    assert_service_writable("fulfillment.fulfill_bot_line")
     from bot import deliver_inventory, deliver_product
     deliver_inventory = inventory_delivery_fn or deliver_inventory
     deliver_product = product_delivery_fn or deliver_product
@@ -48,6 +50,7 @@ async def fulfill_bot_line(order, line, product, *, chat_id, user, lang,
 
 
 async def fulfill_web_order(order):
+    assert_service_writable("fulfillment.fulfill_web_order")
     from db import db
     await ensure_order_fulfillments(order)
     states = []

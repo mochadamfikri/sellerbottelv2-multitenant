@@ -1,4 +1,5 @@
 """Watch effective inventory availability and announce zero crossings."""
+from candidate_readonly import assert_service_writable
 import asyncio
 import logging
 import uuid
@@ -101,6 +102,7 @@ async def deliver_pending():
 
 
 async def run_stock_monitor(stop: asyncio.Event):
+    assert_service_writable("stock_monitor")
     while not stop.is_set():
         try:
             async with monitor_lock:

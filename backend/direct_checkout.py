@@ -1,4 +1,5 @@
 """QRIS orders for the main bot. Payments go directly to an order, not a deposit."""
+from candidate_readonly import assert_service_writable
 import asyncio
 import base64
 import logging
@@ -113,6 +114,7 @@ async def _release_order_stock(order):
 
 
 async def create_qris_order(user, cart_items, coupon_code=None, preserve_cart=False):
+    assert_service_writable("direct_checkout.create_qris_order")
     if not await qris_ready():
         return {"error": "Pembayaran QRIS sedang tidak tersedia."}
     existing = await db.purchases.find_one({"user_tid": user["telegram_id"],
@@ -227,6 +229,7 @@ async def create_qris_order(user, cart_items, coupon_code=None, preserve_cart=Fa
 
 async def create_store_qris_order(customer, cart_items, coupon_code=None, idempotency_key=None, shipping_address=None, shipping_rate_id=None):
     """Create a QRIS order for an authenticated web customer without charging a wallet."""
+    assert_service_writable("direct_checkout.create_store_qris_order")
     if not await store_qris_ready():
         return {"error": "Pembayaran QRIS sedang tidak tersedia."}
     customer_id = str(customer["_id"])
@@ -383,6 +386,7 @@ async def expire_qris_orders(*, physical_only=False):
 
 
 async def finalize_qris_order(order_id, tx_id):
+    assert_service_writable("direct_checkout.finalize_qris_order")
     order = await db.purchases.find_one({"_id": order_id, "payment_scope": {"$in": [PAYMENT_SCOPE, "store"]}})
     if not order:
         return False
@@ -464,6 +468,7 @@ async def finalize_qris_order(order_id, tx_id):
 
 
 async def _finalize_store_qris_order(order):
+    assert_service_writable("direct_checkout._finalize_store_qris_order")
     order_id = order["_id"]
     try:
         await ensure_order_fulfillments(order)

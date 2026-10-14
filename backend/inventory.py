@@ -11,6 +11,7 @@ from cryptography.fernet import Fernet, InvalidToken
 from pymongo.errors import BulkWriteError
 
 from db import db
+from candidate_readonly import assert_service_writable
 
 logger = logging.getLogger(__name__)
 
@@ -190,6 +191,7 @@ async def validate_records(product_id: str, records: list[dict], schema: list[st
 
 
 async def add_records(product_id: str, records: list[dict], schema: list[str]):
+    assert_service_writable("inventory.add_records")
     # Cek konfigurasi enkripsi lebih dulu: gagal cepat dengan pesan jelas,
     # sebelum ada pekerjaan database.
     cipher = _fernet()
@@ -294,6 +296,7 @@ def decrypt_items(items):
 
 
 async def reserve_items(product_id: str, quantity: int, reservation_id: str):
+    assert_service_writable("inventory.reserve_items")
     if quantity < 1:
         return []
 
@@ -322,6 +325,7 @@ async def reserve_items(product_id: str, quantity: int, reservation_id: str):
 
 
 async def release_items(reservation_id: str):
+    assert_service_writable("inventory.release_items")
     product_ids = {item["product_id"] async for item in db.inventory_items.find(
         {"reservation_id": reservation_id, "status": "reserved"}, {"product_id": 1}
     )}
@@ -347,6 +351,7 @@ async def commit_items(
     user_tid: int | None,
     customer_id: str | None = None,
 ):
+    assert_service_writable("inventory.commit_items")
     product_ids = {item["product_id"] async for item in db.inventory_items.find(
         {"reservation_id": reservation_id, "status": "reserved"}, {"product_id": 1}
     )}

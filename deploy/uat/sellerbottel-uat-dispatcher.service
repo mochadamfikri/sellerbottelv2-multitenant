@@ -1,0 +1,22 @@
+[Unit]
+Description=SellerBottel isolated development UAT dispatcher
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/sellerbottelv2
+ExecStart=/home/sellerbottelv2/.uat-runtime/venv/bin/python /home/sellerbottelv2/tools/uat_runtime.py dispatcher
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/home/sellerbottelv2/.uat-runtime
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

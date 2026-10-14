@@ -119,3 +119,7 @@ backend/gobiz/.env
 
 # Final release commit identity is recorded after committing the audit.
 /test_reports/release-blocker-kasera-20261009/git-final.json
+
+# Isolated owner UAT private configuration, dependencies, build and storage
+/.uat-private/
+/.uat-runtime/

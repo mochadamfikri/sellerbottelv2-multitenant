@@ -1,0 +1,66 @@
+[
+  {
+    "host": "idseconnect.my.id",
+    "public_resolver_A": [
+      "16.78.106.9"
+    ],
+    "tls_verified_https_status": "200",
+    "curl_exit": 0
+  },
+  {
+    "host": "idsestock.my.id",
+    "public_resolver_A": [
+      "16.78.106.9"
+    ],
+    "tls_verified_https_status": "200",
+    "curl_exit": 0
+  },
+  {
+    "host": "fashion-demo.idsestock.my.id",
+    "public_resolver_A": [
+      "16.78.106.9"
+    ],
+    "tls_verified_https_status": "200",
+    "curl_exit": 0
+  },
+  {
+    "host": "digital-demo.idsestock.my.id",
+    "public_resolver_A": [
+      "16.78.106.9"
+    ],
+    "tls_verified_https_status": "200",
+    "curl_exit": 0
+  },
+  {
+    "host": "fashion-demo.idseconnect.my.id",
+    "public_resolver_A": [
+      "16.78.106.9"
+    ],
+    "tls_verified_https_status": "200",
+    "curl_exit": 0
+  },
+  {
+    "host": "digital-demo.idseconnect.my.id",
+    "public_resolver_A": [
+      "16.78.106.9"
+    ],
+    "tls_verified_https_status": "200",
+    "curl_exit": 0
+  },
+  {
+    "host": "owner-fresh-uat.idsestock.my.id",
+    "public_resolver_A": [
+      "16.78.106.9"
+    ],
+    "tls_verified_https_status": "200",
+    "curl_exit": 0
+  },
+  {
+    "host": "owner-fresh-uat.idseconnect.my.id",
+    "public_resolver_A": [
+      "16.78.106.9"
+    ],
+    "tls_verified_https_status": "200",
+    "curl_exit": 0
+  }
+]

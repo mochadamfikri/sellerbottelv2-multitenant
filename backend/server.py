@@ -127,26 +127,24 @@ async def tls_ask(domain: str = ""):
     # 1. Normalize: lowercase, strip whitespace dan trailing dot
     domain = (domain or "").strip().lower().rstrip(".")
 
-    # Domain di luar idseconnect.my.id → 403
-    # (custom domain user di-handle terpisah, untuk sekarang tolak)
-    if not domain.endswith(".idseconnect.my.id"):
+    allowed = {"idseconnect.my.id": "storefront"}
+    panel_base = os.environ.get("TENANT_PANEL_DOMAIN", "").strip().lower()
+    if panel_base:
+        allowed[panel_base] = "stock_panel"
+    base = next((base for base in allowed if domain.endswith("." + base)), None)
+    if not base:
         return JSONResponse(status_code=403, content={"error": "foreign domain"})
-    # Harus ada subdomain
-    sub = domain[: -len(".idseconnect.my.id")]
-    if not sub or "." in sub.strip("."):
-        # Boleh ada titik di subdomain (misal imelda.store), tapi jangan kosong
-        pass
-    if not sub:
+    sub = domain[: -(len(base) + 1)]
+    if not sub or "." in sub:
         return JSONResponse(status_code=403, content={"error": "invalid format"})
 
     try:
         from db import client as db_client
         from tenant_db import resolve_platform_database_name
         import domain_registry
-        import os
         # Cari domain di registry
         reg = await domain_registry.resolve_domain(db_client, domain)
-        if not reg or reg.get("purpose") != "storefront":
+        if not reg or reg.get("purpose") != allowed[base]:
             return JSONResponse(status_code=404, content={"error": "unknown domain"})
         # Cek tenant masih aktif
         pdb = db_client[resolve_platform_database_name(os.environ)]

@@ -365,3 +365,43 @@ def test_owner_database_outage_returns_retryable_service_error(management, monke
             assert response.status_code == 503
             assert response.json()["detail"]
     asyncio.run(run())
+
+
+def test_stock_panel_managed_tls_and_host_binding(management, monkeypatch):
+    from domain_registry import register_domain
+    from server import tls_ask
+    monkeypatch.setenv('TENANT_PANEL_DOMAIN', 'idsestock.my.id')
+    registry, app = management
+    async def run():
+        tenant, _ = await seed(registry, 'panel-shop')
+        await register_domain(client, domain='panel-shop.idsestock.my.id', tenant_id=tenant['_id'], purpose='stock_panel')
+        await register_domain(client, domain='wrong.idsestock.my.id', tenant_id=tenant['_id'], purpose='storefront')
+        assert await tls_ask('panel-shop.idsestock.my.id') == {'ok': True}
+        assert (await tls_ask('wrong.idsestock.my.id')).status_code == 404
+        assert (await tls_ask('unknown.idsestock.my.id')).status_code == 404
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='https://panel-shop.idsestock.my.id') as http:
+            assert (await http.get('/api/public/host-config')).json()['tenant_slug'] == 'panel-shop'
+        await registry.update_status('panel-shop', 'suspended')
+        assert (await tls_ask('panel-shop.idsestock.my.id')).status_code == 403
+    asyncio.run(run())
+
+
+def test_registration_panel_domain_and_conflict_rollback(management, monkeypatch):
+    from domain_registry import register_domain
+    monkeypatch.setenv('TENANT_PANEL_DOMAIN', 'idsestock.my.id')
+    registry, app = management
+    async def run():
+        await register_domain(client, domain='blocked-panel.idsestock.my.id', tenant_id='other', purpose='stock_panel')
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='https://idseconnect.my.id') as http:
+            for slug, status in [('new-panel', 201), ('blocked-panel', 409)]:
+                email=slug+'@gmail.com'
+                await registration._platform_db().public_reg_verified.insert_one({'email':email,'verify_token':'verified','expires_at':datetime.now(timezone.utc)+timedelta(minutes=10)})
+                response=await http.post('/api/public/register',json={'username':slug,'email':email,'store_name':slug,'password':'audit-password-123','whatsapp':'08123456789','verify_token':'verified'})
+                assert response.status_code == status
+                if status==201:
+                    assert (await registration._platform_db().domains.find_one({'domain':slug+'.idsestock.my.id'}))['purpose']=='stock_panel'
+                else:
+                    assert await registry.get_tenant(slug) is None
+                    assert await registration._platform_db().domains.find_one({'domain':slug+'.idseconnect.my.id'}) is None
+                    assert (await registration._platform_db().domains.find_one({'domain':slug+'.idsestock.my.id'}))['tenant_id']=='other'
+    asyncio.run(run())

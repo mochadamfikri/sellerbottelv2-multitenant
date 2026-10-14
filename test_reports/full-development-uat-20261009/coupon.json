@@ -1,0 +1,12 @@
+[
+  {
+    "tenant": "fashion-demo",
+    "coupon": "UAT10",
+    "result": "PASS"
+  },
+  {
+    "tenant": "digital-demo",
+    "coupon": "UAT10",
+    "result": "PASS"
+  }
+]

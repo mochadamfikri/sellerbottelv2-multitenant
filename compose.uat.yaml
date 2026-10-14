@@ -1,0 +1,22 @@
+# Dedicated UAT Mongo instance. Production and existing audit Mongo are untouched.
+services:
+  mongo-uat:
+    image: mongo:7.0
+    container_name: sellerbottel-uat-mongo
+    ports:
+      - "127.0.0.1:27020:27017"
+    volumes:
+      - mongo-uat-data:/data/db
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+volumes:
+  mongo-uat-data:
+    name: sellerbottel-uat-mongo-data

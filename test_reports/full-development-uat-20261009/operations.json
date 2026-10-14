@@ -1,0 +1,78 @@
+[
+  {
+    "check": "Save configurable fee tiers",
+    "result": "PASS"
+  },
+  {
+    "check": "Reject overlapping ranges",
+    "result": "PASS"
+  },
+  {
+    "check": "Inclusive fee boundary 10000",
+    "result": "PASS"
+  },
+  {
+    "check": "Inclusive fee boundary 20000",
+    "result": "PASS"
+  },
+  {
+    "check": "Inclusive fee boundary 20001",
+    "result": "PASS"
+  },
+  {
+    "check": "Inclusive fee boundary 50000",
+    "result": "PASS"
+  },
+  {
+    "check": "Inclusive fee boundary 50001",
+    "result": "PASS"
+  },
+  {
+    "check": "New checkout uses tier",
+    "result": "PASS"
+  },
+  {
+    "check": "Captured fee is Rp500",
+    "result": "PASS"
+  },
+  {
+    "check": "Restore default fee policy",
+    "result": "PASS"
+  },
+  {
+    "check": "Existing payment fee remains frozen",
+    "result": "PASS"
+  },
+  {
+    "check": "Create physical product",
+    "result": "PASS"
+  },
+  {
+    "check": "Edit physical product",
+    "result": "PASS"
+  },
+  {
+    "check": "Create variant SKU",
+    "result": "PASS"
+  },
+  {
+    "check": "Stock RECEIVE",
+    "result": "PASS"
+  },
+  {
+    "check": "Stock ADJUSTMENT",
+    "result": "PASS"
+  },
+  {
+    "check": "Stock DAMAGE",
+    "result": "PASS"
+  },
+  {
+    "check": "Stock ledger visible",
+    "result": "PASS"
+  },
+  {
+    "check": "Product image upload",
+    "result": "PASS"
+  }
+]

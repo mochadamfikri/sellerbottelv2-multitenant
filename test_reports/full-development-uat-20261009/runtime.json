@@ -1,0 +1,23 @@
+{
+  "services": {
+    "sellerbottel-uat-backend": "active",
+    "sellerbottel-uat-frontend": "active",
+    "sellerbottel-uat-dispatcher": "active",
+    "sellerbottel-kasera-sandbox": "active",
+    "caddy": "active"
+  },
+  "payment_site_unchanged": true,
+  "idsehub_site_unchanged": true,
+  "forbidden_staging_host_absent": true,
+  "private_file_modes": {
+    "credentials.txt": "0o600",
+    "credentials.json": "0o600",
+    "demo-manifest.json": "0o600",
+    "fresh-registration.json": "0o600",
+    "Caddyfile.before": "0o600",
+    "runtime.json": "0o600"
+  },
+  "secret_values_found_in_journal": 0,
+  "log_lines_scanned": 52,
+  "production": "No production machine accessed or changed"
+}

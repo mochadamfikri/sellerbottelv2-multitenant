@@ -1,0 +1,44 @@
+[
+  {
+    "page": "platform",
+    "https_status": 200,
+    "body_present": true,
+    "test_banner": true,
+    "mobile_overflow": false,
+    "page_errors": []
+  },
+  {
+    "page": "fashion-store",
+    "https_status": 200,
+    "body_present": true,
+    "test_banner": true,
+    "mobile_overflow": false,
+    "page_errors": []
+  },
+  {
+    "page": "digital-store",
+    "https_status": 200,
+    "body_present": true,
+    "test_banner": true,
+    "mobile_overflow": false,
+    "page_errors": []
+  },
+  {
+    "page": "tenant-login",
+    "https_status": 200,
+    "body_present": true,
+    "test_banner": true,
+    "mobile_overflow": false,
+    "page_errors": []
+  },
+  {
+    "page": "tenant-dashboard",
+    "login_success": true,
+    "page_errors": []
+  },
+  {
+    "page": "platform-control",
+    "fee_control_visible": true,
+    "page_errors": []
+  }
+]

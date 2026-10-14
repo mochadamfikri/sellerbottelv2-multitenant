@@ -447,6 +447,13 @@ async def register_tenant(body: RegisterBody) -> dict:
             registration_client, domain=shop_domain, tenant_id=str(tenant["_id"]),
             purpose="storefront", origin=domain_origin, created_by="public-registration",
         )
+        panel_base = os.environ.get("TENANT_PANEL_DOMAIN", "").strip().lower()
+        if panel_base:
+            await domain_registry.register_domain(
+                registration_client, domain=f"{safe_slug}.{panel_base}",
+                tenant_id=str(tenant["_id"]), purpose="stock_panel",
+                origin="owner_subdomain", created_by="public-registration",
+            )
         # 4. Store owner credentials.
         owner_doc = {
             "tenant_id": str(tenant["_id"]),
@@ -508,7 +515,7 @@ async def register_tenant(body: RegisterBody) -> dict:
     except Exception as error:
         # Only remove records created by this attempt; never another tenant's domain.
         await _owners_collection().delete_many({"tenant_id": str(tenant["_id"])})
-        await _platform_db().domains.delete_one({"domain": shop_domain, "tenant_id": str(tenant["_id"])})
+        await _platform_db().domains.delete_many({"tenant_id": str(tenant["_id"]), "created_by": "public-registration"})
         # The preflight and registry's unique database_name claim guarantee
         # this is a new database owned only by this registration attempt.
         await registration_client.drop_database(tenant["database_name"])
@@ -876,7 +883,7 @@ async def public_host_config(request: Request, host: str = ""):
     from db import client
     from domain_registry import resolve_domain
     registration = await resolve_domain(client, host or request.headers.get("host", ""))
-    if registration and registration.get("purpose") == "storefront" and registration.get("tenant_id"):
+    if registration and registration.get("purpose") in {"storefront", "stock_panel", "config_panel"} and registration.get("tenant_id"):
         tenant = await _platform_db().tenants.find_one({"_id": registration["tenant_id"]})
         if tenant:
             return {"tenant_slug": tenant["slug"]}

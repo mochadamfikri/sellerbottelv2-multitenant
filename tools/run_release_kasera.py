@@ -16,6 +16,8 @@ os.environ.update(PATH=path, PYTHON_DOTENV_DISABLED='1', ENVIRONMENT='developmen
                   MONGO_URL='mongodb://127.0.0.1:27019/?serverSelectionTimeoutMS=3000',
                   DB_NAME=config['database'], PLATFORM_DB_NAME=config['database'],
                   JWT_SECRET=config['jwt'], INVENTORY_ENCRYPTION_KEY=config['encryption_key'])
+if config.get('uat_bridge') is True:
+    os.environ['KASERA_UAT_BRIDGE']='true'
 from fastapi import FastAPI
 from payments.public_webhook import router
 from error_handlers import register_error_handlers

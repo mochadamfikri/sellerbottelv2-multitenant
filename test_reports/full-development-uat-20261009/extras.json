@@ -1,0 +1,127 @@
+[
+  {
+    "check": "Genuine SMTP OTP accepted",
+    "result": "PASS",
+    "recipient": "idsegwork+uat-fresh@gmail.com",
+    "inbox_receipt": "Owner manual check; OTP entry automated from isolated DB"
+  },
+  {
+    "check": "OTP verification",
+    "result": "PASS"
+  },
+  {
+    "check": "Fresh registration provisioning",
+    "result": "PASS",
+    "status": 201
+  },
+  {
+    "check": "Fresh owner login",
+    "result": "PASS"
+  },
+  {
+    "check": "Fresh storefront registry",
+    "result": "PASS"
+  },
+  {
+    "check": "Fresh stock_panel registry",
+    "result": "PASS"
+  },
+  {
+    "check": "Branding platform fashion-demo",
+    "result": "PASS"
+  },
+  {
+    "check": "Branding tenant_only fashion-demo",
+    "result": "PASS"
+  },
+  {
+    "check": "Branding co_branded fashion-demo",
+    "result": "PASS"
+  },
+  {
+    "check": "Return request fashion-demo",
+    "result": "PASS",
+    "status": 200
+  },
+  {
+    "check": "Return reviewing restock",
+    "result": "PASS"
+  },
+  {
+    "check": "Return approved restock",
+    "result": "PASS"
+  },
+  {
+    "check": "Return received restock",
+    "result": "PASS"
+  },
+  {
+    "check": "Return inspected restock",
+    "result": "PASS"
+  },
+  {
+    "check": "Return resolved restock",
+    "result": "PASS"
+  },
+  {
+    "check": "Refund safely manual fashion-demo",
+    "result": "PASS"
+  },
+  {
+    "check": "Settlement clearing fashion-demo",
+    "result": "PASS"
+  },
+  {
+    "check": "Settlement available fashion-demo",
+    "result": "PASS"
+  },
+  {
+    "check": "Branding platform digital-demo",
+    "result": "PASS"
+  },
+  {
+    "check": "Branding tenant_only digital-demo",
+    "result": "PASS"
+  },
+  {
+    "check": "Branding co_branded digital-demo",
+    "result": "PASS"
+  },
+  {
+    "check": "Return request digital-demo",
+    "result": "PASS",
+    "status": 200
+  },
+  {
+    "check": "Return reviewing damaged",
+    "result": "PASS"
+  },
+  {
+    "check": "Return approved damaged",
+    "result": "PASS"
+  },
+  {
+    "check": "Return received damaged",
+    "result": "PASS"
+  },
+  {
+    "check": "Return inspected damaged",
+    "result": "PASS"
+  },
+  {
+    "check": "Return resolved damaged",
+    "result": "PASS"
+  },
+  {
+    "check": "Refund safely manual digital-demo",
+    "result": "PASS"
+  },
+  {
+    "check": "Settlement clearing digital-demo",
+    "result": "PASS"
+  },
+  {
+    "check": "Settlement available digital-demo",
+    "result": "PASS"
+  }
+]

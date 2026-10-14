@@ -1,0 +1,25 @@
+{
+  "backend": {
+    "command": "python run_offline_tests.py tests/ -q",
+    "passed": 919,
+    "failed": 0,
+    "skipped": 0,
+    "warnings": 18881,
+    "duration_seconds": 119.3
+  },
+  "frontend": {
+    "suites": 11,
+    "passed": 21,
+    "failed": 0,
+    "ci_build": "PASS"
+  },
+  "compileall": "PASS",
+  "diff_check": "PASS",
+  "reset_guard_tests": 5,
+  "reset_execution": "NOT RUN \u2014 dry-run only",
+  "logs": [
+    "/tmp/seller-uat-backend-full.log",
+    "/tmp/seller-uat-frontend-tests.log",
+    "/tmp/seller-uat-build.log"
+  ]
+}

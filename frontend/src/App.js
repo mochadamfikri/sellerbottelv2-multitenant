@@ -90,8 +90,11 @@ function PanelDomainRoute() {
   if (host === "panel.idseconnect.my.id" || host.startsWith("panel.")) {
     return <Protected title="Konfigurasi Landing Page"><PromoConfig /></Protected>;
   }
+  if (host.endsWith(".idsestock.my.id")) {
+    return <AdminRoute />;
+  }
   if (host === "idsestock.my.id") {
-    return <Protected title="Kelola Stok"><Overview /></Protected>;
+    return <TenantPanel />;
   }
   if (host === "idsehub.my.id") {
     return <Protected title="Platform Control Center"><PlatformControl /></Protected>;
@@ -107,6 +110,7 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        {process.env.REACT_APP_UAT === "true" && <div style={{background: "#fff3cd", color: "#664d03", textAlign: "center", padding: "6px"}}>DEVELOPMENT / TEST — pembayaran simulasi</div>}
         <Routes>
           <Route path="/login" element={<Login />} />
           {/* Public promo + self-service tenant registration (idseconnect.my.id) */}

@@ -130,7 +130,7 @@ async def checkout(database, platform, customer, body):
                     raise CommerceError("Stock unavailable")
         if quote["coupon"] and not await reserve_coupon(quote["coupon"], {"customer_id": customer["_id"]}, oid, quote["coupon_amount"]):
             raise CommerceError("Coupon unavailable")
-        payment = {"_id": payment_id, "tenant_id": tenant, "order_id": oid, "payment_mode": mode, "provider": adapter.name, "environment": adapter.environment, "method": method, "credential_id": credential_id, "capabilities": caps, "amount": total, "currency": "IDR", "status": "created", "provider_reference": str(uuid4()), "provider_payment_id": None, "refunded_amount": 0, "refund_reserved": 0, "refunds": [], "created_at": now(), "updated_at": now(), "expires_at": now() + timedelta(minutes=60), "reconciliation": "create_intent"}
+        payment = {"_id": payment_id, "tenant_id": tenant, "order_id": oid, "payment_mode": mode, "provider": adapter.name, "environment": adapter.environment, "method": method, "credential_id": credential_id, "capabilities": caps, "amount": total, "currency": "IDR", "status": "created", "provider_reference": ("uat-" if os.getenv("SELLERBOTTEL_UAT") == "true" else "") + str(uuid4()), "provider_payment_id": None, "refunded_amount": 0, "refund_reserved": 0, "refunds": [], "created_at": now(), "updated_at": now(), "expires_at": now() + timedelta(minutes=60), "reconciliation": "create_intent"}
         payment.update(fee_snapshot)
         if fee_quote:
             payment["fee_quote"] = fee_quote

@@ -1,0 +1,287 @@
+[
+  {
+    "check": "Platform owner HTTPS login",
+    "result": "PASS",
+    "status": 200
+  },
+  {
+    "check": "Platform fee control",
+    "result": "PASS"
+  },
+  {
+    "check": "Private route blocked /docs",
+    "result": "PASS"
+  },
+  {
+    "check": "Private route blocked /openapi.json",
+    "result": "PASS"
+  },
+  {
+    "check": "Private route blocked /api/internal/tls-ask?domain=digital-demo.idsestock.my.id",
+    "result": "PASS"
+  },
+  {
+    "check": "Tenant login fashion-demo",
+    "result": "PASS"
+  },
+  {
+    "check": "Owner catalog fashion-demo",
+    "result": "PASS"
+  },
+  {
+    "check": "Panel host binding fashion-demo",
+    "result": "PASS"
+  },
+  {
+    "check": "Tenant login digital-demo",
+    "result": "PASS"
+  },
+  {
+    "check": "Owner catalog digital-demo",
+    "result": "PASS"
+  },
+  {
+    "check": "Panel host binding digital-demo",
+    "result": "PASS"
+  },
+  {
+    "check": "A protected suspended",
+    "result": "PASS"
+  },
+  {
+    "check": "B independent suspended",
+    "result": "PASS"
+  },
+  {
+    "check": "A protected disabled",
+    "result": "PASS"
+  },
+  {
+    "check": "B independent disabled",
+    "result": "PASS"
+  },
+  {
+    "check": "A reactivated",
+    "result": "PASS"
+  },
+  {
+    "check": "Customer login fashion-demo",
+    "result": "PASS",
+    "status": 200
+  },
+  {
+    "check": "Cross-host path mismatch fashion-demo",
+    "result": "PASS"
+  },
+  {
+    "check": "Mixed cart quote fashion-demo",
+    "result": "PASS",
+    "status": 200
+  },
+  {
+    "check": "Buyer fee visible fashion-demo",
+    "result": "PASS"
+  },
+  {
+    "check": "Kasera TEST mixed checkout fashion-demo",
+    "result": "PASS",
+    "status": 200
+  },
+  {
+    "check": "Provider TEST simulation fashion-demo",
+    "result": "PASS"
+  },
+  {
+    "check": "Genuine callback fashion-demo",
+    "result": "PASS",
+    "order_id": "a4552966-1158-52e1-a905-4fdbab7b74c8",
+    "payment_id": "798143fa-0c88-4420-b8f5-c635086545d8"
+  },
+  {
+    "check": "Five settlement components fashion-demo",
+    "result": "PASS",
+    "components": [
+      {
+        "type": "PAYMENT_GROSS",
+        "amount": 201662
+      },
+      {
+        "type": "KASERA_PERCENT_FEE",
+        "amount": 1412
+      },
+      {
+        "type": "KASERA_FIXED_FEE",
+        "amount": 250
+      },
+      {
+        "type": "SELLERBOTTEL_PLATFORM_FEE",
+        "amount": 250
+      },
+      {
+        "type": "NET_SETTLEMENT",
+        "amount": 199750
+      }
+    ]
+  },
+  {
+    "check": "Three independent fulfillments fashion-demo",
+    "result": "PASS",
+    "states": [
+      {
+        "type": "digital_auto",
+        "status": "delivered"
+      },
+      {
+        "type": "service",
+        "status": "queued"
+      },
+      {
+        "type": "physical",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "check": "Digital delivery fashion-demo",
+    "result": "PASS"
+  },
+  {
+    "check": "Foreign order denied fashion-demo",
+    "result": "PASS"
+  },
+  {
+    "check": "Service completion fashion-demo",
+    "result": "PASS",
+    "status": 200
+  },
+  {
+    "check": "Physical packing fashion-demo",
+    "result": "PASS",
+    "status": 200
+  },
+  {
+    "check": "Physical ready_to_ship fashion-demo",
+    "result": "PASS",
+    "status": 200
+  },
+  {
+    "check": "Physical shipped fashion-demo",
+    "result": "PASS",
+    "status": 200
+  },
+  {
+    "check": "Physical delivered fashion-demo",
+    "result": "PASS",
+    "status": 200
+  },
+  {
+    "check": "Customer login digital-demo",
+    "result": "PASS",
+    "status": 200
+  },
+  {
+    "check": "Cross-host path mismatch digital-demo",
+    "result": "PASS"
+  },
+  {
+    "check": "Mixed cart quote digital-demo",
+    "result": "PASS",
+    "status": 200
+  },
+  {
+    "check": "Buyer fee visible digital-demo",
+    "result": "PASS"
+  },
+  {
+    "check": "Kasera TEST mixed checkout digital-demo",
+    "result": "PASS",
+    "status": 200
+  },
+  {
+    "check": "Provider TEST simulation digital-demo",
+    "result": "PASS"
+  },
+  {
+    "check": "Genuine callback digital-demo",
+    "result": "PASS",
+    "order_id": "17720710-8426-59c8-abd9-335b24857b87",
+    "payment_id": "0b83cac7-7287-4aca-899d-275e7441e179"
+  },
+  {
+    "check": "Five settlement components digital-demo",
+    "result": "PASS",
+    "components": [
+      {
+        "type": "PAYMENT_GROSS",
+        "amount": 201662
+      },
+      {
+        "type": "KASERA_PERCENT_FEE",
+        "amount": 1412
+      },
+      {
+        "type": "KASERA_FIXED_FEE",
+        "amount": 250
+      },
+      {
+        "type": "SELLERBOTTEL_PLATFORM_FEE",
+        "amount": 250
+      },
+      {
+        "type": "NET_SETTLEMENT",
+        "amount": 199750
+      }
+    ]
+  },
+  {
+    "check": "Three independent fulfillments digital-demo",
+    "result": "PASS",
+    "states": [
+      {
+        "type": "digital_auto",
+        "status": "delivered"
+      },
+      {
+        "type": "service",
+        "status": "queued"
+      },
+      {
+        "type": "physical",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "check": "Digital delivery digital-demo",
+    "result": "PASS"
+  },
+  {
+    "check": "Foreign order denied digital-demo",
+    "result": "PASS"
+  },
+  {
+    "check": "Service completion digital-demo",
+    "result": "PASS",
+    "status": 200
+  },
+  {
+    "check": "Physical packing digital-demo",
+    "result": "PASS",
+    "status": 200
+  },
+  {
+    "check": "Physical ready_to_ship digital-demo",
+    "result": "PASS",
+    "status": 200
+  },
+  {
+    "check": "Physical shipped digital-demo",
+    "result": "PASS",
+    "status": 200
+  },
+  {
+    "check": "Physical delivered digital-demo",
+    "result": "PASS",
+    "status": 200
+  }
+]

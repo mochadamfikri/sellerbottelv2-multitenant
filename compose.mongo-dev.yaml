@@ -1,0 +1,23 @@
+# Isolated audit Mongo only; never production. Named data volume is retained.
+services:
+  mongo-dev:
+    image: mongo:7.0
+    container_name: sellerbottelv2-dev-mongo
+    ports:
+      - "127.0.0.1:27019:27017"
+    volumes:
+      - mongo-dev-data:/data/db
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+volumes:
+  mongo-dev-data:
+    external: true
+    name: sellerbottelv2-dev-mongo-data

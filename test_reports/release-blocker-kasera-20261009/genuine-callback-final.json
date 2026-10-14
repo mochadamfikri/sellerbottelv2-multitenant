@@ -1,0 +1,77 @@
+{
+  "platform_settlement": {
+    "provider": "kasera",
+    "environment": "sandbox",
+    "mode": "platform_settlement",
+    "genuine_callback": true,
+    "payment_status": "paid",
+    "reconciliation": null,
+    "receipt_state": "applied",
+    "gross": 15001,
+    "gateway_fee": 356,
+    "platform_fee": 250,
+    "settlement": {
+      "pending": 14395,
+      "clearing": 0,
+      "available": 0,
+      "reserved": 0,
+      "paid_out": 0,
+      "liability": 0
+    },
+    "entries": [
+      {
+        "type": "PAYMENT_GROSS",
+        "amount": 15001
+      },
+      {
+        "type": "KASERA_PERCENT_FEE",
+        "amount": 106
+      },
+      {
+        "type": "KASERA_FIXED_FEE",
+        "amount": 250
+      },
+      {
+        "type": "SELLERBOTTEL_PLATFORM_FEE",
+        "amount": 250
+      },
+      {
+        "type": "NET_SETTLEMENT",
+        "amount": 14395
+      }
+    ],
+    "stock": {
+      "on_hand": 2,
+      "reserved": 0
+    },
+    "route_id": "efdb1d7c-d21b-4e18-ab27-1874d75c7da8",
+    "tenant_database": "sellerbottel_tenant_release_final_platform_settlement"
+  },
+  "self_gateway": {
+    "provider": "kasera",
+    "environment": "sandbox",
+    "mode": "self_gateway",
+    "genuine_callback": true,
+    "payment_status": "paid",
+    "reconciliation": null,
+    "receipt_state": "applied",
+    "gross": 15001,
+    "gateway_fee": 356,
+    "platform_fee": 0,
+    "settlement": {
+      "pending": 0,
+      "clearing": 0,
+      "available": 0,
+      "reserved": 0,
+      "paid_out": 0,
+      "liability": 0
+    },
+    "entries": [],
+    "stock": {
+      "on_hand": 2,
+      "reserved": 0
+    },
+    "route_id": "36a200e1-c563-47d4-918f-2933ff5cc37e",
+    "tenant_database": "sellerbottel_tenant_release_final_self_gateway"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "backend": {
+    "tests": 908,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0
+  },
+  "frontend": {
+    "tests": 21,
+    "suites": 11,
+    "build": "PASS"
+  },
+  "compileall": "PASS",
+  "diff_check": "PASS",
+  "implementation_commit": "4ee779884c5eeec841abc9935887205fe97ed9e6",
+  "baseline": "1012d6323cac96e1dd04729a6eb791e295978114",
+  "branch": "feature/v1-kasera-release-blockers",
+  "production_touched": false,
+  "candidate": "READY \u2014 V1 profile",
+  "p0": 0,
+  "p1": 0,
+  "p2": 1
+}

@@ -1,15 +1,29 @@
 # SellerBottel V3 — Production candidate checklist
 
-**Decision: NOT READY FOR PRODUCTION CANDIDATE.** This is a source/configuration review and disposable-development validation, not a production inspection or rollout authorization. Production was not accessed or changed.
+**Decision: READY FOR PRODUCTION CANDIDATE — V1 PROFILE.** Evidence: [V1 release sprint audit](../audits/release-blocker-kasera-20261009.md). This is a source/configuration review and disposable-development validation, not a production inspection or rollout authorization. Production was not accessed or changed.
 
-## Required external decisions before candidate approval
+## Approved V1 profile — release sprint 2026-10-09
 
-- [ ] Configure a dedicated Kasera sandbox HTTPS callback and its signing secret; verify genuine delivery, replay and local failure recovery. API/status tests already passed; they do not replace this gate.
-- [ ] Replace/fix the rejected Biteship test credential, then verify rates, service selection, shipment, tracking and supported cancel in the application's shipping path. Biteship adapter currently remains a readiness probe and is not registered for checkout.
-- [ ] Supply/verify Midtrans sandbox credentials if Midtrans is in the launch scope. Otherwise explicitly exclude it.
-- [ ] Approve an exact launch profile. Until then, blocked providers are not treated as optional simply to obtain READY.
-- [ ] Rotate any credentials shared in conversation before operational use, including the unused live keys. No such values are in source/evidence.
-- [ ] Obtain merchant/commercial approval for platform settlement. Kasera API does not provide payouts to arbitrary third-party bank accounts. No real payout adapter is enabled.
+Set `COMMERCE_LAUNCH_PROFILE=v1_kasera` on the tenant backend. The isolated development webhook service uses this profile. The existing owner GoPay Merchant remains separate; no tenant settlement routes through it.
+
+| Capability | V1 scope | Evidence / remaining action |
+|---|---|---|
+| Kasera QRIS | REQUIRED | Genuine test callback, tenant routes and fee split verified; see release audit |
+| Genuine Kasera webhook | REQUIRED | Public HTTPS callback verified before and after backend restart |
+| SellerBottel fee | REQUIRED | Default Rp250; owner-configurable disjoint amount tiers; deducted from IDSE tenant receipts only; frozen at checkout |
+| GoPay tenant settlement | NOT USED | Existing private owner business only |
+| Manual shipping | REQUIRED | Address/fee path retained; integrated selections rejected under V1 |
+| Midtrans / Stripe | DEFERRED — NOT REQUIRED FOR V1 | Prior unavailable Midtrans credential evidence retained in Phase 4 audit |
+| Biteship / integrated shipping | DEFERRED — NOT REQUIRED FOR V1 | Prior rejected test-key evidence retained in Phase 4 audit |
+| DOKU / OttoPay / other providers | DEFERRED — NOT REQUIRED FOR V1 | No adapter or commercial readiness implied |
+
+- [x] Exact launch profile approved by owner; deferred providers are not V1 blockers.
+- [x] Dedicated sandbox HTTPS callback and private signing secret configured; genuine delivery and repeated callback verified.
+- [x] Buyer pays Kasera QRIS 0.7% + Rp250 using exact integer gross-up; authenticated provider fee/net must match the displayed quote.
+- [x] Owner chooses SellerBottel fee (default Rp250, optional amount tiers) in Platform Control → Fee gateway IDSE. Tenant bears this deduction only in Settlement IDSE; self-gateway fee is zero. Bounds are inclusive, overlaps rejected, out-of-range amounts use the configured default.
+- [x] Fee basis is products after discounts plus manual shipping, before gateway fees. Existing payments retain their immutable checkout snapshot after policy changes.
+- [ ] Before operational use, rotate credentials previously shared in conversation, including unused live credentials.
+- [ ] Before production activation, confirm merchant/commercial authorization and the tenant disbursement procedure. Kasera does not provide arbitrary third-party payout APIs; no live payout adapter is enabled by this sprint.
 
 ## Environment and secrets review
 
@@ -55,4 +69,4 @@
 - [ ] Configure operational alerts for reconciliation backlog, unknown provider outcomes, pending leases, archive integrity errors, backup age, worker health and disk usage.
 - [ ] Decide retention/pagination UX for historical ledger browsing; full history is preserved and auditable even when the normal owner response shows only the hot tail.
 
-Deferred optional features: DOKU, tenant GoPay Merchant adapter, OttoPay, Stripe, advanced warehouse and advanced fraud tooling. Stop after Phase 4; no automatic deployment or live financial enablement.
+Deferred optional features: DOKU, tenant GoPay Merchant adapter, OttoPay, Stripe, advanced warehouse and advanced fraud tooling. The V1 release sprint supersedes the Phase 4 provider scope only. No automatic production deployment or live financial enablement.

@@ -1,0 +1,101 @@
+{
+  "platform_settlement": {
+    "provider": "kasera",
+    "environment": "sandbox",
+    "mode": "platform_settlement",
+    "genuine_callback": true,
+    "payment_status": "paid",
+    "reconciliation": null,
+    "receipt_state": "applied",
+    "gross": 25430,
+    "gateway_fee": 429,
+    "platform_fee": 500,
+    "fee_quote": {
+      "base_amount": 25001,
+      "gateway_percent_fee": 179,
+      "gateway_fixed_fee": 250,
+      "gateway_fee": 429,
+      "platform_fee": 500,
+      "payment_fee": 429,
+      "total": 25430,
+      "net_settlement": 24501,
+      "gateway_bearer": "buyer",
+      "platform_bearer": "tenant"
+    },
+    "settlement": {
+      "pending": 24501,
+      "clearing": 0,
+      "available": 0,
+      "reserved": 0,
+      "paid_out": 0,
+      "liability": 0
+    },
+    "entries": [
+      {
+        "type": "PAYMENT_GROSS",
+        "amount": 25430
+      },
+      {
+        "type": "KASERA_PERCENT_FEE",
+        "amount": 179
+      },
+      {
+        "type": "KASERA_FIXED_FEE",
+        "amount": 250
+      },
+      {
+        "type": "SELLERBOTTEL_PLATFORM_FEE",
+        "amount": 500
+      },
+      {
+        "type": "NET_SETTLEMENT",
+        "amount": 24501
+      }
+    ],
+    "stock": {
+      "on_hand": 2,
+      "reserved": 0
+    },
+    "route_id": "caa881dd-0ac3-4449-b2d1-c2f7aa71fca2",
+    "tenant_database": "sellerbottel_tenant_release_tier_platform_settlement"
+  },
+  "self_gateway": {
+    "provider": "kasera",
+    "environment": "sandbox",
+    "mode": "self_gateway",
+    "genuine_callback": true,
+    "payment_status": "paid",
+    "reconciliation": null,
+    "receipt_state": "applied",
+    "gross": 25430,
+    "gateway_fee": 429,
+    "platform_fee": 0,
+    "fee_quote": {
+      "base_amount": 25001,
+      "gateway_percent_fee": 179,
+      "gateway_fixed_fee": 250,
+      "gateway_fee": 429,
+      "platform_fee": 0,
+      "payment_fee": 429,
+      "total": 25430,
+      "net_settlement": 25001,
+      "gateway_bearer": "buyer",
+      "platform_bearer": "tenant"
+    },
+    "settlement": {
+      "pending": 0,
+      "clearing": 0,
+      "available": 0,
+      "reserved": 0,
+      "paid_out": 0,
+      "liability": 0
+    },
+    "entries": [],
+    "stock": {
+      "on_hand": 2,
+      "reserved": 0
+    },
+    "route_id": "11a00d00-9995-4f41-a8da-f7e42272a470",
+    "tenant_database": "sellerbottel_tenant_release_tier_self_gateway"
+  }
+}

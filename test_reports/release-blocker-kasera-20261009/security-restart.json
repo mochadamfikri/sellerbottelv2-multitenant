@@ -1,0 +1,24 @@
+{
+  "coverage": "Synthetic signed adversarial requests and duplicate replay after backend restart; genuine provider receipt tested separately",
+  "checks": {
+    "missing_signature": 422,
+    "invalid_signature": 422,
+    "stale_timestamp": 422,
+    "future_timestamp": 422,
+    "wrong_amount": 422,
+    "wrong_currency": 422,
+    "unknown_reference": 422,
+    "query_operator": 422,
+    "foreign_payment_id": 422,
+    "wrong_existing_reference": 422,
+    "admin_hidden": 404,
+    "docs_hidden": 404,
+    "root_hidden": 404,
+    "wrong_tenant_route": 422,
+    "revoked_new_use": "rejected",
+    "historical_revoked_callback": "accepted_duplicate",
+    "concurrent_duplicates": 12,
+    "financial_and_fulfillment_state_unchanged": true,
+    "route_unique_index_survived": true
+  }
+}

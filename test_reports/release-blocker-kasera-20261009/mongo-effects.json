@@ -1,0 +1,96 @@
+{
+  "buyer-fees:platform_settlement": {
+    "provider_payment_id": "payreq_4e6d5f83-a51d-421b-874a-52630cd7d333",
+    "provider_event_id": "evt_9bce58f1-d441-408d-86a9-9f83af0b6b88",
+    "received_at": "2026-10-09 03:00:54.982000",
+    "applied_at": "2026-10-09 03:00:55.103000",
+    "payment_receipts": 1,
+    "stock_sale_events": 1,
+    "fulfillments": 1,
+    "settlement_components": 5,
+    "fee_policy": {
+      "version": "v1_kasera",
+      "percent_bps": 70,
+      "fixed": 250,
+      "platform": 250,
+      "rounding": "ceil",
+      "platform_fee_basis": 15001,
+      "platform_fee_rule": {
+        "default": true
+      }
+    },
+    "reconciliation": null
+  },
+  "buyer-fees:self_gateway": {
+    "provider_payment_id": "payreq_4efba301-a1f5-4d75-aeee-e6e8bad9b70b",
+    "provider_event_id": "evt_380d1950-0485-4026-a29f-3a858d67ff76",
+    "received_at": "2026-10-09 03:01:02.164000",
+    "applied_at": "2026-10-09 03:01:02.235000",
+    "payment_receipts": 1,
+    "stock_sale_events": 1,
+    "fulfillments": 1,
+    "settlement_components": 0,
+    "fee_policy": {
+      "version": "v1_kasera",
+      "percent_bps": 70,
+      "fixed": 250,
+      "platform": 0,
+      "rounding": "ceil",
+      "platform_fee_basis": 15001,
+      "platform_fee_rule": {
+        "self_gateway": true
+      }
+    },
+    "reconciliation": null
+  },
+  "tier-fees:platform_settlement": {
+    "provider_payment_id": "payreq_475322e7-7893-4e27-9472-547273dda6e8",
+    "provider_event_id": "evt_4493ecf0-964d-4891-8aad-4a4dfae8560a",
+    "received_at": "2026-10-09 03:02:25.238000",
+    "applied_at": "2026-10-09 03:02:25.378000",
+    "payment_receipts": 1,
+    "stock_sale_events": 1,
+    "fulfillments": 1,
+    "settlement_components": 5,
+    "fee_policy": {
+      "version": "v1_kasera",
+      "percent_bps": 70,
+      "fixed": 250,
+      "platform": 500,
+      "rounding": "ceil",
+      "platform_fee_basis": 25001,
+      "platform_fee_rule": {
+        "min_amount": 20001,
+        "max_amount": 50000,
+        "fee": 500
+      }
+    },
+    "reconciliation": null
+  },
+  "tier-fees:self_gateway": {
+    "provider_payment_id": "payreq_0be68ac7-ba23-4b5b-8962-fab462fc607a",
+    "provider_event_id": "evt_6bcc4c0a-89a7-4389-a322-60931014c296",
+    "received_at": "2026-10-09 03:02:31.975000",
+    "applied_at": "2026-10-09 03:02:32.052000",
+    "payment_receipts": 1,
+    "stock_sale_events": 1,
+    "fulfillments": 1,
+    "settlement_components": 0,
+    "fee_policy": {
+      "version": "v1_kasera",
+      "percent_bps": 70,
+      "fixed": 250,
+      "platform": 0,
+      "rounding": "ceil",
+      "platform_fee_basis": 25001,
+      "platform_fee_rule": {
+        "self_gateway": true
+      }
+    },
+    "reconciliation": null
+  },
+  "current_dev_fixture_policy": {
+    "platform_fee": 250,
+    "tiers": []
+  }
+}

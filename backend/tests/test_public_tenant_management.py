@@ -316,3 +316,52 @@ def test_registration_provisioning_failure_removes_only_new_tenant_database(mana
         assert await registration._owners_collection().find_one({"email": "rollback@gmail.com"}) is None
         assert await registration._platform_db().domains.find_one({"domain": "rollback-shop.idseconnect.my.id"}) is None
     asyncio.run(run())
+
+
+@pytest.mark.parametrize("editing", [False, True])
+def test_failed_product_save_cleans_new_image_preserves_existing(management, monkeypatch, tmp_path, editing):
+    import io
+    from PIL import Image
+    from mongomock_motor import AsyncMongoMockCollection
+    import storage
+    monkeypatch.setattr(storage, "STORAGE_ROOT", tmp_path)
+    registry, app = management
+    async def run():
+        tenant, headers = await seed(registry, "image-failure")
+        database = client[tenant["database_name"]]
+        await storage.put_object("old.webp", b"existing-image", "image/webp")
+        await database.products.insert_one({"_id": "existing", "name": "Existing", "price_usd": 1, "active": True, "image_path": "old.webp"})
+        original = AsyncMongoMockCollection.update_one if editing else AsyncMongoMockCollection.insert_one
+        async def fail_products(collection, *args, **kwargs):
+            if collection.name == "products":
+                raise RuntimeError("controlled product save failure")
+            return await original(collection, *args, **kwargs)
+        monkeypatch.setattr(AsyncMongoMockCollection, "update_one" if editing else "insert_one", fail_products)
+        image = io.BytesIO()
+        Image.new("RGB", (64, 64)).save(image, format="PNG")
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://mock") as http:
+            response = await http.request("PUT" if editing else "POST", "/api/public/tenant/full/products" + ("/existing" if editing else ""), headers=headers,
+                data={"name": "Changed", "price_usd": "2"}, files={"image": ("image.png", image.getvalue(), "image/png")})
+            assert response.status_code == 500
+        assert sorted(p.relative_to(tmp_path).as_posix() for p in tmp_path.rglob("*") if p.is_file()) == ["old.webp"]
+        assert (await database.products.find_one({"_id": "existing"}))["image_path"] == "old.webp"
+    asyncio.run(run())
+
+
+def test_owner_database_outage_returns_retryable_service_error(management, monkeypatch):
+    from mongomock_motor import AsyncMongoMockCollection
+    from pymongo.errors import ServerSelectionTimeoutError
+    registry, app = management
+    async def run():
+        _, headers = await seed(registry, "owner-outage")
+        original = AsyncMongoMockCollection.find_one
+        async def fail_owner(collection, *args, **kwargs):
+            if collection.name == "tenant_owners":
+                raise ServerSelectionTimeoutError("controlled development outage")
+            return await original(collection, *args, **kwargs)
+        monkeypatch.setattr(AsyncMongoMockCollection, "find_one", fail_owner)
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://mock") as http:
+            response = await http.get("/api/public/tenant/me", headers=headers)
+            assert response.status_code == 503
+            assert response.json()["detail"]
+    asyncio.run(run())

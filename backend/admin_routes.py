@@ -248,7 +248,6 @@ async def create_product(
 
     storage_path, original_filename = None, None
     product_id = str(uuid.uuid4())
-    product_image = await _store_product_image(product_id, image)
     if product_kind == "service":
         wait_minutes = int(service_wait_minutes or 5)
         if wait_minutes not in {1, 5, 10, 25, 60}:
@@ -285,8 +284,8 @@ async def create_product(
         "service_wait_minutes": wait_minutes,
         "service_message_template": message_template,
         "active": active,
-        "image_path": product_image["path"] if product_image else None,
-        "image_content_type": product_image["content_type"] if product_image else None,
+        "image_path": None,
+        "image_content_type": None,
         "minimum_purchase_qty": minimum_purchase_qty,
         "stock": stored_stock,
         "stock_mode": stock_mode if product_kind == "digital" else "unlimited",
@@ -298,7 +297,15 @@ async def create_product(
         "stock_notice_count": 0,
         "created_at": now_iso(),
     }
-    await db.products.insert_one(prod)
+    product_image = await _store_product_image(product_id, image)
+    if product_image:
+        prod.update(image_path=product_image["path"], image_content_type=product_image["content_type"])
+    try:
+        await db.products.insert_one(prod)
+    except Exception:
+        if product_image:
+            await delete_object(product_image["path"])
+        raise
     try:
         await notify_product_created(prod)
     except Exception:
@@ -366,14 +373,6 @@ async def update_product(
             updates["inventory_schema"] = schema
     if image and remove_image:
         raise HTTPException(400, "Unggah foto baru atau hapus foto yang ada, bukan keduanya.")
-    product_image = await _store_product_image(pid, image)
-    if product_image:
-        updates["image_path"] = product_image["path"]
-        updates["image_content_type"] = product_image["content_type"]
-    elif remove_image:
-        updates["image_path"] = None
-        updates["image_content_type"] = None
-
     if product_kind == "service":
         wait_minutes = int(service_wait_minutes or 5)
         if wait_minutes not in {1, 5, 10, 25, 60}:
@@ -410,7 +409,19 @@ async def update_product(
             "inventory_mode": inventory_mode,
         })
 
-    changed = await db.products.update_one({"_id": pid}, {"$set": updates})
+    product_image = await _store_product_image(pid, image)
+    if product_image:
+        updates["image_path"] = product_image["path"]
+        updates["image_content_type"] = product_image["content_type"]
+    elif remove_image:
+        updates["image_path"] = None
+        updates["image_content_type"] = None
+    try:
+        changed = await db.products.update_one({"_id": pid}, {"$set": updates})
+    except Exception:
+        if product_image:
+            await delete_object(product_image["path"])
+        raise
     if changed.matched_count != 1:
         if product_image:
             await delete_object(product_image["path"])

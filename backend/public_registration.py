@@ -604,10 +604,17 @@ async def _require_tenant_owner(request) -> dict:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Token tidak valid.")
 
     from bson import ObjectId
+    from bson.errors import InvalidId
+    from pymongo.errors import PyMongoError
     try:
-        owner = await _owners_collection().find_one({"_id": ObjectId(owner_id)})
-    except Exception:
-        owner = None
+        object_id = ObjectId(owner_id)
+    except (InvalidId, TypeError):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Token tidak valid.") from None
+    try:
+        owner = await _owners_collection().find_one({"_id": object_id})
+    except PyMongoError as error:
+        logger.warning("Tenant owner lookup unavailable (%s)", type(error).__name__)
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Layanan sementara tidak tersedia. Silakan coba lagi.") from None
     if not owner:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Akun tidak ditemukan.")
     await _active_owner_tenant(owner)

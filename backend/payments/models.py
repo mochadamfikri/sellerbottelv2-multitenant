@@ -26,7 +26,7 @@ def money(value, *, positive=False):
         raise CommerceError("Amount must be integer rupiah") from None
 
 def public_payment(payment):
-    return {k: payment.get(k) for k in ("_id", "order_id", "payment_mode", "provider", "method", "environment", "amount", "currency", "status", "provider_payment_id", "provider_reference", "expires_at", "paid_at", "cancelled_at", "refunded_amount", "created_at", "updated_at", "instructions", "reconciliation")}
+    return {k: payment.get(k) for k in ("_id", "order_id", "payment_mode", "provider", "method", "environment", "amount", "fee_quote", "currency", "status", "provider_payment_id", "provider_reference", "expires_at", "paid_at", "cancelled_at", "refunded_amount", "created_at", "updated_at", "instructions", "reconciliation")}
 
 async def ensure_indexes(database, platform):
     from commerce.journal import ensure_archive_indexes

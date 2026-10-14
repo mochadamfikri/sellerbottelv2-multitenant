@@ -1,17 +1,23 @@
 import { useCallback, useEffect, useState } from "react";
 import api, { fmtIDR, formatApiErrorDetail } from "../lib/api";
 
-export function GatewayMethods({ apiPrefix, method, onChange, amount }) {
+export function GatewayMethods({ apiPrefix, method, onChange, amount, onQuote }) {
   const [data, setData] = useState(null);
   useEffect(() => {
     let active = true;
     api.get(`${apiPrefix}/gateway/methods`, {params: amount > 0 ? {amount} : {}}).then(r => {
-      if (active) { setData(r.data); if (r.data.methods?.length && (method === "qris" || (method.startsWith("gateway:") && !r.data.methods.some(m => m.code === method)))) onChange(r.data.methods[0].code); }
+      if (active) { setData({ ...r.data, requestedAmount: amount }); if (r.data.methods?.length && ((r.data.launch_profile === "v1_kasera" && !method.startsWith("gateway:")) || method === "qris" || (method.startsWith("gateway:") && !r.data.methods.some(m => m.code === method)))) onChange(r.data.methods[0].code); }
     }).catch(() => { if (active) setData({ methods: [] }); });
     return () => { active = false; };
     // The initial method is selected once per store, never on every selection.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiPrefix, amount]);
+  useEffect(() => {
+    const selected = data?.methods?.find(m => m.code === method);
+    onQuote?.({ launch_profile: data?.launch_profile, amount, method,
+      ready: Boolean(selected && data.requestedAmount === amount),
+      fee_quote: data?.requestedAmount === amount ? selected?.fee_quote : null });
+  }, [data, method, amount, onQuote]);
   if (!data?.methods?.length) return null;
   return <fieldset className="mt-3 space-y-2"><legend className="font-semibold">Metode gateway {data.coverage === "MOCKED" ? "(simulasi)" : "(sandbox)"}</legend>{data.methods.map(m => <label key={m.code} className="flex items-center gap-2 rounded border p-3"><input type="radio" name="store-payment-method" checked={method === m.code} onChange={() => onChange(m.code)}/>{m.label}</label>)}</fieldset>;
 }

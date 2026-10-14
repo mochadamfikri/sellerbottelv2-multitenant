@@ -11,6 +11,7 @@ from .providers.registry import SCHEMAS
 from .models import now, money, public_payment
 from .orchestrator import tenant_identity, resolve, checkout, payment_adapter, apply_event
 from .ledger import Ledger, balances
+from . import launch
 
 owner = APIRouter(prefix="/api/public/tenant/full/commerce", tags=["phase3"], dependencies=[Depends(owner_scope)])
 hooks = APIRouter(prefix="/api/commerce/webhooks", tags=["phase3-webhooks"])
@@ -29,10 +30,17 @@ async def settings_response():
     credential = await db.gateway_credentials.find_one({"_id": doc.get("credential_id")}) or {}
     result = {k: v for k, v in doc.items() if k != "secret"}
     result.update({"credential_schemas": SCHEMAS, "masked_fields": credential.get("masked_fields", {}), "revoked": credential.get("revoked", False), "webhook_url": "/api/commerce/webhooks/payments/" + doc.get("provider", "kasera")})
+    if launch.enabled():
+        result.update({"launch_profile": "v1_kasera", "credential_schemas": {"kasera": SCHEMAS["kasera"]}, "webhook_url": "/api/payments/webhooks/kasera"})
     if doc.get("payment_mode") == "platform_settlement":
         platform = await platform_db().platform_payment_settings.find_one({"_id": "kasera"}) or {}
         result["capabilities"] = platform.get("capabilities")
         result["platform_configured"] = bool(platform.get("credential_id") and platform.get("capabilities"))
+    if launch.enabled():
+        result["platform_fee"] = await launch.platform_fee(platform_db()) if doc.get("payment_mode") == "platform_settlement" else 0
+        result["platform_fee_tiers"] = (await launch.platform_fee_policy(platform_db()))["tiers"] if doc.get("payment_mode") == "platform_settlement" else []
+        if result.get("capabilities"):
+            result["capabilities"] = {**result["capabilities"], "supported_methods": [m for m in result["capabilities"].get("supported_methods", []) if m == "qris"]}
     return result
 
 @owner.get("/payment-settings")
@@ -41,6 +49,7 @@ async def get_settings():
 
 @owner.put("/payment-settings")
 async def save_settings(body: SettingsBody):
+    launch.require_provider(body.provider)
     tenant = tenant_identity(_resolve_db())
     if body.payment_mode == "platform_settlement" and (body.provider != "kasera" or body.credentials):
         raise CommerceError("Platform Kasera credentials are controlled by IDSE")

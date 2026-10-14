@@ -73,10 +73,12 @@ class Ledger:
         gateway, platform = money(payment.get("gateway_fee", 0)), money(payment.get("platform_fee", 0))
         if gross < gateway + platform:
             raise CommerceError("Fees exceed payment")
+        from .launch import breakdown
+        components = breakdown(payment) if payment.get("fee_policy") else [("PAYMENT_GROSS", gross, {}), ("GATEWAY_FEE", gateway, {}), ("PLATFORM_FEE", platform, {}), ("NET_PENDING", gross - gateway - platform, {"pending": gross - gateway - platform})]
         intent = {"gross": gross, "gateway": gateway, "platform": platform, "payment_id": payment["_id"]}
         def build(events, values):
             common = {"payment_id": payment["_id"], "order_id": payment["order_id"], "environment": payment["environment"], "state": "pending", "available_at": payment.get("available_at")}
-            return [{**common, "type": kind, "amount": value, "deltas": delta} for kind, value, delta in [("PAYMENT_GROSS", gross, {}), ("GATEWAY_FEE", gateway, {}), ("PLATFORM_FEE", platform, {}), ("NET_PENDING", gross - gateway - platform, {"pending": gross - gateway - platform})]]
+            return [{**common, "type": kind, "amount": value, "deltas": delta} for kind, value, delta in components]
         return await self.append("payment:" + payment["_id"], intent, build)
 
     async def advance(self, payment, target):

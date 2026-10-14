@@ -1,0 +1,43 @@
+{
+	on_demand_tls {
+		ask http://127.0.0.1:22130/api/internal/tls-ask
+	}
+}
+idseconnect.my.id {
+	reverse_proxy 127.0.0.1:22130
+}
+*.idseconnect.my.id {
+	tls {
+		on_demand
+	}
+	reverse_proxy 127.0.0.1:22130
+}
+idsestock.my.id {
+	reverse_proxy 127.0.0.1:22130
+}
+idsehub.my.id {
+	reverse_proxy 127.0.0.1:22130
+}
+
+pay.idsepos.my.id {
+	@health {
+		path /health
+		method GET
+	}
+	handle @health {
+		reverse_proxy 127.0.0.1:8007
+	}
+	@webhook {
+		path /api/payments/webhooks/kasera
+		method POST
+	}
+	handle @webhook {
+		request_body {
+			max_size 64KB
+		}
+		reverse_proxy 127.0.0.1:8007
+	}
+	handle {
+		respond 404
+	}
+}

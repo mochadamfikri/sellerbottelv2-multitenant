@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import api, { formatApiErrorDetail, fmtDate } from "../lib/api";
 import { createAndProvisionTenant } from "../lib/platformControl";
 import DatabaseBrowser from "./DatabaseBrowser";
+import IdseGatewayFeeSettings from "../components/IdseGatewayFeeSettings";
 
 const initialForm = { name: "", slug: "", plan: "demo" };
 const plans = ["demo", "monthly", "yearly", "lifetime"];
@@ -253,6 +254,8 @@ export default function PlatformControl() {
           <span>{feedback.message}</span>
         </div>
       )}
+
+      <IdseGatewayFeeSettings />
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-slate-800">

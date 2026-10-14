@@ -111,3 +111,11 @@ backend/gobiz/.env
 
 # Phase 4 final SHA is generated after documentation commit.
 /test_reports/phase-4-final-hardening-20261008/git-final.json
+
+# Private Kasera development webhook configuration
+/backend/.secretkaserapay
+/backend/.kasera-webhook-secret
+/backend/.release-kasera-private.json
+
+# Final release commit identity is recorded after committing the audit.
+/test_reports/release-blocker-kasera-20261009/git-final.json

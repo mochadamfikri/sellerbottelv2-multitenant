@@ -12,7 +12,10 @@ def reference_hint(raw):
     # Untrusted reference is used only for lookup; no mutation before auth.
     try:
         value = json.loads(raw)
-        return value.get("reference") or value.get("order_id") or value.get("data", {}).get("external_id")
+        reference = value.get("reference") or value.get("order_id") or value.get("data", {}).get("external_id")
+        if not isinstance(reference, str) or not 1 <= len(reference) <= 255:
+            raise ValueError
+        return reference
     except Exception:
         raise CommerceError("Malformed webhook") from None
 

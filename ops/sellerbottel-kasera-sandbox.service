@@ -1,0 +1,20 @@
+[Unit]
+Description=SellerBottel isolated Kasera sandbox webhook
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/sellerbottelv2
+ExecStart=/tmp/sellerbottel-audit-venv/bin/python /home/sellerbottelv2/tools/run_release_kasera.py
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=false
+ProtectSystem=strict
+ReadWritePaths=/home/sellerbottelv2/backend/storage_data
+
+[Install]
+WantedBy=multi-user.target

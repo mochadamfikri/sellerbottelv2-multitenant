@@ -8,6 +8,7 @@ from .models import now, money, public_payment, ensure_indexes, TRANSITIONS
 from .credentials import load
 from .providers.registry import provider
 from .ledger import Ledger
+from . import launch
 
 def tenant_identity(database):
     from bot_tenant_scope import get_current_scope
@@ -21,6 +22,7 @@ async def resolve(database, platform, tenant_id):
     mode = config.get("payment_mode")
     if mode == "self_gateway":
         adapter = await load(database, tenant_id, config.get("credential_id"))
+        launch.require_provider(adapter.name)
         caps = config.get("capabilities")
         if not caps or caps["environment"] != adapter.environment or caps["provider"] != adapter.name:
             raise CommerceError("Test Connection required")
@@ -32,6 +34,7 @@ async def resolve(database, platform, tenant_id):
         adapter = await load(platform, "platform-idse", config["credential_id"])
         if adapter.name != "kasera":
             raise CommerceError("IDSE gateway must be Kasera")
+        launch.require_provider(adapter.name)
         caps = config.get("capabilities")
         if not caps:
             raise CommerceError("Platform gateway verification required")
@@ -97,11 +100,17 @@ async def checkout(database, platform, customer, body):
     total = subtotal - discount + money(shipping["shipping_fee"])
     money(total, positive=True)
     detail = next((m for m in caps.get("method_details", []) if m.get("code") == method), None)
+    fee_snapshot = await launch.payment_snapshot(platform, adapter.name, method, detail, payment_mode=mode, base_amount=total)
+    fee_quote = launch.buyer_quote(total, fee_snapshot) if fee_snapshot else None
+    if fee_quote:
+        total = fee_quote["total"]
+        if body.expected_gateway_total != total:
+            raise CommerceError("Total pembayaran berubah; periksa rincian biaya sebelum membayar")
     if detail and not money(detail.get("min_amount", 0)) <= total <= money(detail.get("max_amount", 10**12)):
         raise CommerceError("Order amount outside payment method limits")
     payment_id = str(uuid4())
     lines = normalize_order_items([{**i.get("physical_snapshot", {}), "product_id": i["product"]["_id"], "name": i["product"]["name"], "qty": i["qty"], **{k: money(i[k]) for k in ("unit_price", "base_unit_price", "discount_total", "subtotal")}, "reserved_stock_qty": i["qty"] if i["product"].get("stock") is not None and not uses_digital_inventory(i["product"]) and not i.get("physical_snapshot") else 0} for i in quote["items"]], order_id=oid, products={i["product"]["_id"]: i["product"] for i in quote["items"]})
-    order = {"_id": oid, "tenant_id": tenant, "customer_id": customer["_id"], "user_tid": customer.get("telegram_id"), "invoice_id": "G-" + oid[:12].upper(), "customer_email": customer.get("email"), "purchase_source": "WEB", "payment_scope": "gateway", "payment_method": method, "payment_id": payment_id, "status": "preparing_payment", "items": lines, "currency": "IDR", "total": total, "grand_total": total, "items_subtotal": subtotal, "items_total": subtotal - discount, "discount_total": discount, "tax": 0, "payment_fee": 0, "idempotency_key": body.idempotency_key, "commerce_schema_version": 1, "created_at": now().isoformat(), **shipping}
+    order = {"_id": oid, "tenant_id": tenant, "customer_id": customer["_id"], "user_tid": customer.get("telegram_id"), "invoice_id": "G-" + oid[:12].upper(), "customer_email": customer.get("email"), "purchase_source": "WEB", "payment_scope": "gateway", "payment_method": method, "payment_id": payment_id, "status": "preparing_payment", "items": lines, "currency": "IDR", "total": total, "grand_total": total, "items_subtotal": subtotal, "items_total": subtotal - discount, "discount_total": discount, "tax": 0, "payment_fee": fee_quote["payment_fee"] if fee_quote else 0, "fee_quote": fee_quote, "idempotency_key": body.idempotency_key, "commerce_schema_version": 1, "created_at": now().isoformat(), **shipping}
     try:
         await database.purchases.insert_one(order.copy())
     except DuplicateKeyError:
@@ -122,6 +131,9 @@ async def checkout(database, platform, customer, body):
         if quote["coupon"] and not await reserve_coupon(quote["coupon"], {"customer_id": customer["_id"]}, oid, quote["coupon_amount"]):
             raise CommerceError("Coupon unavailable")
         payment = {"_id": payment_id, "tenant_id": tenant, "order_id": oid, "payment_mode": mode, "provider": adapter.name, "environment": adapter.environment, "method": method, "credential_id": credential_id, "capabilities": caps, "amount": total, "currency": "IDR", "status": "created", "provider_reference": str(uuid4()), "provider_payment_id": None, "refunded_amount": 0, "refund_reserved": 0, "refunds": [], "created_at": now(), "updated_at": now(), "expires_at": now() + timedelta(minutes=60), "reconciliation": "create_intent"}
+        payment.update(fee_snapshot)
+        if fee_quote:
+            payment["fee_quote"] = fee_quote
         await database.order_payments.insert_one(payment.copy())
         await platform.payment_routes.insert_one({"_id": payment_id, "provider": adapter.name, "provider_reference": payment["provider_reference"], "tenant_id": tenant, "tenant_database": database.name, "order_id": oid, "payment_mode": mode, "environment": adapter.environment, "created_at": now()})
         claimed = await database.purchases.update_one({"_id": oid, "status": "preparing_payment"}, {"$set": {"status": "pending_payment"}})
@@ -148,7 +160,7 @@ async def checkout(database, platform, customer, body):
 
 async def checkout_response(database, order):
     payment = await database.order_payments.find_one({"order_id": order["_id"]})
-    return {**{k: order.get(k) for k in ("_id", "invoice_id", "status", "total", "grand_total", "items", "shipping_fee", "shipping_address", "shipping_mode", "shipping_quote", "requires_shipping", "currency", "payment_method")}, "payment": public_payment(payment) if payment else None}
+    return {**{k: order.get(k) for k in ("_id", "invoice_id", "status", "total", "grand_total", "payment_fee", "fee_quote", "items", "shipping_fee", "shipping_address", "shipping_mode", "shipping_quote", "requires_shipping", "currency", "payment_method")}, "payment": public_payment(payment) if payment else None}
 
 async def apply_event(database, platform, payment, event):
     if event["status"] not in {"paid", "pending", "expired", "failed", "cancelled"}:
@@ -169,7 +181,7 @@ async def apply_event(database, platform, payment, event):
         if status == "paid":
             settings = await database.payment_settings.find_one({"_id": "main"}) or {}
             clearing = now() + timedelta(seconds=max(0, int(settings.get("clearing_delay_seconds", 0))))
-            updates.update({"paid_at": now(), "clearing_at": clearing, "available_at": clearing + timedelta(seconds=max(0, int(settings.get("available_delay_seconds", 0)))), "platform_fee": money(settings.get("platform_fee", 0))})
+            updates.update({"paid_at": now(), "clearing_at": clearing, "available_at": clearing + timedelta(seconds=max(0, int(settings.get("available_delay_seconds", 0)))), "platform_fee": money(current.get("fee_policy", {}).get("platform", settings.get("platform_fee", 0)))})
         await database.order_payments.update_one({"_id": current["_id"], "status": current["status"]}, {"$set": updates})
     current = await database.order_payments.find_one({"_id": payment["_id"]})
     if current["status"] == "paid":

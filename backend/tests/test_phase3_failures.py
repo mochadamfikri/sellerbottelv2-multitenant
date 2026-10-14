@@ -120,7 +120,7 @@ def test_kasera_timestamped_signature_and_live_rejection(monkeypatch, offset):
     from payments.providers.kasera import KaseraSandbox
     monkeypatch.setenv("PHASE3_SANDBOX_ENABLED", "true")
     provider = KaseraSandbox("kasera", "sandbox", {"api_key": "kp_test_synthetic", "webhook_secret": "test-signing-key"})
-    value = {"id": "evt", "livemode": False, "data": {"external_id": "reference", "payment_request_id": "payreq", "amount": 1000, "currency": "IDR", "status": "succeeded"}}
+    value = {"id": "evt", "type": "payment.paid", "livemode": False, "data": {"external_id": "reference", "payment_request_id": "payreq", "amount": 1000, "currency": "IDR", "status": "succeeded"}}
     raw = json.dumps(value).encode(); stamp = str(int(time.time()) + offset)
     sig = "t=" + stamp + ",v1=" + hmac.new(b"test-signing-key", stamp.encode() + b"." + raw, hashlib.sha256).hexdigest()
     if offset:

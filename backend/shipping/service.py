@@ -8,6 +8,7 @@ from commerce.physical.models import address_snapshot
 from payments.models import now, money
 from payments.credentials import seal, unseal
 from .providers import adapter
+from payments.launch import require_shipping, enabled
 
 def fingerprint(items, address):
     return hashlib.sha256(json.dumps({"items": items, "address": address}, sort_keys=True, default=str).encode()).hexdigest()
@@ -23,7 +24,7 @@ def parcels(quote):
 
 async def config(database, tenant):
     doc = await database.shipping_settings.find_one({"_id": "main", "tenant_id": tenant}) or {"mode": "manual_shipping"}
-    return doc
+    return {**doc, "launch_profile": "v1_kasera" if enabled() else None}
 
 def shipping_adapter(database, tenant, doc):
     fields = unseal(f"shipping:{database.name}:{tenant}:{doc['credential_id']}", doc["secret"])
@@ -31,6 +32,7 @@ def shipping_adapter(database, tenant, doc):
 
 async def save_config(database, tenant, data):
     mode = data["mode"]
+    require_shipping(mode)
     if mode not in {"manual_shipping", "integrated_shipping", "pickup_only"}:
         raise CommerceError("Invalid shipping mode")
     doc = {"_id": "main", "tenant_id": tenant, "mode": mode, "manual_shipping_fee": money(data.get("manual_shipping_fee", 0)), "origin": address_snapshot(data.get("origin")) if mode != "manual_shipping" else data.get("origin"), "updated_at": now()}
@@ -52,6 +54,7 @@ async def save_config(database, tenant, data):
 
 async def rates(database, tenant, customer_id, quote, address):
     doc = await config(database, tenant)
+    require_shipping(doc["mode"])
     address = address_snapshot(address)
     if doc["mode"] != "integrated_shipping":
         return {"mode": doc["mode"], "rates": [], "shipping_fee": 0 if doc["mode"] == "pickup_only" else money(quote["shipping_fee"])}
@@ -67,6 +70,7 @@ async def rates(database, tenant, customer_id, quote, address):
 
 async def checkout_shipping(database, tenant, quote, address, rate_id, customer_id=None):
     doc = await config(database, tenant)
+    require_shipping(doc["mode"])
     basic = {"requires_shipping": True, "shipping_address": address_snapshot(address), "shipping_mode": doc["mode"]}
     if doc["mode"] == "manual_shipping":
         return {**basic, "shipping_fee": money(quote["shipping_fee"])}

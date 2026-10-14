@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any, Literal, cast
 
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from audit_events import write_audit_event
 from db import db
@@ -1151,3 +1151,50 @@ def _json_safe(obj):
     if isinstance(obj, (list, tuple)):
         return [_json_safe(v) for v in obj]
     return obj
+
+
+class IdseGatewayFeeTier(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    min_amount: int = Field(strict=True, ge=1, le=10**12)
+    max_amount: int | None = Field(default=None, strict=True, ge=1, le=10**12)
+    fee: int = Field(strict=True, ge=0, le=1000000)
+
+
+class IdseGatewayFeeBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    platform_fee: int = Field(strict=True, ge=0, le=1000000)
+    tiers: list[IdseGatewayFeeTier] = Field(default_factory=list, max_length=20)
+
+    @model_validator(mode="after")
+    def disjoint_ranges(self):
+        ordered = sorted(self.tiers, key=lambda t: t.min_amount)
+        previous_end = 0
+        for tier in ordered:
+            if tier.max_amount is not None and tier.max_amount < tier.min_amount:
+                raise ValueError("Batas akhir rentang harus sama atau lebih besar dari batas awal")
+            if previous_end is None or tier.min_amount <= previous_end:
+                raise ValueError("Rentang fee tidak boleh tumpang tindih")
+            previous_end = tier.max_amount
+        self.tiers = ordered
+        return self
+
+
+@router.get("/payments/kasera/fee")
+async def get_idse_gateway_fee(admin: dict = Depends(require_platform_admin)):
+    from db import platform_db
+    from payments.launch import platform_fee_policy
+    return {**await platform_fee_policy(platform_db()), "default_platform_fee": 250,
+            "currency": "IDR", "applies_to": "platform_settlement", "bearer": "tenant",
+            "basis": "items_after_discount_plus_shipping_before_gateway_fee"}
+
+
+@router.put("/payments/kasera/fee")
+async def save_idse_gateway_fee(body: IdseGatewayFeeBody, admin: dict = Depends(require_platform_admin)):
+    from db import platform_db
+    from payments.models import now
+    tiers = [tier.model_dump() for tier in body.tiers]
+    await platform_db().platform_payment_settings.update_one(
+        {"_id": "kasera"}, {"$set": {"platform_fee": body.platform_fee, "platform_fee_tiers": tiers,
+                                      "fee_updated_at": now(), "fee_updated_by": _actor_id(admin)}}, upsert=True)
+    await _audit(admin, "idse_gateway_fee.updated", "platform", {"platform_fee": body.platform_fee, "tiers": tiers, "applies_to": "new_platform_settlement_payments"})
+    return await get_idse_gateway_fee(admin)

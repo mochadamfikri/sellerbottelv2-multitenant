@@ -592,6 +592,7 @@ class CheckoutBody(BaseModel):
     idempotency_key: str = Field(min_length=8, max_length=80)
     shipping_address: Address | None = None
     shipping_rate_id: str | None = None
+    expected_gateway_total: int | None = Field(default=None, strict=True, ge=1, le=10**12)
 
 
 class QuoteBody(BaseModel):
@@ -700,6 +701,10 @@ async def store_checkout(body: CheckoutBody, user: dict = Depends(current_custom
     if body.currency != "IDR":
         raise HTTPException(400, "Pembayaran saldo dan QRIS Front Store menggunakan IDR.")
     method = str(body.payment_method or "qris").strip().lower()
+    from payments.launch import enabled as v1_enabled
+    from bot_tenant_scope import get_current_scope
+    if v1_enabled() and get_current_scope() is not None and not method.startswith("gateway:"):
+        raise CommerceError("V1 tenant payments require Kasera")
     if method not in {"qris", "balance"} and not method.startswith("gateway:"):
         raise HTTPException(400, "Metode pembayaran tidak valid.")
     if not re.fullmatch(r"[A-Za-z0-9_-]{8,80}", body.idempotency_key):
@@ -1142,17 +1147,30 @@ async def cancel_physical_checkout(oid: str, user: dict = Depends(current_custom
 async def gateway_methods(amount: int | None = None):
     from db import platform_db
     from payments.orchestrator import resolve, tenant_identity
+    from payments import launch
+    from payments.models import money
+    from bot_tenant_scope import get_current_scope
+    profile = "v1_kasera" if launch.enabled() and get_current_scope() is not None else None
     try:
-        _, adapter, _, caps = await resolve(_resolve_db(), platform_db(), tenant_identity(_resolve_db()))
-        methods = caps["supported_methods"]
-        if amount is not None:
-            from payments.models import money
-            amount = money(amount, positive=True)
-            details = {m["code"]: m for m in caps.get("method_details", [])}
-            methods = [m for m in methods if money(details.get(m, {}).get("min_amount", 0)) <= amount <= money(details.get(m, {}).get("max_amount", 10**12))]
-        return {"methods": [{"code": "gateway:" + m, "label": {"qris": "QRIS", "va_bca": "BCA VA", "va_bni": "BNI VA"}.get(m, m)} for m in methods], "environment": adapter.environment, "coverage": caps["coverage"]}
+        mode, adapter, _, caps = await resolve(_resolve_db(), platform_db(), tenant_identity(_resolve_db()))
+        details = {m["code"]: m for m in caps.get("method_details", [])}
+        methods = []
+        for method in caps["supported_methods"]:
+            if launch.enabled() and method != "qris":
+                continue
+            detail = details.get(method, {})
+            fee_quote = None
+            if amount is not None:
+                total = money(amount, positive=True)
+                if launch.enabled():
+                    fee_quote = launch.buyer_quote(total, await launch.payment_snapshot(platform_db(), adapter.name, method, detail, payment_mode=mode, base_amount=total))
+                    total = fee_quote["total"]
+                if not money(detail.get("min_amount", 0)) <= total <= money(detail.get("max_amount", 10**12)):
+                    continue
+            methods.append({"code": "gateway:" + method, "label": {"qris": "QRIS", "va_bca": "BCA VA", "va_bni": "BNI VA"}.get(method, method), "fee_quote": fee_quote})
+        return {"methods": methods, "environment": adapter.environment, "coverage": caps["coverage"], "launch_profile": profile}
     except CommerceError:
-        return {"methods": []}
+        return {"methods": [], "launch_profile": profile}
 
 
 class GatewayRateBody(BaseModel):

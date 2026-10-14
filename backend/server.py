@@ -180,8 +180,10 @@ app.include_router(bot_moderation_router)
 app.include_router(storefront_router)
 app.include_router(physical_router)
 from payments.router import owner as phase3_owner, hooks as phase3_hooks
+from payments.public_webhook import router as kasera_public_hooks
 app.include_router(phase3_owner)
 app.include_router(phase3_hooks)
+app.include_router(kasera_public_hooks)
 from store_tenant_scope import install_store_scope
 install_store_scope(app)
 app.include_router(balance_admin_router)

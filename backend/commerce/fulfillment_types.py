@@ -42,8 +42,10 @@ def resolve_fulfillment_type(product):
     raise CommerceError("Ambiguous legacy fulfillment classification")
 
 
-def require_operational(product):
+def require_operational(product, *, allow_physical=False):
     value = resolve_fulfillment_type(product)
+    if value == FulfillmentType.PHYSICAL and allow_physical:
+        return value
     if value not in OPERATIONAL_TYPES:
         raise CommerceError("Fulfillment unavailable until a later commerce phase")
     return value
@@ -65,7 +67,7 @@ STATES = {
     FulfillmentType.DIGITAL_AUTO: {"reserved": {"delivering", "cancelled"}, "delivering": {"delivered", "delivery_failed"}, "delivered": set(), "delivery_failed": set(), "cancelled": set()},
     FulfillmentType.SERVICE: {"queued": {"processing", "completed", "failed", "cancelled"}, "processing": {"completed", "failed", "cancelled"}, "completed": set(), "failed": set(), "cancelled": set()},
     FulfillmentType.DIGITAL_MANUAL: {"pending": {"processing", "cancelled"}, "processing": {"delivered", "failed", "cancelled"}, "delivered": set(), "failed": set(), "cancelled": set()},
-    FulfillmentType.PHYSICAL: {"pending": set()},
+    FulfillmentType.PHYSICAL: {"pending": {"packing", "cancelled", "failed"}, "packing": {"ready_to_ship", "cancelled", "failed"}, "ready_to_ship": {"shipped", "cancelled", "failed"}, "shipped": {"delivered"}, "delivered": set(), "cancelled": set(), "failed": set()},
     FulfillmentType.SUBSCRIPTION: {"pending": set()},
 }
 

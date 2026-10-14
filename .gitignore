@@ -105,3 +105,6 @@ backend/gobiz/.env
 
 # C2 final SHA is generated after the documentation commit.
 /test_reports/phase-c2-physical-commerce-20261008/git-final.json
+
+# Phase 3 final SHA recorded after documentation commit.
+/test_reports/phase-3-payment-shipping-post-purchase-20261008/git-final.json

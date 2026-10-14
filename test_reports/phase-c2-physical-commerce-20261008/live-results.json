@@ -1,8 +1,8 @@
 {
-  "platform_database": "sellerbottel_c2_dev_aaa32612",
+  "platform_database": "sellerbottel_c2_dev_fff99534",
   "tenant_databases": [
-    "sellerbottel_tenant_c2_a_aaa32612",
-    "sellerbottel_tenant_c2_b_aaa32612"
+    "sellerbottel_tenant_c2_a_fff99534",
+    "sellerbottel_tenant_c2_b_fff99534"
   ],
   "mongo": "real dedicated localhost:27019",
   "providers": "mocked, no real SMTP/Telegram/payment requests",
@@ -81,11 +81,11 @@
       "result": "PASS"
     },
     {
-      "test": "HTTP cross tenant denied /products/3498193d-8fdc-4863-b1f2-014583a62739/variants",
+      "test": "HTTP cross tenant denied /products/e8a55c55-6ba0-41a1-826a-4fb75fd7859d/variants",
       "result": "PASS"
     },
     {
-      "test": "HTTP cross tenant denied /variants/7dffe7e7-a522-4837-b4ef-697f0b24111c/stock-movements",
+      "test": "HTTP cross tenant denied /variants/1ffc1ee6-2e6b-401e-993c-ce04cd9419f2/stock-movements",
       "result": "PASS"
     },
     {
@@ -198,6 +198,10 @@
     },
     {
       "test": "real Mongo mixed separate durable fulfillments",
+      "result": "PASS"
+    },
+    {
+      "test": "real Mongo storefront-only provider-free expiry releases once",
       "result": "PASS"
     },
     {

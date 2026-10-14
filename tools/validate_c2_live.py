@@ -276,6 +276,14 @@ async def run():
                 await _finalize_store_balance_order(result["order"]["_id"])
                 records=await a.db_handle.fulfillments.find({"order_id":result["order"]["_id"]}).to_list(None)
                 check("real Mongo mixed separate durable fulfillments",{r["status"] for r in records}=={"pending","delivered"})
+        async with use_bot_tenant(a):
+            with patch("direct_checkout.store_qris_ready",AsyncMock(return_value=True)),patch("direct_checkout._run_node",lambda *args:{"image_base64":base64.b64encode(b"mock-qr").decode()}):
+                customer=await a.db_handle.store_customers.find_one({"_id":"same-customer"})
+                expiry_result=await direct_checkout.create_store_qris_order(customer,[{"pid":pid,"variant_id":vid,"qty":1}],shipping_address=ADDRESS)
+                await a.db_handle.purchases.update_one({"_id":expiry_result["order"]["_id"]},{"$set":{"expires_at":(datetime.now(timezone.utc)-timedelta(minutes=1)).isoformat()}})
+        from commerce.physical.expiry import expire_physical_tenants
+        await expire_physical_tenants();await expire_physical_tenants()
+        check("real Mongo storefront-only provider-free expiry releases once",(await a.db_handle.purchases.find_one({"_id":expiry_result["order"]["_id"]}))["status"]=="expired" and (await a.db_handle.physical_variants.find_one({"_id":vid}))["reserved"]==0)
         await browser_checks(a,a.slug+"@gmail.com",password,buyer_password)
         stop();start();await ready(http)
         check("backend restart preserves stock shipment",(await http.get(base+f"/orders/{oid}",headers=headers[0])).status_code==200 and (await a.db_handle.shipments.find_one({"fulfillment_id":fid}))["status"]=="delivered")

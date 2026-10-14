@@ -248,6 +248,9 @@ async def startup():
     await ensure_indexes()
     await load_overrides(db.bot_messages)
     await seed_admin()
+    from commerce.physical.expiry import run_physical_expiry
+    app.state.physical_expiry_stop = asyncio.Event()
+    app.state.physical_expiry_task = asyncio.create_task(run_physical_expiry(app.state.physical_expiry_stop))
     app.state.marketing_stop = asyncio.Event()
     app.state.marketing_task = asyncio.create_task(run_marketing(app.state.marketing_stop))
     app.state.stock_monitor_stop = asyncio.Event()
@@ -329,6 +332,9 @@ async def startup():
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
+    app.state.physical_expiry_stop.set()
+    app.state.physical_expiry_task.cancel()
+    await asyncio.gather(app.state.physical_expiry_task, return_exceptions=True)
     app.state.marketing_stop.set()
     app.state.marketing_task.cancel()
     await asyncio.gather(app.state.marketing_task, return_exceptions=True)

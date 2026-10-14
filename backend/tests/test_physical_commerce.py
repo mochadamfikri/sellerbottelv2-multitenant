@@ -179,9 +179,13 @@ def test_checkout_validation_before_payment(physical,mode):
     asyncio.run(run())
 
 
-def test_fulfillment_insert_failure_rolls_back_physical_stock_and_wallet(physical,monkeypatch):
+@pytest.mark.parametrize("failure",["record", "reservation"])
+def test_fulfillment_insert_failure_rolls_back_physical_stock_and_wallet(physical,monkeypatch,failure):
     database,variant=physical
-    monkeypatch.setattr("checkout.ensure_order_fulfillments",AsyncMock(side_effect=RuntimeError("insert failed")))
+    if failure == "record":
+        monkeypatch.setattr("checkout.ensure_order_fulfillments",AsyncMock(side_effect=RuntimeError("insert failed")))
+    else:
+        monkeypatch.setattr(PhysicalStock,"move",AsyncMock(side_effect=CommerceError("synthetic reservation rejection")))
     async def run():
         from checkout import execute_checkout
         user=await database.store_customers.find_one({"_id":"customer"})
@@ -190,7 +194,8 @@ def test_fulfillment_insert_failure_rolls_back_physical_stock_and_wallet(physica
         assert (await database.store_customers.find_one({"_id":"customer"}))["balance_idr"]==100000
         stock=await PhysicalStock(database).get(variant["_id"])
         assert (stock["on_hand"],stock["reserved"])==(5,0)
-        assert [e["type"] for e in stock["stock_events"]]==["RECEIVE","RESERVATION","RELEASE"]
+        assert [e["type"] for e in stock["stock_events"]]==(["RECEIVE","RESERVATION","RELEASE"] if failure == "record" else ["RECEIVE"])
+        assert await database.purchases.count_documents({"status":"failed"})==1
     asyncio.run(run())
 
 

@@ -113,3 +113,26 @@ def test_identical_variant_order_fulfillment_ids_are_database_scoped(physical_ap
             assert (await http.get(base+"/orders/same-order",headers=scopes[1][1])).json()["fulfillments"][0].get("shipment_snapshot") is None
         assert get_current_scope() is None
     asyncio.run(run())
+
+
+
+def test_provider_free_expiry_scans_storefront_tenant_without_bot(physical_api,monkeypatch):
+    registry,app=physical_api
+    async def run():
+        from datetime import datetime,timedelta,timezone
+        from commerce.physical.expiry import expire_physical_tenants
+        tenant,_=await seed(registry,"no-bot-shop","disabled")
+        database=client[tenant["database_name"]]
+        await database.physical_variants.insert_one({"_id":"variant","sku":"SKU","on_hand":1,"reserved":1,"stock_version":1,"stock_events":[{"_id":"reservation","variant_id":"variant","sku":"SKU","type":"RESERVATION","quantity":1,"delta_on_hand":0,"delta_reserved":1,"reference_id":"line","created_at":datetime.now(timezone.utc)}]})
+        await database.purchases.insert_one({"_id":"expired-physical","payment_scope":"store","payment_method":"qris","status":"pending_payment","requires_shipping":True,"payment_id":"payment","expires_at":(datetime.now(timezone.utc)-timedelta(minutes=1)).isoformat(),"items":[{"line_id":"line","variant_id":"variant","fulfillment_type":"physical","qty":1}]})
+        await database.gopay_payments.insert_one({"_id":"payment","status":"pending","active_payment_amount":1000})
+        with monkeypatch.context() as patch:
+            send=AsyncMock();patch.setattr("tgapi.send_message",send)
+            await expire_physical_tenants();await expire_physical_tenants()
+            send.assert_not_called()
+        assert (await database.purchases.find_one({"_id":"expired-physical"}))["status"]=="expired"
+        assert (await database.physical_variants.find_one({"_id":"variant"}))["reserved"]==0
+        assert await database.stock_movements.count_documents({"type":"RELEASE"})==1
+        assert (await database.gopay_payments.find_one({"_id":"payment"}))["status"]=="expired"
+        assert get_current_scope() is None
+    asyncio.run(run())

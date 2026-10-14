@@ -346,9 +346,10 @@ async def create_store_qris_order(customer, cart_items, coupon_code=None, idempo
         raise
 
 
-async def expire_qris_orders():
+async def expire_qris_orders(*, physical_only=False):
     now = now_iso()
-    async for order in db.purchases.find({"payment_scope": {"$in": [PAYMENT_SCOPE, "store"]},
+    async for order in db.purchases.find({"payment_scope": "store" if physical_only else {"$in": [PAYMENT_SCOPE, "store"]},
+                                           **({"requires_shipping": True} if physical_only else {}),
                                            "payment_method": "qris",
                                            "$or": [{"status": "pending_payment", "expires_at": {"$lte": now}}, {"status": "expired", "stock_release_pending": True}] }):
         changed = await db.purchases.update_one(

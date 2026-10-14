@@ -175,6 +175,8 @@ def test_bot2_balance_checkout_is_idr_only_without_changing_bot1_currency(monkey
     assert order["currency"] == "IDR"
     assert order["bot2"] is True
     assert order["payment_scope"] == "bot2"
+    assert order["status"] == "delivered"
+    assert run(db.fulfillments.count_documents({"order_id": order["_id"], "status": "delivered"})) == 1
 
 
 def test_bot2_product_menu_and_product_detail_are_callable(monkeypatch):
@@ -204,3 +206,22 @@ def test_bot2_qris_order_isolated_from_bot1_scope():
     run(seed())
     bot1 = run(db.gopay_payments.find_one({"_id": "bot1-payment"}))
     assert bot1["payment_scope"] == "bot1"
+
+
+def test_bot2_qris_failed_delivery_releases_inventory_without_replay(monkeypatch):
+    from unittest.mock import AsyncMock
+    monkeypatch.setattr(bot2, "_run_node", lambda *args: {"image_base64": base64.b64encode(b"mock-qr").decode()})
+    monkeypatch.setattr(bot2, "send2", AsyncMock())
+    delivery = AsyncMock(return_value=False)
+    monkeypatch.setattr(bot2, "deliver_inventory", delivery)
+    monkeypatch.setattr(bot2, "notify_transaction_channel_safely", AsyncMock())
+    user = run(bot2.get_user2({"id": 91919, "first_name": "C1"}))
+    run(bot2.create_bot2_checkout(91919, user, "p1", 1))
+    order = run(db.purchases.find_one({"user_tid": 91919}))
+    assert not run(bot2.finalize_bot2_checkout(order["_id"], "mock-tx"))
+    assert not run(bot2.finalize_bot2_checkout(order["_id"], "mock-tx"))
+    assert delivery.await_count == 1
+    assert run(db.purchases.find_one({"_id": order["_id"]}))["status"] == "delivery_failed"
+    assert run(db.inventory_items.count_documents({"product_id": "p1", "status": "reserved"})) == 0
+    assert run(db.inventory_items.count_documents({"product_id": "p1", "status": "sold"})) == 0
+    assert run(db.fulfillments.find_one({"order_id": order["_id"]}))["status"] == "delivery_failed"

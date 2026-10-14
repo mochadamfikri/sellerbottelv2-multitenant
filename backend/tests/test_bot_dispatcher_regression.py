@@ -129,6 +129,8 @@ def test_balance_checkout_cart_coupon_inventory_and_purchase_stay_in_one_tenant(
     async def run():
         scopes = [BotTenantScope(slug=slug, tenant_id=slug, database_name="commerce_" + slug, db_handle=client["commerce_" + slug], bot_token=slug) for slug in ("a", "b")]
         for scope in scopes:
+            from dependencies import get_tenant_registry
+            await get_tenant_registry().collection.update_one({"_id": scope.tenant_id}, {"$set": {"slug": scope.slug, "database_name": scope.database_name, "status": "active"}}, upsert=True)
             async with use_bot_tenant(scope):
                 database = scope.db_handle
                 await database.settings.insert_one({"_id": "main", "rate_mode": "manual", "manual_rate": 16000})

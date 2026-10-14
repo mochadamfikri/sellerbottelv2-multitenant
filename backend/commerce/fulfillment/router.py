@@ -23,7 +23,7 @@ async def require_active_context(repo):
     scope = get_current_scope()
     if scope is None:
         return
-    if scope.db_handle is None or scope.database_name != repo.database.name or str(scope.tenant_id) != repo.tenant_id:
+    if scope.db_handle is None or scope.database_name != repo.database.name or (scope.slug != "central" and str(scope.tenant_id) != repo.tenant_id):
         raise CommerceError("Tenant fulfillment context mismatch")
     from dependencies import get_tenant_registry
     registry_doc = await get_tenant_registry().get_tenant(scope.slug)
@@ -37,6 +37,11 @@ async def require_active_context(repo):
         raise CommerceError("Tenant fulfillment unavailable")
     if scope.slug != "central" and str(registry_doc["_id"]) != repo.tenant_id:
         raise CommerceError("Tenant fulfillment context mismatch")
+    if scope.slug == "central":
+        # Central bot and owner API share the owner's database. Their work must
+        # share the same idempotency namespace rather than claim a line twice.
+        repo.tenant_id = str(registry_doc["_id"])
+        repo.allowed_order_tenant_ids.update({repo.tenant_id, registry_doc["slug"], str(scope.tenant_id)})
 
 
 async def ensure_order_fulfillments(order):

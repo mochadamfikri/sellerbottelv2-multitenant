@@ -47,6 +47,7 @@ def create_mock_tenant_db():
     class MockDatabase:
         def __init__(self):
             self.purchases = MockCollection()
+            self.products = MockCollection()
 
     return MockDatabase()
 

@@ -246,6 +246,8 @@ def test_meta_collection_uses_bracket_notation():
             self.attribute_accessed = []
             self.settings = MagicMock()
             self.settings.update_one = MagicMock(side_effect=self._mock_async)
+            self.fulfillments = MagicMock()
+            self.fulfillments.create_index = MagicMock(side_effect=self._mock_async)
             self.products = MagicMock()
             self.products.create_index = MagicMock(side_effect=self._mock_async)
             self.inventory_items = MagicMock()

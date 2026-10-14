@@ -17,11 +17,17 @@ const cls = "mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py
 export default function SettingsPage() {
   const [s, setS] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [cloudflare, setCloudflare] = useState(null);
+  const [cloudflareToken, setCloudflareToken] = useState("");
+  const [savingCloudflare, setSavingCloudflare] = useState(false);
 
   useEffect(() => {
     api.get("/admin/settings")
       .then(({ data }) => setS(data))
       .catch((err) => toast.error(formatApiErrorDetail(err.response?.data?.detail) || "Gagal memuat pengaturan."));
+    api.get("/v2/platform/cloudflare")
+      .then(({ data }) => setCloudflare(data))
+      .catch(() => setCloudflare({ unavailable: true }));
   }, []);
 
   if (!s) return <p className="text-slate-500 text-sm">Memuat...</p>;
@@ -78,8 +84,49 @@ export default function SettingsPage() {
 
   const setAddr = (key, val) => setS({ ...s, crypto_addresses: { ...s.crypto_addresses, [key]: val } });
 
+  const saveCloudflare = async () => {
+    if (!cloudflareToken.trim()) {
+      toast.error("Masukkan Cloudflare API Token terlebih dahulu.");
+      return;
+    }
+    setSavingCloudflare(true);
+    try {
+      const { data } = await api.post("/v2/platform/cloudflare", { api_token: cloudflareToken.trim() });
+      setCloudflare(data);
+      setCloudflareToken("");
+      toast.success(data.message || "Cloudflare berhasil dikonfigurasi.");
+    } catch (err) {
+      toast.error(formatApiErrorDetail(err.response?.data?.detail) || "Cloudflare API Token tidak dapat disimpan.");
+    } finally {
+      setSavingCloudflare(false);
+    }
+  };
+
   return (
     <div className="space-y-5">
+      {!cloudflare?.unavailable && <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-5 space-y-4">
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 shrink-0 rounded-lg bg-orange-500/10 flex items-center justify-center"><ShieldCheck size={18} className="text-orange-400" /></div>
+          <div>
+            <h2 className="font-heading font-semibold">Cloudflare DNS & Wildcard SSL Otomatis</h2>
+            <p className="text-xs text-slate-500 mt-1">Untuk owner platform: token ini dipakai hanya untuk DNS challenge Let's Encrypt. Sistem menerbitkan dan memperbarui wildcard SSL <span className="font-mono">*.idsestock.my.id</span> dan <span className="font-mono">*.idseconnect.my.id</span>, sehingga subdomain toko serta panel tenant baru langsung HTTPS tanpa membuat sertifikat satu-per-satu.</p>
+          </div>
+        </div>
+        <div className="rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2 text-xs text-slate-400">
+          Status: <span className={cloudflare?.status === "verified" ? "text-emerald-400" : "text-amber-400"}>{cloudflare?.status === "verified" ? "Token aktif dan terverifikasi" : "Belum dikonfigurasi"}</span>
+          {cloudflare?.token_hint && <span className="ml-2 text-slate-600">({cloudflare.token_hint})</span>}
+          {cloudflare?.wildcard_ssl_status && cloudflare.wildcard_ssl_status !== "not_configured" && <span className="ml-2 text-slate-500">· Wildcard SSL: {cloudflare.wildcard_ssl_status === "active" ? "aktif" : "menunggu"}</span>}
+        </div>
+        <div className="grid gap-3 lg:grid-cols-[1fr_auto] items-end">
+          <label className="block text-xs text-slate-400">Cloudflare API Token
+            <input type="password" autoComplete="new-password" className={cls} placeholder="Token tidak pernah ditampilkan kembali" value={cloudflareToken} onChange={(e) => setCloudflareToken(e.target.value)} />
+            <span className="mt-1 block text-[11px] text-slate-600">Buat token dengan izin <b>Zone:DNS Edit</b> dan <b>Zone:Zone Read</b>, dibatasi ke zone <b>idsestock.my.id</b> dan <b>idseconnect.my.id</b>.</span>
+          </label>
+          <button type="button" disabled={savingCloudflare} onClick={saveCloudflare} className="rounded-lg bg-orange-500 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-orange-400 disabled:opacity-50">
+            {savingCloudflare ? "Memverifikasi..." : "Simpan & Aktifkan SSL"}
+          </button>
+        </div>
+      </div>}
       <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-5 space-y-4">
         <div>
           <h2 className="font-heading font-semibold">Branding & Pengumuman Webshop</h2>

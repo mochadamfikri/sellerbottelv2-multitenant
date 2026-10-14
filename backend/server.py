@@ -193,6 +193,8 @@ install_store_scope(app)
 app.include_router(balance_admin_router)
 app.include_router(marketing_router)
 app.include_router(v2_platform_router)
+from cloudflare_settings import router as cloudflare_settings_router
+app.include_router(cloudflare_settings_router)
 app.include_router(public_registration_router)
 app.include_router(tenant_full_router)
 app.include_router(promo_config_router)

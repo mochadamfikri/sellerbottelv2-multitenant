@@ -1,0 +1,2 @@
+# Permit the unprivileged V3 API process to issue/renew only its wildcard cert.
+ubuntu ALL=(root) NOPASSWD: /usr/local/sbin/sellerbottel-cloudflare-wildcard

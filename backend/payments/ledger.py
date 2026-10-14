@@ -7,6 +7,7 @@ from uuid import uuid5, NAMESPACE_URL
 from pymongo.errors import DuplicateKeyError
 from commerce.fulfillment_types import CommerceError, FulfillmentUnavailable
 from .models import now, money
+from commerce.journal import Journal, project_events
 
 BUCKETS = ("pending", "clearing", "available", "reserved", "paid_out", "liability")
 
@@ -20,6 +21,7 @@ def balances(events):
 class Ledger:
     def __init__(self, database, tenant_id):
         self.db, self.tenant = database, tenant_id
+        self.journal = Journal(database, "settlement_accounts", "events", "version", "settlement_journal_archive")
 
     async def get(self):
         try:
@@ -30,26 +32,32 @@ class Ledger:
         await self.project(doc)
         return doc
 
-    async def project(self, doc):
-        for entry in doc["events"]:
-            try:
-                await self.db.settlement_entries.update_one({"_id": entry["_id"]}, {"$setOnInsert": entry}, upsert=True)
-            except DuplicateKeyError:
-                pass
+    def values(self, doc):
+        result = balances(doc["events"])
+        for k in BUCKETS: result[k] += doc.get("archive_totals", {}).get(k, 0)
+        return result
 
-    async def append(self, reference, intent, build):
+    async def project(self, doc):
+        await project_events(self.db.settlement_entries, doc["events"])
+
+    async def append(self, reference, intent, build, context=None):
         for _ in range(50):
             account = await self.get()
-            prior = [e for e in account["events"] if e["reference"] == reference]
+            compacted = await self.journal.compact(account, lambda e: {**e.get("deltas", {}), "nonmock": int(e["type"] == "PAYMENT_GROSS" and e.get("environment") != "mock")})
+            if compacted is None: continue
+            account = compacted
+            historical = await self.journal.relevant(account, {"reference": reference, **(context or {})})
+            relevant = historical + account["events"]
+            prior = [e for e in relevant if e["reference"] == reference]
             if prior:
                 if any(e["intent"] != intent for e in prior):
                     raise CommerceError("Settlement idempotency conflict")
                 return prior
-            if len(account["events"]) >= 10000:
-                raise FulfillmentUnavailable("Settlement journal archival required")
-            additions = build(account["events"], balances(account["events"]))
+            values = self.values(account)
+            values["nonmock"] = account.get("archive_totals", {}).get("nonmock", 0)
+            additions = build(relevant, values)
             events = [{"_id": str(uuid5(NAMESPACE_URL, f"settlement:{self.db.name}:{self.tenant}:{reference}:{i}")), "tenant_id": self.tenant, "reference": reference, "idempotency_key": reference, "intent": intent, "currency": "IDR", "created_at": now(), **e} for i, e in enumerate(additions)]
-            values = balances(account["events"] + events)
+            values = self.values({**account, "events": account["events"] + events})
             if any(v < 0 for v in values.values()):
                 raise CommerceError("Invalid settlement balance")
             changed = await self.db.settlement_accounts.update_one({"_id": self.tenant, "version": account["version"]}, {"$inc": {"version": 1}, "$push": {"events": {"$each": events}}})
@@ -90,7 +98,7 @@ class Ledger:
             # another payment can never consume this payment's pending funds.
             value = sum(e.get("deltas", {}).get(source, 0) for e in events if e.get("payment_id") == pid)
             return [{"type": "NET_CLEARING" if target == "clearing" else "NET_AVAILABLE", "amount": value, "state": target, "payment_id": pid, "deltas": {source: -value, target: value}}]
-        return await self.append(target + ":" + pid, {"payment_id": pid, "stage": target}, build)
+        return await self.append(target + ":" + pid, {"payment_id": pid, "stage": target}, build, {"payment_id": pid})
 
     async def reverse(self, payment, refund):
         if payment["payment_mode"] != "platform_settlement":
@@ -107,7 +115,7 @@ class Ledger:
                 remaining -= used
             delta["liability"] = remaining
             return [{"type": "REFUND_REVERSAL", "amount": refund["amount"], "payment_id": payment["_id"], "refund_id": refund["_id"], "state": "reversed", "deltas": delta}]
-        return await self.append("refund:" + refund["_id"], {"payment_id": payment["_id"], "amount": refund["amount"]}, build)
+        return await self.append("refund:" + refund["_id"], {"payment_id": payment["_id"], "amount": refund["amount"]}, build, {"payment_id": payment["_id"]})
 
     async def request_payout(self, key, amount, bank):
         amount = money(amount, positive=True)
@@ -116,7 +124,7 @@ class Ledger:
         def build(events, values):
             if amount > values["available"] - values["liability"]:
                 raise CommerceError("Insufficient available settlement")
-            if any(e.get("environment") != "mock" for e in events if e["type"] == "PAYMENT_GROSS"):
+            if values.get("nonmock") or any(e.get("environment") != "mock" for e in events if e["type"] == "PAYMENT_GROSS"):
                 raise CommerceError("Live/sandbox funds cannot enter simulated payout")
             return [{"type": "PAYOUT_RESERVE", "amount": amount, "payout_id": key, "state": "requested", "bank_snapshot": bank, "deltas": {"available": -amount, "reserved": amount}}]
         return await self.append("payout:" + key, {"amount": amount, "bank_version": bank["_id"]}, build)
@@ -132,4 +140,4 @@ class Ledger:
                 raise CommerceError("Invalid payout transition")
             delta = {"reserved": -amount, "paid_out": amount} if state == "paid" else {"reserved": -amount, "available": amount} if state in {"failed", "rejected", "cancelled"} else {}
             return [{"type": "PAYOUT" if state == "paid" else "PAYOUT_STATE", "payout_id": key, "amount": amount, "state": state, "coverage": "MOCKED", "deltas": delta}]
-        return await self.append(f"payout:{key}:{state}", {"payout_id": key, "state": state}, build)
+        return await self.append(f"payout:{key}:{state}", {"payout_id": key, "state": state}, build, {"payout_id": key})

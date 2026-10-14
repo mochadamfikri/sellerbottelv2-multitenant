@@ -29,6 +29,8 @@ def public_payment(payment):
     return {k: payment.get(k) for k in ("_id", "order_id", "payment_mode", "provider", "method", "environment", "amount", "currency", "status", "provider_payment_id", "provider_reference", "expires_at", "paid_at", "cancelled_at", "refunded_amount", "created_at", "updated_at", "instructions", "reconciliation")}
 
 async def ensure_indexes(database, platform):
+    from commerce.journal import ensure_archive_indexes
+    await ensure_archive_indexes(database)
     await database.order_payments.create_index("order_id", unique=True, name="payment_order_unique")
     await platform.payment_routes.create_index([("provider", 1), ("provider_reference", 1)], unique=True, name="payment_route_reference")
     await platform.payment_routes.create_index([("provider", 1), ("provider_payment_id", 1)], unique=True, partialFilterExpression={"provider_payment_id": {"$type": "string"}}, name="payment_route_external")

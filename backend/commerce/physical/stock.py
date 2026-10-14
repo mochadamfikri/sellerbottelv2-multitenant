@@ -6,12 +6,14 @@ stock_movements is an idempotently repairable projection, never a pre-write prom
 from datetime import datetime, timezone
 from uuid import uuid5, NAMESPACE_URL
 from pymongo.errors import DuplicateKeyError
+from commerce.journal import Journal, ensure_archive_indexes, project_events
 from ..fulfillment_types import CommerceError, FulfillmentUnavailable
 
 TYPES = {"RECEIVE", "SALE", "RESERVATION", "RELEASE", "RETURN", "DAMAGE", "ADJUSTMENT"}
 
 
 async def ensure_indexes(database):
+    await ensure_archive_indexes(database)
     await database.physical_variants.create_index("sku", unique=True, name="physical_sku_unique")
     await database.physical_variants.create_index([("product_id", 1), ("active", 1)], name="physical_product_variants")
     await database.stock_movements.create_index([("variant_id", 1), ("created_at", 1)], name="physical_movement_history")
@@ -21,13 +23,10 @@ async def ensure_indexes(database):
 class PhysicalStock:
     def __init__(self, database):
         self.database = database
+        self.journal = Journal(database, "physical_variants", "stock_events", "stock_version", "stock_journal_archive")
 
     async def project(self, variant):
-        for event in variant.get("stock_events", []):
-            try:
-                await self.database.stock_movements.update_one({"_id": event["_id"]}, {"$setOnInsert": event}, upsert=True)
-            except DuplicateKeyError:
-                pass
+        await project_events(self.database.stock_movements, variant.get("stock_events", []))
 
     async def get(self, variant_id):
         variant = await self.database.physical_variants.find_one({"_id": variant_id})
@@ -44,13 +43,16 @@ class PhysicalStock:
         event_id = str(uuid5(NAMESPACE_URL, f"physical:{self.database.name}:{variant_id}:{kind}:{reference_id}"))
         for _ in range(30):
             variant = await self.get(variant_id)
-            prior = next((e for e in variant.get("stock_events", []) if e["_id"] == event_id), None)
+            compacted = await self.journal.compact(variant, lambda e: {"on_hand": e.get("delta_on_hand",0), "reserved": e.get("delta_reserved",0)})
+            if compacted is None: continue
+            variant = compacted
+            historical = await self.journal.relevant(variant, {"_id": event_id, "reference_id": reference_id, "sale_reference": reference_id})
+            events_all = historical + variant.get("stock_events", [])
+            prior = next((e for e in events_all if e["_id"] == event_id), None)
             if prior:
                 if prior["quantity"] != quantity:
                     raise CommerceError("Stock idempotency conflict")
                 return prior
-            if kind in {"RECEIVE", "DAMAGE", "ADJUSTMENT", "RESERVATION"} and len(variant.get("stock_events", [])) >= 3000:
-                raise FulfillmentUnavailable("Stock journal capacity reached; archival required")
             on_hand, reserved = int(variant.get("on_hand", 0)), int(variant.get("reserved", 0))
             delta_hand = delta_reserved = 0
             if kind == "RESERVATION":
@@ -58,12 +60,12 @@ class PhysicalStock:
                     raise CommerceError("Inactive variant")
                 delta_reserved = quantity
             elif kind in {"SALE", "RELEASE", "RETURN"}:
-                events = [e for e in variant.get("stock_events", []) if e["reference_id"] == reference_id]
+                events = [e for e in events_all if e["reference_id"] == reference_id]
                 reservation = next((e for e in events if e["type"] == "RESERVATION"), None)
                 sale = next((e for e in events if e["type"] == "SALE"), None)
                 sold = sale is not None
                 released = any(e["type"] == "RELEASE" for e in events)
-                returned = any(e["type"] == "RETURN" and (e["reference_id"] == reference_id or e.get("sale_reference") == reference_id) for e in variant.get("stock_events", []))
+                returned = any(e["type"] == "RETURN" and (e["reference_id"] == reference_id or e.get("sale_reference") == reference_id) for e in events_all)
                 if kind in {"SALE", "RELEASE"} and (not reservation or reservation["quantity"] != quantity or sold or released):
                     raise CommerceError("Reservation unavailable")
                 if kind == "RETURN" and (not sold or sale["quantity"] != quantity or returned):
@@ -94,7 +96,8 @@ class PhysicalStock:
             if not line.get("variant_id") or line.get("fulfillment_type") != "physical":
                 continue
             variant = await self.get(line["variant_id"])
-            events = [e for e in variant.get("stock_events", []) if e["reference_id"] == line["line_id"]]
+            history = await self.journal.relevant(variant, {"reference_id": line["line_id"]})
+            events = [e for e in history + variant.get("stock_events", []) if e["reference_id"] == line["line_id"]]
             if not any(e["type"] == "RESERVATION" for e in events):
                 continue
             if any(e["type"] == "SALE" for e in events):
@@ -117,13 +120,18 @@ class PhysicalStock:
         event_id = str(uuid5(NAMESPACE_URL, f"partial-return:{self.database.name}:{variant_id}:{reference}"))
         for _ in range(30):
             variant = await self.get(variant_id)
-            prior = next((e for e in variant.get("stock_events", []) if e["_id"] == event_id), None)
+            compacted = await self.journal.compact(variant, lambda e: {"on_hand": e.get("delta_on_hand",0), "reserved": e.get("delta_reserved",0)})
+            if compacted is None: continue
+            variant = compacted
+            history = await self.journal.relevant(variant, {"_id": event_id, "reference_id": sale_reference, "sale_reference": sale_reference})
+            events_all = history + variant.get("stock_events", [])
+            prior = next((e for e in events_all if e["_id"] == event_id), None)
             if prior:
                 if prior["quantity"] != quantity or prior.get("damaged") != damaged or prior["sale_reference"] != sale_reference:
                     raise CommerceError("Return stock idempotency conflict")
                 return prior
-            sale = next((e for e in variant.get("stock_events", []) if e["type"] == "SALE" and e["reference_id"] == sale_reference), None)
-            returned = sum(e["quantity"] for e in variant.get("stock_events", []) if e["type"] == "RETURN" and (e.get("sale_reference") == sale_reference or e["reference_id"] == sale_reference))
+            sale = next((e for e in events_all if e["type"] == "SALE" and e["reference_id"] == sale_reference), None)
+            returned = sum(e["quantity"] for e in events_all if e["type"] == "RETURN" and (e.get("sale_reference") == sale_reference or e["reference_id"] == sale_reference))
             if not sale or quantity + returned > sale["quantity"]:
                 raise CommerceError("Return exceeds consumed sale")
             event = {"_id": event_id, "variant_id": variant_id, "sku": variant["sku"], "type": "RETURN", "quantity": quantity, "delta_on_hand": quantity, "delta_reserved": 0, "reference_type": "return", "reference_id": reference, "sale_reference": sale_reference, "damaged": damaged, "actor": "tenant_owner", "reason": "Inspected physical return", "created_at": datetime.now(timezone.utc)}

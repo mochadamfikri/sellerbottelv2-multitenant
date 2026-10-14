@@ -246,7 +246,7 @@ def test_meta_collection_uses_bracket_notation():
             self.attribute_accessed = []
             self.settings = MagicMock()
             self.settings.update_one = MagicMock(side_effect=self._mock_async)
-            for collection in ("physical_variants", "stock_movements", "shipments"):
+            for collection in ("physical_variants", "stock_movements", "shipments", "stock_journal_archive", "settlement_journal_archive"):
                 setattr(self, collection, MagicMock())
                 getattr(self, collection).create_index = MagicMock(side_effect=self._mock_async)
             self.fulfillments = MagicMock()
@@ -273,6 +273,8 @@ def test_meta_collection_uses_bracket_notation():
             self.bracket_accessed.append(item)
             if item == "_meta":
                 return self.meta_col
+            if item in self.__dict__:
+                return self.__dict__[item]
             return MagicMock()
 
         def __getattr__(self, item):

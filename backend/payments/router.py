@@ -77,7 +77,7 @@ async def settlement():
     ledger = Ledger(_resolve_db(), tenant_identity(_resolve_db()))
     account = await ledger.get()
     # Encrypted bank snapshots are deliberately omitted from normal ledger reads.
-    return {"balances": balances(account["events"]), "entries": [{k: v for k, v in e.items() if k != "bank_snapshot"} for e in account["events"]], "coverage": "No live payouts"}
+    return {"balances": ledger.values(account), "archived_chunks": account.get("archive_generation", 0), "entries": [{k: v for k, v in e.items() if k != "bank_snapshot"} for e in account["events"]], "coverage": "No live payouts"}
 
 class StageBody(BaseModel):
     stage: str = Field(pattern="^(clearing|available)$")

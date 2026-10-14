@@ -1,0 +1,564 @@
+{
+  "platform_database": "sellerbottel_phase4_dev_d5d21cdf",
+  "tenant_databases": [
+    "sellerbottel_tenant_phase4_a_d5d21cdf",
+    "sellerbottel_tenant_phase4_b_d5d21cdf"
+  ],
+  "mongo": "REAL dedicated localhost:27019",
+  "providers": "MOCKED Kasera platform/tenant, Midtrans tenant, shipping; no real charge/payout/SMTP/Telegram",
+  "browser": "REAL compiled React / Chromium",
+  "checks": [
+    {
+      "test": "real dedicated Mongo ping",
+      "result": "PASS"
+    },
+    {
+      "test": "fresh isolated platform",
+      "result": "PASS"
+    },
+    {
+      "test": "real HTTP backend ready",
+      "result": "PASS"
+    },
+    {
+      "test": "tenant registration a",
+      "result": "PASS"
+    },
+    {
+      "test": "owner login a",
+      "result": "PASS"
+    },
+    {
+      "test": "physical authoring a",
+      "result": "PASS"
+    },
+    {
+      "test": "same SKU isolated a",
+      "result": "PASS"
+    },
+    {
+      "test": "opening stock a",
+      "result": "PASS"
+    },
+    {
+      "test": "payment mode a",
+      "result": "PASS"
+    },
+    {
+      "test": "Test Connection a",
+      "result": "PASS"
+    },
+    {
+      "test": "explicit mock capability a",
+      "result": "PASS"
+    },
+    {
+      "test": "tenant registration b",
+      "result": "PASS"
+    },
+    {
+      "test": "owner login b",
+      "result": "PASS"
+    },
+    {
+      "test": "physical authoring b",
+      "result": "PASS"
+    },
+    {
+      "test": "same SKU isolated b",
+      "result": "PASS"
+    },
+    {
+      "test": "opening stock b",
+      "result": "PASS"
+    },
+    {
+      "test": "payment mode b",
+      "result": "PASS"
+    },
+    {
+      "test": "Test Connection b",
+      "result": "PASS"
+    },
+    {
+      "test": "explicit mock capability b",
+      "result": "PASS"
+    },
+    {
+      "test": "customer login a",
+      "result": "PASS"
+    },
+    {
+      "test": "foreign same-ID cookie denied",
+      "result": "PASS"
+    },
+    {
+      "test": "gateway payment create",
+      "result": "PASS"
+    },
+    {
+      "test": "single order total invariant",
+      "result": "PASS"
+    },
+    {
+      "test": "route correct tenant/database",
+      "result": "PASS"
+    },
+    {
+      "test": "invalid signature rejected",
+      "result": "PASS"
+    },
+    {
+      "test": "real Mongo concurrent duplicate webhooks",
+      "result": "PASS"
+    },
+    {
+      "test": "exactly one stock sale",
+      "result": "PASS"
+    },
+    {
+      "test": "one fulfillment",
+      "result": "PASS"
+    },
+    {
+      "test": "one settlement credit",
+      "result": "PASS"
+    },
+    {
+      "test": "foreign refund denied",
+      "result": "PASS"
+    },
+    {
+      "test": "settlement clearing",
+      "result": "PASS"
+    },
+    {
+      "test": "settlement available",
+      "result": "PASS"
+    },
+    {
+      "test": "masked bank",
+      "result": "PASS"
+    },
+    {
+      "test": "real Mongo payout reserve race one winner",
+      "result": "PASS"
+    },
+    {
+      "test": "simulated payout reviewing",
+      "result": "PASS"
+    },
+    {
+      "test": "simulated payout processing",
+      "result": "PASS"
+    },
+    {
+      "test": "simulated payout paid",
+      "result": "PASS"
+    },
+    {
+      "test": "simulated payout paid",
+      "result": "PASS"
+    },
+    {
+      "test": "partial refund idempotent",
+      "result": "PASS"
+    },
+    {
+      "test": "partial refund idempotent",
+      "result": "PASS"
+    },
+    {
+      "test": "refund after payout liability",
+      "result": "PASS"
+    },
+    {
+      "test": "customer login b",
+      "result": "PASS"
+    },
+    {
+      "test": "tenant kasera credentials",
+      "result": "PASS"
+    },
+    {
+      "test": "tenant kasera connection",
+      "result": "PASS"
+    },
+    {
+      "test": "tenant kasera checkout",
+      "result": "PASS"
+    },
+    {
+      "test": "tenant kasera paid",
+      "result": "PASS"
+    },
+    {
+      "test": "tenant kasera full refund",
+      "result": "PASS"
+    },
+    {
+      "test": "tenant midtrans credentials",
+      "result": "PASS"
+    },
+    {
+      "test": "tenant midtrans connection",
+      "result": "PASS"
+    },
+    {
+      "test": "tenant midtrans checkout",
+      "result": "PASS"
+    },
+    {
+      "test": "tenant midtrans paid",
+      "result": "PASS"
+    },
+    {
+      "test": "tenant midtrans full refund",
+      "result": "PASS"
+    },
+    {
+      "test": "own gateway zero settlement",
+      "result": "PASS"
+    },
+    {
+      "test": "integrated mock shipping setup",
+      "result": "PASS"
+    },
+    {
+      "test": "customer login a again",
+      "result": "PASS"
+    },
+    {
+      "test": "real persisted rate snapshot",
+      "result": "PASS"
+    },
+    {
+      "test": "integrated order snapshot",
+      "result": "PASS"
+    },
+    {
+      "test": "integrated total correct",
+      "result": "PASS"
+    },
+    {
+      "test": "integrated paid",
+      "result": "PASS"
+    },
+    {
+      "test": "integrated packing",
+      "result": "PASS"
+    },
+    {
+      "test": "integrated ready_to_ship",
+      "result": "PASS"
+    },
+    {
+      "test": "shipment create",
+      "result": "PASS"
+    },
+    {
+      "test": "shipment create duplicate",
+      "result": "PASS"
+    },
+    {
+      "test": "same shipment identity",
+      "result": "PASS"
+    },
+    {
+      "test": "tracking delivery idempotent",
+      "result": "PASS"
+    },
+    {
+      "test": "tracking delivery idempotent",
+      "result": "PASS"
+    },
+    {
+      "test": "tracking delivery idempotent",
+      "result": "PASS"
+    },
+    {
+      "test": "customer return request",
+      "result": "PASS"
+    },
+    {
+      "test": "duplicate return request",
+      "result": "PASS"
+    },
+    {
+      "test": "return reviewing",
+      "result": "PASS"
+    },
+    {
+      "test": "return approved",
+      "result": "PASS"
+    },
+    {
+      "test": "return received",
+      "result": "PASS"
+    },
+    {
+      "test": "return inspected",
+      "result": "PASS"
+    },
+    {
+      "test": "return inspected",
+      "result": "PASS"
+    },
+    {
+      "test": "return resolved",
+      "result": "PASS"
+    },
+    {
+      "test": "damaged return no available increase",
+      "result": "PASS"
+    },
+    {
+      "test": "return-linked partial refund",
+      "result": "PASS"
+    },
+    {
+      "test": "reconciliation repairs missing projection",
+      "result": "PASS"
+    },
+    {
+      "test": "journal projection repaired",
+      "result": "PASS"
+    },
+    {
+      "test": "outage payment prepare",
+      "result": "PASS"
+    },
+    {
+      "test": "real durable receipt survives injected local outage",
+      "result": "PASS"
+    },
+    {
+      "test": "real receipt reconciliation after outage",
+      "result": "PASS"
+    },
+    {
+      "test": "outage recovery payment paid once",
+      "result": "PASS"
+    },
+    {
+      "test": "real shipping credential binding isolation",
+      "result": "PASS"
+    },
+    {
+      "test": "browser owner branding save preview",
+      "result": "PASS"
+    },
+    {
+      "test": "browser Payment Settings Test Connection capabilities",
+      "result": "PASS"
+    },
+    {
+      "test": "browser settlement payout reservation",
+      "result": "PASS"
+    },
+    {
+      "test": "browser shipping provider settings",
+      "result": "PASS"
+    },
+    {
+      "test": "browser valid payment and shipping choices",
+      "result": "PASS"
+    },
+    {
+      "test": "browser gateway checkout amount",
+      "result": "PASS"
+    },
+    {
+      "test": "browser pending payment expiry",
+      "result": "PASS"
+    },
+    {
+      "test": "browser payment confirmation",
+      "result": "PASS"
+    },
+    {
+      "test": "browser shipment creation",
+      "result": "PASS"
+    },
+    {
+      "test": "browser shipment tracking event",
+      "result": "PASS"
+    },
+    {
+      "test": "browser customer tracking",
+      "result": "PASS"
+    },
+    {
+      "test": "browser customer return request",
+      "result": "PASS"
+    },
+    {
+      "test": "browser owner review receive inspect restock",
+      "result": "PASS"
+    },
+    {
+      "test": "browser approved partial refund",
+      "result": "PASS"
+    },
+    {
+      "test": "browser customer branded receipt",
+      "result": "PASS"
+    },
+    {
+      "test": "branding mode API platform",
+      "result": "PASS"
+    },
+    {
+      "test": "browser branding checkout platform",
+      "result": "PASS"
+    },
+    {
+      "test": "browser attribution platform",
+      "result": "PASS"
+    },
+    {
+      "test": "browser receipt branding platform",
+      "result": "PASS"
+    },
+    {
+      "test": "browser tracking branding platform",
+      "result": "PASS"
+    },
+    {
+      "test": "branding mode API co_branded",
+      "result": "PASS"
+    },
+    {
+      "test": "browser branding checkout co_branded",
+      "result": "PASS"
+    },
+    {
+      "test": "browser attribution co_branded",
+      "result": "PASS"
+    },
+    {
+      "test": "browser receipt branding co_branded",
+      "result": "PASS"
+    },
+    {
+      "test": "browser tracking branding co_branded",
+      "result": "PASS"
+    },
+    {
+      "test": "branding mode API tenant_only",
+      "result": "PASS"
+    },
+    {
+      "test": "browser branding checkout tenant_only",
+      "result": "PASS"
+    },
+    {
+      "test": "browser attribution tenant_only",
+      "result": "PASS"
+    },
+    {
+      "test": "browser receipt branding tenant_only",
+      "result": "PASS"
+    },
+    {
+      "test": "browser tracking branding tenant_only",
+      "result": "PASS"
+    },
+    {
+      "test": "browser no React errors",
+      "result": "PASS"
+    },
+    {
+      "test": "final real stock race 20 contenders one winner",
+      "result": "PASS"
+    },
+    {
+      "test": "final real mixed one order one wallet debit",
+      "result": "PASS"
+    },
+    {
+      "test": "final real digital service physical separate fulfillment",
+      "result": "PASS"
+    },
+    {
+      "test": "final real digital delivery history",
+      "result": "PASS"
+    },
+    {
+      "test": "final service completion waits for physical",
+      "result": "PASS"
+    },
+    {
+      "test": "final real mixed aggregate delivered",
+      "result": "PASS"
+    },
+    {
+      "test": "real stock >3000 archive reconstructable",
+      "result": "PASS"
+    },
+    {
+      "test": "real settlement >10000 archive balances",
+      "result": "PASS"
+    },
+    {
+      "test": "restored registry binding phase4-a-d5d21cdf",
+      "result": "PASS"
+    },
+    {
+      "test": "restored registry binding phase4-b-d5d21cdf",
+      "result": "PASS"
+    },
+    {
+      "test": "encrypted backup restore all records and storage",
+      "result": "PASS"
+    },
+    {
+      "test": "restored backend starts with original registry and secret bindings",
+      "result": "PASS"
+    },
+    {
+      "test": "bounded performance catalog",
+      "result": "PASS"
+    },
+    {
+      "test": "bounded performance orders",
+      "result": "PASS"
+    },
+    {
+      "test": "bounded performance settlement",
+      "result": "PASS"
+    },
+    {
+      "test": "bounded performance shipments",
+      "result": "PASS"
+    },
+    {
+      "test": "bounded performance returns",
+      "result": "PASS"
+    },
+    {
+      "test": "archive indexes persistent",
+      "result": "PASS"
+    },
+    {
+      "test": "restart preserves commerce journals and recovery records",
+      "result": "PASS"
+    },
+    {
+      "test": "restart callback idempotency",
+      "result": "PASS"
+    },
+    {
+      "test": "real unique route indexes",
+      "result": "PASS"
+    },
+    {
+      "test": "retained baseline tenants unchanged",
+      "result": "PASS"
+    },
+    {
+      "test": "secret-safe runtime logs",
+      "result": "PASS"
+    }
+  ]
+}

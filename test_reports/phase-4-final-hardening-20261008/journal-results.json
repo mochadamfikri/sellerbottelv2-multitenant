@@ -1,0 +1,25 @@
+{
+  "stock": {
+    "events": 3201,
+    "chunks": 11,
+    "totals": {
+      "on_hand": 3201,
+      "reserved": 0
+    },
+    "verified": true
+  },
+  "settlement": {
+    "events": 10230,
+    "chunks": 38,
+    "totals": {
+      "nonmock": 0,
+      "pending": 16000,
+      "clearing": 0,
+      "available": 41000,
+      "reserved": 1000,
+      "paid_out": 20000,
+      "liability": 5000
+    },
+    "verified": true
+  }
+}

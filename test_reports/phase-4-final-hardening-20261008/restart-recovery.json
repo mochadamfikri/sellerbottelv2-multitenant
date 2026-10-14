@@ -1,0 +1,17 @@
+{
+  "backend_restart": true,
+  "counts": {
+    "purchases": 5,
+    "physical_variants": 3,
+    "order_fulfillments": 0,
+    "order_payments": 4,
+    "settlement_accounts": 1,
+    "integrated_shipments": 2,
+    "return_requests": 2,
+    "refund_requests": 0,
+    "stock_journal_archive": 11,
+    "settlement_journal_archive": 38
+  },
+  "duplicate_callback_checked": true,
+  "external_actions_retried": false
+}

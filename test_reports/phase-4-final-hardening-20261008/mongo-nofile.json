@@ -1,0 +1,8 @@
+{
+  "container": "sellerbottelv2-dev-mongo",
+  "soft": 65536,
+  "hard": 65536,
+  "restart_verified": true,
+  "databases_preserved": 92,
+  "production_untouched": true
+}

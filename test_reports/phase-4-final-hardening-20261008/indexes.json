@@ -1,0 +1,447 @@
+{
+  "sellerbottel_phase4_dev_d5d21cdf": {
+    "store_email_codes": [
+      "_id_",
+      "email_1_purpose_1",
+      "expires_at_1"
+    ],
+    "store_customers": [
+      "_id_",
+      "email_1",
+      "telegram_id_1"
+    ],
+    "reseller_payouts": [
+      "_id_",
+      "status_1_created_at_-1"
+    ],
+    "traffic_sources": [
+      "_id_",
+      "code_1"
+    ],
+    "tg_accounts": [
+      "_id_",
+      "tg_user_id_1",
+      "status_1"
+    ],
+    "stock_journal_archive": [
+      "_id_",
+      "archive_id",
+      "archive_reference_id",
+      "archive_sale_reference"
+    ],
+    "bot_users": [
+      "_id_",
+      "telegram_id_1",
+      "silent_blocked_1"
+    ],
+    "payment_routes": [
+      "_id_",
+      "payment_route_reference",
+      "payment_route_external"
+    ],
+    "promo_campaigns": [
+      "_id_",
+      "status_1_created_at_-1"
+    ],
+    "tenants": [
+      "_id_",
+      "tenant_slug_unique",
+      "tenant_database_name_unique",
+      "status_1_created_at_-1"
+    ],
+    "prospects": [
+      "_id_",
+      "owner_account_id_1_tg_user_id_1",
+      "status_1_created_at_-1"
+    ],
+    "promo_coupon_redemptions": [
+      "_id_",
+      "coupon_id_1_order_id_1",
+      "coupon_id_1_user_tid_1"
+    ],
+    "bot_messages": [
+      "_id_",
+      "key_1_lang_1"
+    ],
+    "platform_payment_settings": [
+      "_id_"
+    ],
+    "refund_operations": [
+      "_id_"
+    ],
+    "payment_events": [
+      "_id_",
+      "payment_event_unique"
+    ],
+    "products": [
+      "_id_",
+      "active_1_created_at_-1"
+    ],
+    "shipping_routes": [
+      "_id_",
+      "shipping_provider_route"
+    ],
+    "gateway_credentials": [
+      "_id_"
+    ],
+    "bot2_restock_requests": [
+      "_id_",
+      "user_tid_1_product_id_1"
+    ],
+    "reseller_bots": [
+      "_id_",
+      "telegram_bot_id_1",
+      "owner_tid_1_created_at_-1"
+    ],
+    "login_attempts": [
+      "_id_",
+      "identifier_1"
+    ],
+    "promo_events": [
+      "_id_",
+      "type_1_created_at_-1"
+    ],
+    "stock_events": [
+      "_id_",
+      "status_1_created_at_1"
+    ],
+    "physical_variants": [
+      "_id_",
+      "physical_sku_unique",
+      "physical_product_variants"
+    ],
+    "settings": [
+      "_id_"
+    ],
+    "gopay_payments": [
+      "_id_",
+      "active_payment_amount_global_unique",
+      "status_1_expires_at_1",
+      "tx_id_1",
+      "payment_scope_1_active_payment_amount_1"
+    ],
+    "analytics_events": [
+      "_id_"
+    ],
+    "bot_chat_messages": [
+      "_id_",
+      "chat_id_1_message_id_1",
+      "chat_id_1_created_at_-1"
+    ],
+    "processed_updates": [
+      "_id_",
+      "update_id_1"
+    ],
+    "fulfillments": [
+      "_id_",
+      "fulfillment_order_line_unique",
+      "fulfillment_recovery"
+    ],
+    "audit_events": [
+      "_id_",
+      "occurred_at_1",
+      "actor.id_1",
+      "action_1",
+      "target_1",
+      "audit_event_idempotency_unique"
+    ],
+    "shipments": [
+      "_id_",
+      "physical_shipment_unique"
+    ],
+    "reseller_bot_users": [
+      "_id_",
+      "bot_id_1_telegram_id_1"
+    ],
+    "promo_suppressions": [
+      "_id_",
+      "tg_user_id_1"
+    ],
+    "inventory_items": [
+      "_id_",
+      "marketing_event_unique",
+      "product_id_1_status_1",
+      "product_id_1_fingerprint_1"
+    ],
+    "outreach_jobs": [
+      "_id_",
+      "status_1_scheduled_at_1",
+      "campaign_id_1_prospect_id_1_status_1"
+    ],
+    "purchases": [
+      "_id_",
+      "invoice_id_1",
+      "user_tid_1_created_at_-1",
+      "store_customer_idempotency_unique",
+      "reseller_bot_id_1_created_at_-1"
+    ],
+    "deposits": [
+      "_id_",
+      "tx_hash_1",
+      "user_tid_1_created_at_-1",
+      "customer_id_1_created_at_-1"
+    ],
+    "settlement_journal_archive": [
+      "_id_",
+      "archive_reference",
+      "archive_payment_id",
+      "archive_payout_id"
+    ],
+    "outreach_campaigns": [
+      "_id_",
+      "status_1_created_at_-1"
+    ],
+    "admins": [
+      "_id_"
+    ],
+    "stock_movements": [
+      "_id_",
+      "physical_movement_history"
+    ],
+    "broadcasts": [
+      "_id_",
+      "marketing_schedule",
+      "created_at_-1"
+    ],
+    "reseller_commissions": [
+      "_id_",
+      "bot_id_1_status_1"
+    ],
+    "tg_groups": [
+      "_id_",
+      "account_id_1_chat_id_1"
+    ],
+    "domains": [
+      "_id_",
+      "domain_1",
+      "tenant_id_1"
+    ],
+    "promo_coupons": [
+      "_id_",
+      "code_1"
+    ],
+    "processed_updates_bot2": [
+      "_id_",
+      "update_id_1"
+    ],
+    "required_channels": [
+      "_id_",
+      "channel_id_1"
+    ],
+    "bot_message_history": [
+      "_id_",
+      "lang_1_key_1_version_-1"
+    ],
+    "tenant_owners": [
+      "_id_",
+      "owner_email_unique"
+    ],
+    "payment_settings": [
+      "_id_"
+    ],
+    "tenant_memberships": [
+      "_id_",
+      "tenant_user_unique",
+      "tenant_id_1_created_at_1",
+      "user_id_1"
+    ],
+    "coupons": [
+      "_id_",
+      "code_1"
+    ],
+    "discounts": [
+      "_id_",
+      "active_1_priority_-1"
+    ],
+    "reseller_updates": [
+      "_id_",
+      "bot_id_1_update_id_1"
+    ]
+  },
+  "sellerbottel_tenant_phase4_a_d5d21cdf": {
+    "shipping_settings": [
+      "_id_"
+    ],
+    "purchases": [
+      "_id_",
+      "invoice_id_unique",
+      "user_created_at",
+      "store_customer_idempotency_unique"
+    ],
+    "settings": [
+      "_id_"
+    ],
+    "counters": [
+      "_id_"
+    ],
+    "branding": [
+      "_id_"
+    ],
+    "payment_settings": [
+      "_id_"
+    ],
+    "inventory_items": [
+      "_id_",
+      "product_status",
+      "product_fingerprint_unique"
+    ],
+    "settlement_entries": [
+      "_id_"
+    ],
+    "physical_variants": [
+      "_id_",
+      "physical_sku_unique",
+      "physical_product_variants"
+    ],
+    "shipping_rates": [
+      "_id_"
+    ],
+    "store_customers": [
+      "_id_",
+      "email_unique",
+      "telegram_id_unique"
+    ],
+    "settlement_accounts": [
+      "_id_"
+    ],
+    "fulfillments": [
+      "_id_",
+      "fulfillment_order_line_unique",
+      "fulfillment_recovery"
+    ],
+    "stock_journal_archive": [
+      "_id_",
+      "archive_id",
+      "archive_reference_id",
+      "archive_sale_reference"
+    ],
+    "order_shipping_credentials": [
+      "_id_"
+    ],
+    "stock_movements": [
+      "_id_",
+      "physical_movement_history"
+    ],
+    "deposits": [
+      "_id_",
+      "tx_hash_unique",
+      "user_created_at",
+      "customer_created_at"
+    ],
+    "payout_banks": [
+      "_id_"
+    ],
+    "return_requests": [
+      "_id_"
+    ],
+    "bot_users": [
+      "_id_",
+      "telegram_id_unique"
+    ],
+    "shipments": [
+      "_id_",
+      "physical_shipment_unique"
+    ],
+    "_meta": [
+      "_id_"
+    ],
+    "products": [
+      "_id_",
+      "active_created_at"
+    ],
+    "settlement_journal_archive": [
+      "_id_",
+      "archive_reference",
+      "archive_payment_id",
+      "archive_payout_id"
+    ],
+    "integrated_shipments": [
+      "_id_"
+    ],
+    "order_payments": [
+      "_id_",
+      "payment_order_unique"
+    ]
+  },
+  "sellerbottel_tenant_phase4_b_d5d21cdf": {
+    "payment_settings": [
+      "_id_"
+    ],
+    "purchases": [
+      "_id_",
+      "invoice_id_unique",
+      "user_created_at",
+      "store_customer_idempotency_unique"
+    ],
+    "stock_journal_archive": [
+      "_id_",
+      "archive_id",
+      "archive_reference_id",
+      "archive_sale_reference"
+    ],
+    "inventory_items": [
+      "_id_",
+      "product_status",
+      "product_fingerprint_unique"
+    ],
+    "gateway_credentials": [
+      "_id_"
+    ],
+    "products": [
+      "_id_",
+      "active_created_at"
+    ],
+    "settlement_accounts": [
+      "_id_"
+    ],
+    "physical_variants": [
+      "_id_",
+      "physical_sku_unique",
+      "physical_product_variants"
+    ],
+    "_meta": [
+      "_id_"
+    ],
+    "settlement_journal_archive": [
+      "_id_",
+      "archive_reference",
+      "archive_payment_id",
+      "archive_payout_id"
+    ],
+    "store_customers": [
+      "_id_",
+      "email_unique",
+      "telegram_id_unique"
+    ],
+    "fulfillments": [
+      "_id_",
+      "fulfillment_order_line_unique",
+      "fulfillment_recovery"
+    ],
+    "bot_users": [
+      "_id_",
+      "telegram_id_unique"
+    ],
+    "stock_movements": [
+      "_id_",
+      "physical_movement_history"
+    ],
+    "order_payments": [
+      "_id_",
+      "payment_order_unique"
+    ],
+    "settings": [
+      "_id_"
+    ],
+    "shipments": [
+      "_id_",
+      "physical_shipment_unique"
+    ],
+    "deposits": [
+      "_id_",
+      "tx_hash_unique",
+      "user_created_at",
+      "customer_created_at"
+    ]
+  }
+}

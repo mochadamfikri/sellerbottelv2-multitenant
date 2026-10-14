@@ -1,0 +1,47 @@
+{
+  "coverage": "bounded smoke, not load certification",
+  "measurements": {
+    "catalog": {
+      "samples_ms": [
+        25.4,
+        22.02,
+        14.05
+      ],
+      "max_ms": 25.4
+    },
+    "orders": {
+      "samples_ms": [
+        19.81,
+        18.69,
+        18.39
+      ],
+      "max_ms": 19.81
+    },
+    "settlement": {
+      "samples_ms": [
+        54.48,
+        67.82,
+        63.08
+      ],
+      "max_ms": 67.82
+    },
+    "shipments": {
+      "samples_ms": [
+        18.16,
+        19.2,
+        16.08
+      ],
+      "max_ms": 19.2
+    },
+    "returns": {
+      "samples_ms": [
+        13.87,
+        39.78,
+        18.38
+      ],
+      "max_ms": 39.78
+    },
+    "route_lookup_10_ms": 11.42
+  },
+  "route_lookup_index": "payment_route_reference"
+}

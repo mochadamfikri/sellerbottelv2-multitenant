@@ -1,0 +1,24 @@
+{
+  "coverage": {
+    "products": "test_public_tenant_management.py::test_inventory_product_catalog_and_order_contracts_are_isolated; test_phase4_foreign_records_never_visible",
+    "variants/SKU": "test_physical_api.py::test_identical_variant_order_fulfillment_ids_are_database_scoped",
+    "digital inventory": "test_public_tenant_management.py::test_inventory_transform_and_session_replacement_use_own_database",
+    "physical stock": "test_physical_api.py::test_identical_variant_order_fulfillment_ids_are_database_scoped; real 20 contender race",
+    "orders/fulfillments": "test_public_tenant_management.py::test_inventory_product_catalog_and_order_contracts_are_isolated; real mixed E2E",
+    "payment records/routes": "test_phase3_payments.py; real duplicate callbacks and cross-tenant denial",
+    "payment credentials": "test_phase3_payments.py::test_credential_binding_encryption_revoke_and_no_fallback",
+    "settlement ledger": "test_phase3_payments.py; test_phase4_foreign_records_never_visible; scoped Ledger API",
+    "payout account/request": "test_phase3_payments.py; real concurrent reservation one winner and masked bank",
+    "shipping settings/shipments": "test_phase3_post_purchase.py; real encrypted credential binding rejection",
+    "return/refund": "test_phase3_post_purchase.py; test_phase4_foreign_records_never_visible",
+    "branding/domain": "test_branding_owner_boundary_and_tenant_isolation; test_brand_modes_and_revocation; domain disabled",
+    "customers/addresses": "test_physical_api.py::test_customer_cookie_same_id_cannot_cross_tenants_and_address_scoped",
+    "coupons/broadcast": "test_bot_dispatcher_regression.py::test_balance_checkout_cart_coupon_inventory_and_purchase_stay_in_one_tenant; test_public_tenant_management.py::test_tenant_broadcast_executes_scoped_worker_and_respects_suspend",
+    "auth/lifecycle": "test_phase4_lifecycle_branding_and_financial_visibility; test_phase4_owner_token_boundaries",
+    "webhook signatures/replay": "test_phase3_failures.py; test_phase3_payments.py; real Mongo with mock-signed callbacks, genuine provider callback explicitly blocked",
+    "input/upload": "test_branding_rejects_injection; test_phase4_upload_rejects_unsafe_files; test_phase4_storage_traversal_denied; existing failed DB-save image cleanup tests",
+    "race/replay": "C1-C3 fulfillment/payment/stock/payout/refund tests plus Phase4 archived operation replay and real Mongo acceptance"
+  },
+  "evidence": "backend-regression.xml and live-results.json",
+  "note": "Internal test coverage, not a penetration-test certification; external webhook status in provider-sandbox.json"
+}

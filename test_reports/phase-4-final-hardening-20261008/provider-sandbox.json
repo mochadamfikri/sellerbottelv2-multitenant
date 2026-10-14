@@ -1,0 +1,77 @@
+{
+  "midtrans": {
+    "status": "BLOCKED \u2014 CREDENTIALS UNAVAILABLE"
+  },
+  "safety": {
+    "live_keys_used": false,
+    "real_payment_or_payout": false,
+    "production_modified": false
+  },
+  "kasera": {
+    "status": "REAL SANDBOX VERIFIED",
+    "checks": {
+      "connection": true,
+      "platform_settlement_idempotency": true,
+      "platform_settlement_retrieve": true,
+      "platform_settlement_simulated_succeeded": true,
+      "self_gateway_idempotency": true,
+      "self_gateway_retrieve": true,
+      "self_gateway_simulated_expired": true
+    },
+    "webhook": "BLOCKED \u2014 CREDENTIALS UNAVAILABLE",
+    "refund": "NOT SUPPORTED",
+    "cancel": "NOT SUPPORTED",
+    "supported_methods": [
+      "qris",
+      "va_bri",
+      "va_bni",
+      "va_mandiri",
+      "va_permata",
+      "va_cimb",
+      "va_danamon",
+      "va_maybank"
+    ],
+    "scope": "API connection, capabilities, create/idempotency, status, simulated paid/expiry only; webhook and local settlement E2E remain mock verified",
+    "mongo_integration": {
+      "platform_settlement": {
+        "encrypted_storage": true,
+        "checkout_replay": true,
+        "real_sandbox_paid_status": true,
+        "local_effects_once": true,
+        "settlement_correct": true,
+        "local_failure_repair": true
+      },
+      "self_gateway": {
+        "encrypted_storage": true,
+        "checkout_replay": true,
+        "real_sandbox_paid_status": true,
+        "local_effects_once": true,
+        "settlement_correct": true,
+        "local_failure_repair": false
+      }
+    },
+    "webhook_note": "No provider signing secret or public sandbox callback URL supplied; authenticated status only. Local generated secret is storage-binding fixture, not webhook evidence."
+  },
+  "biteship": {
+    "status": "BLOCKED \u2014 CREDENTIALS UNAVAILABLE",
+    "checks": {},
+    "rate": "BLOCKED \u2014 CREDENTIALS UNAVAILABLE",
+    "rate_reason": "One owner-approved rate request rejected at authentication",
+    "webhook": "NOT SUPPORTED",
+    "checkout_enabled": false,
+    "error_type": "FulfillmentUnavailable",
+    "reason": "Supplied test key rejected with authentication error 40000001",
+    "probes": {
+      "rate": {
+        "http_status": 400,
+        "error_code": 40000001,
+        "success": false
+      },
+      "create": {
+        "http_status": 400,
+        "error_code": 40000001,
+        "success": false
+      }
+    }
+  }
+}

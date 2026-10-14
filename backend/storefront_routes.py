@@ -54,11 +54,13 @@ async def _send_email_code(email: str, code: str, purpose: str):
     sender = os.getenv("SMTP_FROM", "").strip() or user
     if not all((host, user, password, sender)):
         raise HTTPException(503, "Pengiriman email belum dikonfigurasi. Admin perlu mengisi SMTP di server.")
+    from branding import email_identity
+    identity = await email_identity()
     msg = EmailMessage()
-    msg["Subject"] = "Kode verifikasi IDSE Digital Product" if purpose == "register" else "Kode reset kata sandi IDSE Digital Product"
-    msg["From"] = f"{os.getenv('SMTP_FROM_NAME', 'IDSE verification-noreply')} <{sender}>"
+    msg["Subject"] = f"Kode {'verifikasi' if purpose == 'register' else 'reset kata sandi'} {identity['brand_name']}"
+    msg["From"] = f"{identity['sender_name']} <{sender}>"
     msg["To"] = email
-    msg.set_content(f"Kode verifikasi IDSE Digital Product: {code}\n\nKode berlaku 10 menit. Jangan bagikan kode ini kepada siapa pun.")
+    msg.set_content(f"Kode verifikasi {identity['brand_name']}: {code}\n\nKode berlaku 10 menit. Jangan bagikan kode ini kepada siapa pun.\n{identity['attribution']}")
     port = int(os.getenv("SMTP_PORT", "587"))
     use_ssl = os.getenv("SMTP_USE_SSL", "false").lower() in {"1", "true", "yes"}
     def deliver():
@@ -187,18 +189,21 @@ async def send_order_completion_email(order_id: str) -> bool:
         total = fmt_amount(order.get("total") or 0, currency)
         created = str(order.get("created_at") or "-")
         lines.extend([f"Pembayaran: {payment}", "Status: Completed", f"Nomor Invoice: {order.get('invoice_id') or order_id}", f"Tanggal: {created}", f"Total: {total}"])
+        from branding import email_identity
+        identity = await email_identity()
+        lines.extend([identity["brand_name"], identity["receipt_footer"], identity["attribution"]])
         msg = EmailMessage()
         msg["Subject"] = f"Order completed - {order.get('invoice_id') or order_id}"
-        msg["From"] = f"IDSE Digital Product <{sender}>"
+        msg["From"] = f"{identity['sender_name']} <{sender}>"
         msg["To"] = email
         msg.set_content("\n".join(lines))
         msg.add_alternative(
             "<html><body style='font-family:Arial,sans-serif;color:#1f2937'>"
-            f"<h2>Order kamu telah berhasil diselesaikan</h2><p>Halo {escape(customer_name)},</p>"
+            f"<h1>{escape(identity['brand_name'])}</h1><h2>Order kamu telah berhasil diselesaikan</h2><p>Halo {escape(customer_name)},</p>"
             f"<ul>{''.join(html_items)}</ul><p><b>Pembayaran:</b> {payment}<br>"
             f"<b>Total:</b> {escape(total)}<br><b>Status:</b> Completed<br>"
             f"<b>Nomor Invoice:</b> {escape(str(order.get('invoice_id') or order_id))}<br>"
-            f"<b>Tanggal:</b> {escape(created)}</p></body></html>", subtype="html")
+            f"<b>Tanggal:</b> {escape(created)}</p><footer>{escape(identity['receipt_footer'])}<br>{escape(identity['attribution'])}</footer></body></html>", subtype="html")
         for filename, maintype, subtype, payload in attachments:
             msg.add_attachment(payload, maintype=maintype, subtype=subtype, filename=filename)
         port = int(os.getenv("SMTP_PORT", "587"))
@@ -1017,12 +1022,16 @@ async def tenant_storefront_config(slug: str):
     metadata = tenant.get("metadata") or {}
     bot_config = metadata.get("bot_config") or {}
     settings = await tenant_db.settings.find_one({"_id": "main"}) or {}
+    from branding import context
+    identity, _ = await context(tenant_db, tenant)
     return {
+        "branding": identity,
         "tenant_name": tenant.get("name") or slug,
         "tenant_slug": slug,
         "telegram_bot_username": (bot_config.get("username") or "").lstrip("@"),
-        "store_name": (settings.get("store_name") or "").strip() or tenant.get("name") or "Toko",
-        "store_tagline": (settings.get("store_tagline") or "").strip(),
+        "store_name": identity["brand_name"],
+        "store_tagline": identity["store_description"] or (settings.get("store_tagline") or "").strip(),
+        "whatsapp_contact_number": identity["whatsapp"],
         "broadcast_enabled": bool(settings.get("broadcast_enabled")),
         "broadcast_message": (settings.get("broadcast_message") or "").strip(),
         "require_channel_join": bool(settings.get("require_channel_join")),
@@ -1160,6 +1169,15 @@ async def gateway_rates(body: GatewayRateBody, user: dict = Depends(current_cust
     if quote.get("error"):
         raise HTTPException(422, quote["error"])
     return await rates(_resolve_db(), tenant_identity(_resolve_db()), user["_id"], quote, body.shipping_address.model_dump())
+
+
+@router.get("/orders/{oid}/receipt")
+async def customer_receipt(oid: str, user: dict = Depends(current_customer)):
+    from fastapi.responses import HTMLResponse
+    from branding import email_identity, receipt_html
+    from order_fulfillment import owned_order
+    order = await owned_order(oid, user)
+    return HTMLResponse(receipt_html(await email_identity(), order), headers={"Cache-Control": "no-store", "Content-Security-Policy": "default-src 'none'; img-src https:; frame-ancestors 'none'", "X-Content-Type-Options": "nosniff"})
 
 
 @router.get("/orders/{oid}/payment")

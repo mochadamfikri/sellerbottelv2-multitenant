@@ -261,6 +261,10 @@ async def _resolve_bot_display_name(settings: dict) -> str:
     try:
         scope = get_current_scope()
         if scope is not None:
+            if await db.branding.find_one({"_id": "main"}):
+                from branding import context
+                identity, _ = await context()
+                return identity["brand_name"] + (" · " + identity["attribution"] if identity["attribution"] else "")
             return str(scope.bot_display_name or scope.brand_name or
                        settings.get("store_name") or scope.slug)
     except Exception:

@@ -118,3 +118,7 @@ code {
         border-bottom-color: inherit;
     }
 }
+
+.storefront-theme[style] .bg-emerald-800 { background-color: var(--brand-primary); }
+.storefront-theme[style] .text-emerald-800 { color: var(--brand-primary); }
+.storefront-theme[style] .bg-emerald-50 { background-color: var(--brand-secondary); }

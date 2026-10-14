@@ -7,6 +7,7 @@ import TenantProducts from "./TenantProducts";
 import TenantCatalogs from "./TenantCatalogs";
 import TenantInventory from "./TenantInventory";
 import TenantOrders from "./TenantOrders";
+import BrandingAdmin from "../components/BrandingAdmin";
 import CommerceAdmin from "../components/CommerceAdmin";
 
 export default function TenantAdmin() {
@@ -114,6 +115,7 @@ export default function TenantAdmin() {
     { id: "catalogs", label: "Katalog", icon: FolderOpen },
     { id: "inventory", label: "Inventory", icon: Boxes },
     { id: "orders", label: "Order", icon: ShoppingCart },
+    { id: "branding", label: "Branding", icon: Package },
     { id: "payments", label: "Payments", icon: BarChart3 },
     { id: "shipping", label: "Shipping", icon: Package },
     { id: "returns", label: "Returns / Refunds", icon: Boxes },
@@ -148,6 +150,7 @@ export default function TenantAdmin() {
           ))}
         </div>
 
+        {tab === "branding" && <BrandingAdmin/>}
         {tab === "dashboard" && (
           <div className="mt-4 grid grid-cols-2 gap-3">
             {[

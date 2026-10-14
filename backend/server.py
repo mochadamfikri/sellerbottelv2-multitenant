@@ -372,3 +372,6 @@ async def shutdown_db_client():
         bot2_task.cancel()
 
     client.close()
+
+from branding import router as branding_router
+app.include_router(branding_router)

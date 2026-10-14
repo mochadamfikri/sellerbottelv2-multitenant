@@ -21,7 +21,9 @@ async def image_response(product, catalog=False):
                             headers={"Cache-Control": "private, max-age=300"})
         except FileNotFoundError:
             pass
-    data = render_product_artwork(str(product.get("name") or "Produk"), catalog_name(product), catalog)
+    from branding import context
+    identity, _ = await context()
+    data = render_product_artwork(str(product.get("name") or "Produk"), catalog_name(product), catalog, identity["brand_name"])
     return Response(data, media_type="image/webp", headers={"Cache-Control": "private, max-age=300"})
 BRANDS = (
     (r"\bclaude\b", "claude", "Claude", "#D97757", "#F8F2EA"),
@@ -63,13 +65,13 @@ def artwork_urls(product, admin=False):
 
 
 @lru_cache(maxsize=128)
-def render_product_artwork(name, catalog="", catalog_only=False):
+def render_product_artwork(name, catalog="", catalog_only=False, brand_name="IDSE MARKETPLACE"):
     labels = artwork_labels(name, catalog, catalog_only)
     image = Image.new("RGB", (1200, 1200), labels["background"])
     draw = ImageDraw.Draw(image)
     accent = labels["accent"]
     draw.rounded_rectangle((38, 38, 1162, 1162), 56, outline=accent, width=3)
-    draw.text((92, 88), "IDSE MARKETPLACE", font=_font(27, True), fill="#64756D")
+    draw.text((92, 88), brand_name[:60], font=_font(27, True), fill="#64756D")
     plan = labels["plan"]
     plan_font = _font(42, True)
     badge_width = max(210, draw.textbbox((0, 0), plan, font=plan_font)[2] + 90)

@@ -381,11 +381,13 @@ def test_central_sales_send_images_to_admin_and_channel(monkeypatch):
         return "-1001"
 
     monkeypatch.setattr(services, "send_photo_bytes", fake_photo)
+    import broadcast_composer
+    monkeypatch.setattr(broadcast_composer, "send_photo_bytes", fake_photo)
     monkeypatch.setattr(services, "_broadcast_channel_id", fake_channel)
 
     async def check():
         await db.settings.delete_many({})
-        await db.settings.insert_one({"_id": "main", "admin_telegram_id": 99})
+        await db.settings.insert_one({"_id": "main", "admin_telegram_id": 99, "transaction_success_channel_enabled": True, "broadcast_auto_image_enabled": True})
         order = {"invoice_id": "INV-1", "items": [{"name": "Produk A", "qty": 1}],
                  "total": 15000, "currency": "IDR", "status": "delivered"}
         await services.notify_transaction_admin(order, "Pembeli")

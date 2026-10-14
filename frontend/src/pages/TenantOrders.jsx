@@ -1,22 +1,24 @@
 import { useCallback, useEffect, useState } from "react";
-import api, { fmtAmount, fmtDate, formatApiErrorDetail } from "../lib/api";
+import { fmtAmount, fmtDate, formatApiErrorDetail } from "../lib/api";
+import { useTenantApi } from "../lib/tenantApi";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 
 const statuses = ["all", "pending", "pending_payment", "paid", "service_waiting", "delivered", "delivery_failed", "failed", "refunded"];
 
 export default function TenantOrders() {
+  const api = useTenantApi();
   const [status, setStatus] = useState("all");
   const [search, setSearch] = useState("");
   const [orders, setOrders] = useState([]);
   const [detail, setDetail] = useState(null);
 
-  const load = useCallback(() => api.get("/public/tenant/orders", { params: { status, search } }).then(({ data }) => setOrders(data)), [status, search]);
+  const load = useCallback(() => api.get("/public/tenant/full/orders", { params: { status, search } }).then(({ data }) => setOrders(data)), [api, status, search]);
   useEffect(() => { load(); }, [load]);
 
   const openDetail = async (o) => {
     try {
-      const { data } = await api.get("/public/tenant/orders/" + o._id);
+      const { data } = await api.get("/public/tenant/full/orders/" + o._id);
       setDetail(data);
     } catch (err) {
       toast.error(formatApiErrorDetail(err.response?.data?.detail));
@@ -26,7 +28,7 @@ export default function TenantOrders() {
   const refund = async (o) => {
     if (!window.confirm("Refund order ini dan kembalikan saldo?")) return;
     try {
-      await api.post("/public/tenant/orders/" + o._id + "/refund");
+      await api.post("/public/tenant/full/orders/" + o._id + "/refund");
       toast.success("Order direfund");
       load();
     } catch (err) { toast.error(formatApiErrorDetail(err.response?.data?.detail)); }
@@ -35,7 +37,7 @@ export default function TenantOrders() {
   const completeService = async (o) => {
     if (!window.confirm(`Tandai pesanan jasa ${o.invoice_id} selesai? Email penyelesaian akan dikirim setelah status selesai.`)) return;
     try {
-      const { data } = await api.post("/public/tenant/orders/" + o._id + "/complete");
+      const { data } = await api.post("/public/tenant/full/orders/" + o._id + "/complete");
       toast.success(data.email_sent ? "Pesanan selesai dan email terkirim." : "Pesanan selesai. Email belum terkirim; periksa konfigurasi SMTP.");
       await load();
       if (detail?._id === o._id) await openDetail(o);
@@ -44,7 +46,7 @@ export default function TenantOrders() {
 
   const retryEmail = async (o) => {
     try {
-      await api.post("/public/tenant/orders/" + o._id + "/email/retry");
+      await api.post("/public/tenant/full/orders/" + o._id + "/email/retry");
       toast.success("Email order berhasil dikirim ulang.");
       await load();
       if (detail?._id === o._id) await openDetail(o);

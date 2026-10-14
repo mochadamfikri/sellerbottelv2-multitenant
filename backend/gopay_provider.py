@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import json
+import logging
 import os
 import subprocess
 import uuid
@@ -13,6 +14,8 @@ from pymongo.errors import DuplicateKeyError
 from db import db, get_settings
 from services import credit_deposit, notify_admin, now_iso, user_lang
 
+
+logger = logging.getLogger(__name__)
 
 NODE_DIR = os.path.join(os.path.dirname(__file__), "gobiz")
 
@@ -377,9 +380,9 @@ async def run_gopay_monitor(stop_event: asyncio.Event):
         try:
             result = await poll_gopay_once()
             if result.get("checked") and result.get("matched"):
-                print(f"[GoPay] {result['matched']} pembayaran terverifikasi.")
+                logger.info("GoPay matched payments: %s", result["matched"])
         except Exception as exc:
-            print(f"[GoPay] monitor error: {exc}")
+            logger.warning("GoPay monitor error (%s)", type(exc).__name__)
         try:
             await asyncio.wait_for(stop_event.wait(), timeout=interval)
         except asyncio.TimeoutError:

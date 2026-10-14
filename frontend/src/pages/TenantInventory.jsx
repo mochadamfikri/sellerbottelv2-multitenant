@@ -2,12 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { groupCatalogs } from "../lib/catalog";
 import { toast } from "sonner";
 import { Upload, Plus, Trash2, RefreshCw, Database, PackageCheck } from "lucide-react";
-import api, { formatApiErrorDetail } from "../lib/api";
+import { formatApiErrorDetail } from "../lib/api";
+import { useTenantApi } from "../lib/tenantApi";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 
 const cls = "w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-cyan-500/60";
 
 export default function TenantInventory() {
+  const api = useTenantApi();
   const [products, setProducts] = useState([]);
   const [bulkText, setBulkText] = useState("");
   const [schemaText, setSchemaText] = useState("");
@@ -48,7 +50,7 @@ export default function TenantInventory() {
     } catch (err) {
       if (!silent) toast.error(formatApiErrorDetail(err.response?.data?.detail) || "Gagal memuat product inventory.");
     }
-  }, [pid]);
+  }, [api, pid]);
 
   const loadInventory = useCallback(async () => {
     if (!pid) {
@@ -64,7 +66,7 @@ export default function TenantInventory() {
     } catch (err) {
       toast.error(formatApiErrorDetail(err.response?.data?.detail) || "Gagal memuat inventory.");
     }
-  }, [pid, status, inventoryPage]);
+  }, [api, pid, status, inventoryPage]);
 
   useEffect(() => { loadProducts(); }, [loadProducts]);
   useEffect(() => { loadInventory(); }, [loadInventory]);
@@ -72,12 +74,12 @@ export default function TenantInventory() {
     const timer = window.setInterval(() => {
       if (document.visibilityState !== "visible" || busy || !pid) return;
       loadProducts(true);
-      api.get(`/admin/products/${pid}/inventory/summary`)
+      api.get(`/public/tenant/full/products/${pid}/inventory/summary`)
         .then(({ data }) => setMeta((current) => ({ ...current, ...data })))
         .catch(() => {});
     }, 5000);
     return () => window.clearInterval(timer);
-  }, [busy, pid, loadProducts]);
+  }, [api, busy, pid, loadProducts]);
 
   const selectProduct = (value) => {
     setEditing(null); setBulkText(""); setSchemaText("");
@@ -192,7 +194,7 @@ export default function TenantInventory() {
     try {
       const fd = new FormData();
       fd.append("file", transformFile, transformFile.name);
-      const { data } = await api.post(`/admin/products/${pid}/inventory/transform/inspect`, fd);
+      const { data } = await api.post(`/public/tenant/full/products/${pid}/inventory/transform/inspect`, fd);
       setTransformInfo(data);
       setEmailColumn(data.email_columns?.find((name) => name.toLowerCase() === "email") || data.email_columns?.[0] || "");
       setPasswordColumn(data.password_columns?.[0] || "");
@@ -218,7 +220,7 @@ export default function TenantInventory() {
       fd.append("password_column", passwordMode === "keep" ? "" : passwordColumn);
       fd.append("password_mode", passwordMode);
       fd.append("fixed_password", passwordMode === "fixed" ? fixedPassword : "");
-      const response = await api.post(`/admin/products/${pid}/inventory/transform`, fd, { responseType: "blob" });
+      const response = await api.post(`/public/tenant/full/products/${pid}/inventory/transform`, fd, { responseType: "blob" });
       const url = URL.createObjectURL(response.data);
       const link = document.createElement("a");
       link.href = url;
@@ -240,7 +242,7 @@ export default function TenantInventory() {
   const saveEdit = async () => {
     setBusy(true);
     try {
-      const path = `/admin/products/${pid}/inventory/${editing._id}`;
+      const path = `/public/tenant/full/products/${pid}/inventory/${editing._id}`;
       if (editing.item?.is_file) {
         if (!replacementFile) { toast.error("Pilih file .session pengganti."); return; }
         const data = new FormData(); data.append("file", replacementFile);
@@ -252,13 +254,13 @@ export default function TenantInventory() {
   };
   const downloadTemplate = async (format) => {
     try {
-      const { data } = await api.get(`/admin/products/${pid}/inventory/template`, { params: { format }, responseType: "blob" });
+      const { data } = await api.get(`/public/tenant/full/products/${pid}/inventory/template`, { params: { format }, responseType: "blob" });
       const url = URL.createObjectURL(data); const a = document.createElement("a"); a.href = url; a.download = `inventory-template.${format}`; a.click(); URL.revokeObjectURL(url);
     } catch (_) { toast.error("Template tidak tersedia. Pilih produk inventory tabel."); }
   };
   const saveSchema = async () => {
     setBusy(true);
-    try { await api.put(`/admin/products/${pid}/inventory/schema`, { fields: schemaText.split(",") }); await loadProducts(); await loadInventory(); toast.success("Kolom inventory disimpan."); }
+    try { await api.put(`/public/tenant/full/products/${pid}/inventory/schema`, { fields: schemaText.split(",") }); await loadProducts(); await loadInventory(); toast.success("Kolom inventory disimpan."); }
     catch (e) { toast.error(formatApiErrorDetail(e.response?.data?.detail) || "Kolom gagal disimpan."); }
     finally { setBusy(false); }
   };

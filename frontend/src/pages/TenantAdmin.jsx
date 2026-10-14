@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Package, ShoppingCart, BarChart3, LogOut, FolderOpen, Boxes, Users, Megaphone } from "lucide-react";
-import api from "../lib/api";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Package, ShoppingCart, BarChart3, LogOut, FolderOpen, Boxes, Users, Megaphone, Send } from "lucide-react";
+import { TenantApiContext, createTenantApi, clearTenantApi } from "../lib/tenantApi";
 import { toast } from "sonner";
 import TenantProducts from "./TenantProducts";
 import TenantCatalogs from "./TenantCatalogs";
@@ -13,23 +13,15 @@ export default function TenantAdmin() {
   const [token, setToken] = useState("");
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [me, setMe] = useState(null);
-  const [tab, setTab] = useState("dashboard");
-  const [products, setProducts] = useState([]);
-  const [orders, setOrders] = useState([]);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = searchParams.get("tab") || "dashboard";
+  const api = useMemo(() => createTenantApi(token), [token]);
   const [stats, setStats] = useState(null);
-  const [catalogs, setCatalogs] = useState([]);
-  const [inventory, setInventory] = useState([]);
   const [users, setUsers] = useState([]);
   const [broadcasts, setBroadcasts] = useState([]);
   const [broadcastMsg, setBroadcastMsg] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showForm, setShowForm] = useState(false);
-  const [showCatalogForm, setShowCatalogForm] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ name: "", description: "", active: true });
-  const [catalogForm, setCatalogForm] = useState({ name: "", description: "" });
 
-  const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
 
   const doLogin = async (e) => {
     e.preventDefault();
@@ -38,15 +30,14 @@ export default function TenantAdmin() {
       const { data } = await api.post("/public/tenant/login", loginForm);
       if (!data.token) throw new Error("No token in response");
       setToken(data.token);
-      // Set default auth header untuk semua request tenant
-      api.defaults.headers.common["Authorization"] = `Bearer ${data.token}`;
       setMe({
         tenant_slug: data.tenant_slug,
         email: data.email,
         store_name: data.store_name,
       });
       toast.success("Selamat datang!");
-      setTimeout(() => loadTabData("dashboard", data.token), 100);
+      setSearchParams({ tab: "dashboard" });
+      setLoginForm({ email: "", password: "" });
     } catch (err) {
       toast.error(err.response?.data?.detail || "Login gagal.");
     } finally {
@@ -54,43 +45,37 @@ export default function TenantAdmin() {
     }
   };
 
-  const loadTabData = async (tabId, tok = token) => {
-    const headers = tok ? { Authorization: `Bearer ${tok}` } : {};
+  const loadTabData = useCallback(async (tabId) => {
     try {
       if (tabId === "dashboard") {
-        const { data } = await api.get("/public/tenant/stats", { headers });
+        const { data } = await api.get("/public/tenant/full/stats");
         setStats(data);
-      } else if (tabId === "products") {
-        const { data } = await api.get("/public/tenant/products", { headers });
-        setProducts(data.products || []);
-      } else if (tabId === "catalogs") {
-        const { data } = await api.get("/public/tenant/catalogs", { headers });
-        setCatalogs(data.catalogs || []);
-      } else if (tabId === "inventory") {
-        const { data } = await api.get("/public/tenant/inventory", { headers });
-        setInventory(data.inventory || []);
-      } else if (tabId === "orders") {
-        const { data } = await api.get("/public/tenant/orders", { headers });
-        setOrders(data.orders || []);
       } else if (tabId === "users") {
-        const { data } = await api.get("/public/tenant/users", { headers });
+        const { data } = await api.get("/public/tenant/full/users");
         setUsers(data.users || []);
       } else if (tabId === "broadcast") {
-        const { data } = await api.get("/public/tenant/broadcasts", { headers });
-        setBroadcasts(data.broadcasts || []);
+        const { data } = await api.get("/public/tenant/full/broadcasts");
+        setBroadcasts(data || []);
       }
     } catch (err) {
-      console.error("Load failed:", tabId, err.message);
+      toast.error(err.response?.data?.detail || "Data gagal dimuat.");
     }
-  };
+  }, [api]);
 
-  const handleTab = (tabId) => {
-    setTab(tabId);
-    loadTabData(tabId);
-  };
+  useEffect(() => {
+    if (token) loadTabData(tab);
+  }, [token, tab, loadTabData]);
+
+  const handleTab = (tabId) => setSearchParams({ tab: tabId });
 
   const logout = () => {
+    clearTenantApi(api);
     setToken("");
+    setLoginForm({ email: "", password: "" });
+    setStats(null);
+    setUsers([]);
+    setBroadcasts([]);
+    setBroadcastMsg("");
     setMe(null);
     navigate("/");
   };
@@ -133,6 +118,7 @@ export default function TenantAdmin() {
   ];
 
   return (
+    <TenantApiContext.Provider value={api}>
     <div className="min-h-screen bg-slate-950">
       <div className="border-b border-white/10 bg-white/5 px-4 py-3">
         <div className="mx-auto flex max-w-4xl items-center justify-between">
@@ -202,7 +188,7 @@ export default function TenantAdmin() {
 
         {tab === "broadcast" && (
           <div className="mt-4">
-            <form onSubmit={async (e) => { e.preventDefault(); if (!broadcastMsg.trim()) return; try { await api.post("/public/tenant/broadcast", { message: broadcastMsg.trim() }, { headers: authHeaders }); toast.success("Broadcast dikirim."); setBroadcastMsg(""); loadTabData("broadcast"); } catch (err) { toast.error(err.response?.data?.detail || "Gagal."); } }} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <form onSubmit={async (e) => { e.preventDefault(); if (!broadcastMsg.trim()) return; try { await api.post("/public/tenant/full/broadcasts", { message: broadcastMsg.trim() }); toast.success("Broadcast dikirim."); setBroadcastMsg(""); loadTabData("broadcast"); } catch (err) { toast.error(err.response?.data?.detail || "Gagal."); } }} className="rounded-2xl border border-white/10 bg-white/5 p-4">
               <p className="mb-2 text-sm font-semibold text-white">Kirim Broadcast ke Bot</p>
               <textarea value={broadcastMsg} onChange={(e) => setBroadcastMsg(e.target.value)} placeholder="Tulis pesan..." rows={4} className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500" />
               <button className="mt-3 flex items-center gap-1.5 rounded-2xl bg-emerald-500 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-emerald-400">
@@ -212,7 +198,7 @@ export default function TenantAdmin() {
             <div className="mt-4 space-y-2">
               {broadcasts.map((b, i) => (
                 <div key={b._id || i} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <p className="text-sm text-white">{b.message?.substring(0, 100)}</p>
+                  <p className="text-sm text-white">{b.text?.substring(0, 100)}</p>
                   <p className="mt-1 text-xs text-slate-500">{b.status}</p>
                 </div>
               ))}
@@ -221,40 +207,7 @@ export default function TenantAdmin() {
         )}
       </div>
 
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4">
-          <div className="w-full max-w-md rounded-3xl border border-white/15 bg-slate-900/95 p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-bold text-white">{editing ? "Edit" : "Tambah"} Produk</h2>
-              <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-white"><X size={18} /></button>
-            </div>
-            <form onSubmit={async (e) => { e.preventDefault(); try { if (editing) { await api.put(`/public/tenant/products/${editing._id}`, form, { headers: authHeaders }); } else { await api.post("/public/tenant/products", form, { headers: authHeaders }); } toast.success("Berhasil."); setShowForm(false); loadTabData("products"); } catch (err) { toast.error(err.response?.data?.detail || "Gagal."); } }} className="space-y-4">
-              <input required placeholder="Nama produk" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500" />
-              <textarea placeholder="Deskripsi" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500" />
-              <label className="flex items-center gap-2 text-sm text-slate-300">
-                <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} className="h-4 w-4" /> Aktif
-              </label>
-              <button className="w-full rounded-2xl bg-emerald-500 py-3 font-bold text-slate-950">Simpan</button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {showCatalogForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4">
-          <div className="w-full max-w-md rounded-3xl border border-white/15 bg-slate-900/95 p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-bold text-white">Tambah Katalog</h2>
-              <button onClick={() => setShowCatalogForm(false)} className="text-slate-400 hover:text-white"><X size={18} /></button>
-            </div>
-            <form onSubmit={async (e) => { e.preventDefault(); try { await api.post("/public/tenant/catalogs", catalogForm, { headers: authHeaders }); toast.success("Berhasil."); setShowCatalogForm(false); loadTabData("catalogs"); } catch (err) { toast.error(err.response?.data?.detail || "Gagal."); } }} className="space-y-4">
-              <input required placeholder="Nama katalog" value={catalogForm.name} onChange={(e) => setCatalogForm({ ...catalogForm, name: e.target.value })} className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500" />
-              <input placeholder="Deskripsi" value={catalogForm.description} onChange={(e) => setCatalogForm({ ...catalogForm, description: e.target.value })} className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500" />
-              <button className="w-full rounded-2xl bg-emerald-500 py-3 font-bold text-slate-950">Simpan</button>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
+    </TenantApiContext.Provider>
   );
 }

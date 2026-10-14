@@ -8,6 +8,7 @@ import socket
 import sys
 from pathlib import Path
 
+os.environ["PYTHON_DOTENV_DISABLED"] = "1"
 os.environ["MONGO_URL"] = "mongodb://127.0.0.1:1"
 os.environ["DB_NAME"] = "sellerbottel_mock_only"
 # Offline tests use a single mocked database: the platform control-plane DB

@@ -39,11 +39,11 @@ from direct_checkout import create_qris_order, qris_ready, quote_items
 from pricing import price_for_product
 from product_catalog import catalog_slice, catalog_token
 from promo_service import coupon_is_time_valid
-from bot_tenant_scope import get_current_scope
+from bot_tenant_scope import get_current_scope, TenantScopedDict
 
 logger = logging.getLogger("bot")
 
-_EDIT_TARGETS = {}
+_EDIT_TARGETS = TenantScopedDict()
 
 
 async def _remember_bot_message(chat_id, response, flow=None):
@@ -128,7 +128,7 @@ async def send_message(chat_id, text, kb=None):
     return result
 
 
-_CHECKOUT_LOCKS = {}
+_CHECKOUT_LOCKS = TenantScopedDict()
 
 
 def _checkout_lock(tid):
@@ -155,7 +155,7 @@ def _reseller_enabled() -> bool:
 
 
 def main_menu_kb(lang):
-    """Main menu in the accepted layout: full-width headers, grouped rows."""
+    """Acceptance layout: one action per row."""
     rows = [
         [{"text": t(lang, "btn_products"), "callback_data": "menu:products",
           "style": "success"}],
@@ -175,7 +175,7 @@ def main_menu_kb(lang):
     if _reseller_enabled():
         rows.append([{"text": "🤖 Bikin Bot Sendiri", "callback_data": "reseller:entry",
                       "style": "danger"}])
-    return {"inline_keyboard": rows}
+    return {"inline_keyboard": [[button] for row in rows for button in row]}
 
 
 def back_kb(lang):
@@ -260,8 +260,9 @@ async def _resolve_bot_display_name(settings: dict) -> str:
     """
     try:
         scope = get_current_scope()
-        if scope is not None and scope.bot_display_name:
-            return scope.bot_display_name
+        if scope is not None:
+            return str(scope.bot_display_name or scope.brand_name or
+                       settings.get("store_name") or scope.slug)
     except Exception:
         pass
     return str(settings.get("store_name") or settings.get("tenant_name") or "Bot Store")
@@ -387,7 +388,7 @@ async def show_start_welcome(chat_id, user):
     if old_id is not None:
         await _delete_flow_messages(chat_id, old_id)
     if not await _send_welcome_flexible(chat_id, text, kb, store_name):
-        await tg_send_message(chat_id, text, kb=kb)
+        await send_message(chat_id, text, kb=kb)
 
 
 async def show_main_menu(chat_id, user):
@@ -1334,7 +1335,7 @@ def build_invoice_text(order):
     return "<pre>" + escape("\n".join(lines)) + "</pre>"
 
 
-_SERVICE_TASKS = {}
+_SERVICE_TASKS = TenantScopedDict()
 
 def _service_remaining_text(seconds: int) -> str:
     minutes = max(0, int((seconds + 59) // 60))

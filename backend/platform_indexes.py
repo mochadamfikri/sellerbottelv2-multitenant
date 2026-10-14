@@ -43,3 +43,6 @@ async def ensure_platform_indexes(db: Any) -> None:
         [("tenant_id", 1), ("created_at", 1)]
     )
     await db.tenant_memberships.create_index("user_id")
+    await db.tenant_owners.create_index("email", unique=True, name="owner_email_unique")
+    await db.domains.create_index("domain", unique=True)
+    await db.domains.create_index("tenant_id")

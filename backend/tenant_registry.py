@@ -163,7 +163,11 @@ class MongoTenantRegistry:
 
         validate_tenant_id(slug)
 
-        existing = await self.collection.find_one({"slug": slug})
+        await self.ensure_indexes()
+        database_name = tenant_database_name(slug, self.platform_database_name)
+        existing = await self.collection.find_one({"$or": [
+            {"slug": slug}, {"database_name": database_name},
+        ]})
         if existing is not None:
             raise ValueError(f"tenant slug '{slug}' already exists")
 
@@ -177,7 +181,7 @@ class MongoTenantRegistry:
             "plan": plan,
             "quotas": quotas if quotas is not None else {},
             "metadata": metadata if metadata is not None else {},
-            "database_name": tenant_database_name(slug, self.platform_database_name),
+            "database_name": database_name,
             "created_at": now,
             "updated_at": now,
         }
@@ -271,8 +275,9 @@ class MongoTenantRegistry:
         return normalized
 
     async def ensure_indexes(self) -> None:
-        """Create unique index on tenant slug."""
-        await self.collection.create_index("slug", unique=True)
+        """Use the same index definitions as platform startup."""
+        from platform_indexes import ensure_platform_indexes
+        await ensure_platform_indexes(self.database)
 
     async def clear(self) -> None:
         """Clear all tenant records from MongoDB (for testing)."""

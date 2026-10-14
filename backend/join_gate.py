@@ -4,10 +4,11 @@ import asyncio
 
 from db import get_settings
 from tgapi import tg
+from bot_tenant_scope import TenantScopedDict
 
 logger = logging.getLogger("join_gate")
 
-_CACHE = {}
+_CACHE = TenantScopedDict()
 _CACHE_TTL = 60
 
 
@@ -71,7 +72,7 @@ async def check_user_membership(user_tid: int, force_refresh: bool = False):
                         await asyncio.sleep(0.8)
                 _CACHE[key] = (time.time(), joined)
             except Exception as exc:
-                logger.warning("Join-gate Telegram error for %s: %s", channel["channel_id"], last_error or exc)
+                logger.warning("Join-gate Telegram error for %s (%s)", channel["channel_id"], type(exc).__name__)
                 if settings.get("join_gate_fail_open", True):
                     continue
                 joined = False

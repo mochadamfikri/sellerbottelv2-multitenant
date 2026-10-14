@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Upload, Database, Boxes, BriefcaseBusiness } from "lucide-react";
-import api, { fmtUSD, fmtIDR, formatApiErrorDetail } from "../lib/api";
+import { fmtUSD, fmtIDR, formatApiErrorDetail } from "../lib/api";
+import { useTenantApi } from "../lib/tenantApi";
+import TenantImage from "../components/TenantImage";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { Switch } from "../components/ui/switch";
 
@@ -29,6 +31,7 @@ const empty = {
 const cls = "mt-1 w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-cyan-500/60";
 
 export default function TenantProducts() {
+  const api = useTenantApi();
   const [params, setParams] = useSearchParams();
   const catalogFilter = params.get("catalog") || "";
   const [search, setSearch] = useState("");
@@ -54,7 +57,7 @@ export default function TenantProducts() {
   const [inventoryBusy, setInventoryBusy] = useState(false);
   const [inventoryResult, setInventoryResult] = useState(null);
 
-  const load = async (silent = false) => {
+  const load = useCallback(async (silent = false) => {
     try {
       const { data } = await api.get("/public/tenant/full/products");
       setProducts(Array.isArray(data) ? data : data.products || []);
@@ -63,7 +66,7 @@ export default function TenantProducts() {
     } catch (err) {
       if (!silent) toast.error(formatApiErrorDetail(err.response?.data?.detail) || "Gagal memuat produk.");
     }
-  };
+  }, [api]);
 
   useEffect(() => {
     load();
@@ -71,7 +74,7 @@ export default function TenantProducts() {
       if (document.visibilityState === "visible") load(true);
     }, 5000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [load]);
 
   const openCreate = () => {
     setForm({ ...empty, catalog_name: catalogFilter });
@@ -282,7 +285,7 @@ export default function TenantProducts() {
   };
 
   const visibleProducts = products.filter((p) => (!catalogFilter || p.catalog_name?.toLowerCase() === catalogFilter.toLowerCase()) && `${p.name} ${p.catalog_name || ""}`.toLowerCase().includes(search.toLowerCase()));
-  const displayPreview = imageFile ? imagePreview : form.image_source === "uploaded" && !removeImage ? imagePreview : form.name.trim() ? `/api/admin/products/artwork-preview?name=${encodeURIComponent(form.name)}&catalog_name=${encodeURIComponent(form.catalog_name)}` : "";
+  const displayPreview = imageFile ? imagePreview : form.image_source === "uploaded" && !removeImage ? imagePreview : form.name.trim() ? `/api/public/artwork-preview?name=${encodeURIComponent(form.name)}&catalog_name=${encodeURIComponent(form.catalog_name)}` : "";
 
   return (
     <div className="space-y-4">
@@ -311,8 +314,8 @@ export default function TenantProducts() {
 
       <div className="flex flex-wrap items-center gap-3">
         <input aria-label="Cari produk" className={`${cls} sm:max-w-xs`} placeholder="Cari produk atau katalog" value={search} onChange={(e) => setSearch(e.target.value)}/>
-        <select aria-label="Filter katalog" className={`${cls} sm:max-w-xs`} value={catalogFilter} onChange={(e) => setParams(e.target.value ? { catalog: e.target.value } : {})}><option value="">Semua katalog</option>{catalogOptions.map((name) => <option key={name} value={name}>{name}</option>)}</select>
-        <Link className="text-sm text-cyan-400" to="/catalogs">Kelola katalog & pindahkan produk →</Link>
+        <select aria-label="Filter katalog" className={`${cls} sm:max-w-xs`} value={catalogFilter} onChange={(e) => setParams(e.target.value ? { tab: "products", catalog: e.target.value } : { tab: "products" })}><option value="">Semua katalog</option>{catalogOptions.map((name) => <option key={name} value={name}>{name}</option>)}</select>
+        <Link className="text-sm text-cyan-400" to="/admin?tab=catalogs">Kelola katalog & pindahkan produk →</Link>
         <span className="text-xs text-slate-500">{visibleProducts.length} produk ditampilkan</span>
       </div>
       <div className="bg-slate-900/60 border border-slate-800 rounded-xl overflow-x-auto">
@@ -334,7 +337,7 @@ export default function TenantProducts() {
               <tr key={p._id} className="border-b border-slate-800/60 hover:bg-slate-800/30 align-top">
                 <td className="px-4 py-3">
                   <div className="flex items-start gap-3">
-                    {p.image_url ? <img src={p.image_url} alt="" className="h-12 w-12 shrink-0 rounded-md object-cover bg-slate-800" onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} /> : null}
+                    {p.image_url ? <TenantImage src={p.image_url} alt="" className="h-12 w-12 shrink-0 rounded-md object-cover bg-slate-800" onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} /> : null}
                     <div>
                       <p className="font-medium text-slate-200">{p.name}</p>
                       <p className="text-xs text-cyan-400">Katalog: {p.catalog_name || "Otomatis"}</p>
@@ -499,7 +502,7 @@ export default function TenantProducts() {
               <p className="mt-1 text-xs text-slate-500">Gambar otomatis diseragamkan ke kanvas 1200 × 1200 px tanpa memotong isi.</p>
               <input type="file" accept="image/jpeg,image/png,image/webp" className={cls} onChange={(e) => { const f = e.target.files?.[0] || null; setImageFile(f); setRemoveImage(false); setImagePreview(f ? URL.createObjectURL(f) : form.image_url || ""); }} />
               <p className="mt-2 text-xs text-cyan-400">Tanpa upload, foto otomatis menampilkan logo layanan, paket (Pro/Trial/Plus), dan durasi dari nama produk. Upload foto untuk menggantinya.</p>
-              {displayPreview && <img src={displayPreview} alt="Pratinjau foto produk" className="mt-3 h-48 w-full rounded-lg border border-slate-700 bg-white object-contain p-2" />}
+              {displayPreview && <TenantImage src={displayPreview} alt="Pratinjau foto produk" className="mt-3 h-48 w-full rounded-lg border border-slate-700 bg-white object-contain p-2" />}
               {editId && form.image_source === "uploaded" && !imageFile && !removeImage && <button type="button" onClick={() => { setRemoveImage(true); setImagePreview(""); }} className="mt-2 text-xs font-medium text-rose-600 hover:text-rose-700">Hapus foto custom · gunakan gambar otomatis</button>}
               {removeImage && <div className="mt-2 flex items-center justify-between rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700"><span>Foto akan dihapus saat perubahan disimpan.</span><button type="button" onClick={() => { setRemoveImage(false); setImagePreview(form.image_url); }} className="font-semibold underline">Batalkan</button></div>}
             </div>

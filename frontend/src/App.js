@@ -67,16 +67,17 @@ function PromoDomainRoute() {
   return <HomeRoute />;
 }
 
-function AdminRoute() {
-  // /admin: di tenant subdomain → panel tenant,
-  // di idsestock.my.id → panel owner
-  const host = window.location.hostname.toLowerCase();
-  const isTenantHost = host.endsWith(".idseconnect.my.id")
-    && host !== "idseconnect.my.id"
-    && !host.startsWith("panel.");
-  if (isTenantHost) {
-    return <TenantAdmin />;
-  }
+export function AdminRoute() {
+  const [config, setConfig] = useState(null);
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    api.get("/public/host-config", { params: { host: window.location.hostname } })
+      .then(({ data }) => setConfig(data))
+      .catch(() => setError(true));
+  }, []);
+  if (error) return <div className="p-8 text-slate-400">Konfigurasi host gagal dimuat. Silakan muat ulang.</div>;
+  if (!config) return <div className="min-h-screen bg-slate-950" />;
+  if (config.tenant_slug) return <TenantAdmin />;
   return <Protected title="Ringkasan"><Overview /></Protected>;
 }
 

@@ -1,5 +1,10 @@
 # IDSE Digital Product
 
+**Audit tenant terbaru (8 Oktober 2026):** [kontrak API, hasil regression offline,
+dan batas deployment](docs/audits/tenant-management-20261008.md). TenantAdmin adalah
+panel canonical; validasi offline tidak menyatakan custom-domain TLS atau integrasi
+production sudah teruji.
+
 **Agent handover terbaru:** baca [AGENT_HANDOVER.md](AGENT_HANDOVER.md) sebelum
 melanjutkan pekerjaan. Dokumen tersebut merangkum rilis IDSE Marketplace, lokasi
 backup, perlindungan data production, dan pengujian yang aman.

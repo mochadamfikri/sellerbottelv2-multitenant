@@ -1,13 +1,15 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import api, { formatApiErrorDetail } from "../lib/api";
+import { formatApiErrorDetail } from "../lib/api";
+import { useTenantApi } from "../lib/tenantApi";
 import { catalogHref } from "../lib/catalog";
 
 const input = "w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100";
 const button = "rounded-lg bg-cyan-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40";
 
 export default function TenantCatalogs() {
+  const api = useTenantApi();
   const [catalogs, setCatalogs] = useState([]);
   const [selected, setSelected] = useState("");
   const [name, setName] = useState("");
@@ -17,11 +19,11 @@ export default function TenantCatalogs() {
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
-  const load = async () => {
+  const load = useCallback(async () => {
     const { data } = await api.get("/public/tenant/full/catalogs");
     setCatalogs(data); setLoaded(true); setError("");
-  };
-  useEffect(() => { load().catch((e) => setError(formatApiErrorDetail(e.response?.data?.detail) || "Katalog gagal dimuat.")); }, []);
+  }, [api]);
+  useEffect(() => { load().catch((e) => setError(formatApiErrorDetail(e.response?.data?.detail) || "Katalog gagal dimuat.")); }, [load]);
   const run = async (operation, message, next = selected) => {
     setBusy(true);
     try { await operation(); await load(); setSelected(next); setChecked([]); toast.success(message); }
@@ -49,7 +51,7 @@ export default function TenantCatalogs() {
         <div className="flex flex-wrap items-center gap-2"><input aria-label="Katalog tujuan" className={`${input} sm:max-w-xs`} list="catalog-targets" maxLength={80} placeholder="Pilih atau ketik katalog tujuan" value={target} onChange={(e) => setTarget(e.target.value)}/><datalist id="catalog-targets">{catalogs.map((c) => <option key={c.name} value={c.name}/>)}</datalist><button className={button} disabled={busy || !checked.length || !target.trim()} onClick={() => run(() => api.put("/public/tenant/full/catalogs/assign", { name: target.trim(), product_ids: checked }), "Produk dipindahkan ke katalog.")}>Pindahkan {checked.length} produk</button></div>
         <label className="flex gap-2 text-sm text-slate-400"><input type="checkbox" checked={products.length > 0 && products.every((p) => checked.includes(p._id))} onChange={(e) => setChecked(e.target.checked ? [...new Set([...checked, ...products.map((p) => p._id)])] : checked.filter((id) => !products.some((p) => p._id === id)))}/> Pilih semua hasil ({products.length})</label>
         <div className="max-h-[55vh] divide-y divide-slate-800 overflow-y-auto">{products.map((p) => <label key={p._id} className="flex cursor-pointer items-start gap-3 py-3"><input type="checkbox" className="mt-1" checked={checked.includes(p._id)} onChange={(e) => setChecked(e.target.checked ? [...checked, p._id] : checked.filter((id) => id !== p._id))}/><span className="text-sm"><span className="block">{p.name}</span><span className="text-xs text-slate-500">{p.catalog || current?.name} · {p.active ? "Aktif" : "Nonaktif"}</span></span></label>)}{loaded && !products.length && <p className="py-8 text-center text-sm text-slate-500">Belum ada produk yang sesuai. Tambahkan produk atau pindahkan dari katalog lain.</p>}</div>
-        <Link className="inline-block text-sm text-cyan-400" to={current ? `/products?catalog=${encodeURIComponent(current.name)}` : "/products"}>Kelola harga, varian & inventory →</Link>
+        <Link className="inline-block text-sm text-cyan-400" to={current ? `/admin?tab=products&catalog=${encodeURIComponent(current.name)}` : "/admin?tab=products"}>Kelola harga, varian & inventory →</Link>
       </section>
     </div>
   </div>;

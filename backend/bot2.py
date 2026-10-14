@@ -10,6 +10,7 @@ from html import escape
 import httpx
 
 from db import db, get_settings
+from bot_tenant_scope import get_current_scope, TenantScopedDict
 from inventory import commit_items, decrypt_items, release_items, reserve_items
 from pricing import price_for_product
 from product_catalog import catalog_slice, catalog_token
@@ -25,6 +26,9 @@ PAYMENT_SCOPE = "bot2"
 
 
 def _token():
+    scope = get_current_scope()
+    if scope is not None:
+        return scope.bot_token or "unconfigured-tenant-bot"
     token = os.environ.get("BOT2_TELEGRAM_TOKEN", "").strip()
     if not token:
         raise RuntimeError("BOT2_TELEGRAM_TOKEN belum dikonfigurasi.")
@@ -39,7 +43,7 @@ async def tg2(method: str, **payload):
 
 
 
-_BOT2_LAST_MESSAGES = {}
+_BOT2_LAST_MESSAGES = TenantScopedDict()
 
 async def _remember_last_message(chat_id, message_id):
     if not message_id:
@@ -271,7 +275,7 @@ async def show_products(chat_id, page=1, message_id=None, catalog=None):
     products = await db.products.find({"active": True}).to_list(None)
     group, entries, page, pages = catalog_slice(products, catalog, page)
     rows = []
-    lines = ["📚 <b>Katalog produk</b>", "Pilih katalog untuk melihat varian, harga, dan stok."]
+    lines = ["📚 <b>LIST PRODUCT · Katalog produk</b>", "Pilih katalog untuk melihat varian, harga, dan stok."]
     if catalog:
         lines = ["📦 <b>" + escape(group["name"] if group else "Katalog tidak tersedia") + "</b>", ""]
         for product in entries:
@@ -740,7 +744,7 @@ async def show_checkout_qr(chat_id, user, order_id):
         data = await asyncio.to_thread(_run_node, "create_qris.mjs", [str(payment["payment_amount"])])
         image = base64.b64decode(data["image_base64"])
     sent_qr = await send_photo2(chat_id, image, "qris-all-payment.jpg", caption=text, kb=menu_keyboard())
-    if sent_qr.get("ok"):
+    if sent_qr and sent_qr.get("ok"):
         qr_message_id = (sent_qr.get("result") or {}).get("message_id")
         if qr_message_id:
             await _remember_last_message(chat_id, qr_message_id)
@@ -931,7 +935,7 @@ async def create_bot2_deposit_qr(chat_id, user, amount):
         "Cara bayar: pindai QR melalui aplikasi e-wallet atau mobile banking yang mendukung QRIS."
     )
     sent_qr = await send_photo2(chat_id, image, "qris-all-payment.jpg", caption=caption, kb=menu_keyboard())
-    if sent_qr.get("ok"):
+    if sent_qr and sent_qr.get("ok"):
         qr_message_id = (sent_qr.get("result") or {}).get("message_id")
         if qr_message_id:
             await _remember_last_message(chat_id, qr_message_id)

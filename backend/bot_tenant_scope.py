@@ -44,7 +44,7 @@ class BotTenantScope:
     # Whether the "Bikin Bot Sendiri" reseller entry is active for this bot.
     # Central bot defaults True; tenant bots default False (platform admin
     # enables per tenant).
-    reseller_enabled: bool = True
+    reseller_enabled: bool = False
 
     def __post_init__(self):
         if self.welcome_media is None:
@@ -90,3 +90,37 @@ class use_bot_tenant:
 
     async def __aexit__(self, *exc):
         return self.__exit__(*exc)
+
+
+from collections.abc import MutableMapping
+
+
+class TenantScopedDict(MutableMapping):
+    """Legacy in-memory flow state partitioned by database and bot identity."""
+
+    def __init__(self):
+        self._values = {}
+
+    def _bucket(self):
+        import hashlib
+        scope = get_current_scope()
+        key = None if scope is None else (
+            scope.database_name, scope.slug,
+            hashlib.sha256((scope.bot_token or "").encode()).hexdigest(),
+        )
+        return self._values.setdefault(key, {})
+
+    def __getitem__(self, key):
+        return self._bucket()[key]
+
+    def __setitem__(self, key, value):
+        self._bucket()[key] = value
+
+    def __delitem__(self, key):
+        del self._bucket()[key]
+
+    def __iter__(self):
+        return iter(self._bucket())
+
+    def __len__(self):
+        return len(self._bucket())

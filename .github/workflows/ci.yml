@@ -23,9 +23,9 @@ jobs:
         run: python -m compileall -q backend
       - name: Install backend test dependencies
         run: pip install -r backend/requirements-ci.txt
-      - name: Run backend tests (inventory upload)
+      - name: Run full offline backend tests (mock Mongo, no network)
         working-directory: backend
-        run: python -m pytest tests/test_inventory_upload.py tests/test_bot2_flow.py -q
+        run: python run_offline_tests.py tests/ -q
 
   frontend:
     runs-on: ubuntu-latest
@@ -35,13 +35,16 @@ jobs:
         with:
           node-version: "20"
           cache: npm
-          cache-dependency-path: frontend/package.json
+          cache-dependency-path: frontend/package-lock.json
       - name: Install frontend dependencies
         working-directory: frontend
-        run: npm install --ignore-scripts --no-audit --no-fund
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Build frontend
         working-directory: frontend
         run: npm run build
+      - name: Frontend unit tests
+        working-directory: frontend
+        run: npm test -- --watchAll=false --runInBand
 
   gopay:
     runs-on: ubuntu-latest

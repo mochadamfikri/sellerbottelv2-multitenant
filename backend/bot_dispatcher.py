@@ -25,6 +25,7 @@ import logging
 import os
 import sys
 import time
+from pymongo.errors import DuplicateKeyError
 
 import httpx
 
@@ -102,11 +103,11 @@ async def _load_central_bot():
         return None
     # Scope the central bot to the owner's tenant database.
     registry = get_tenant_registry()
-    tenants = await registry.list_tenants()
-    owner_slug = (doc.get("owner_tenant_slug")
-                  or next((t.get("slug") for t in tenants
-                           if t.get("status") == "active"), "idse"))
-    database_name = tenant_database_name(owner_slug)
+    owner_slug = doc.get("owner_tenant_slug") or "idse"
+    owner_tenant = await registry.get_tenant(owner_slug)
+    if not owner_tenant or owner_tenant.get("status") != "active":
+        return None
+    database_name = owner_tenant.get("database_name") or tenant_database_name(owner_slug)
     from welcome_banner import normalize_welcome_media
     welcome_media = normalize_welcome_media(doc)
     admin_ids = doc.get("admin_ids") or []
@@ -168,44 +169,76 @@ async def _poll_worker(tenant_id: str, slug: str, database_name: str,
             if data.get("ok"):
                 scope.bot_display_name = (
                     data.get("result") or {}).get("first_name", "")
-        except Exception:
-            logger.exception("getMe failed for %s", slug)
-    async with _http_client() as http:
-        while not stop_event.is_set():
-            try:
-                params = {"timeout": POLL_TIMEOUT}
-                if offset is not None:
-                    params["offset"] = offset
-                r = await http.post(f"{api}/getUpdates", json=params)
-                data = r.json()
-                if not data.get("ok"):
-                    logger.warning("getUpdates not ok for %s: %s", slug, data)
+        except Exception as error:
+            logger.error("getMe failed for %s (%s)", slug, type(error).__name__)
+    background_tasks = await _start_tenant_background_tasks(scope, stop_event)
+    try:
+        async with _http_client() as http:
+            while not stop_event.is_set():
+                try:
+                    params = {"timeout": POLL_TIMEOUT}
+                    if offset is not None:
+                        params["offset"] = offset
+                    r = await http.post(f"{api}/getUpdates", json=params)
+                    data = r.json()
+                    if not data.get("ok"):
+                        logger.warning("getUpdates rejected for tenant %s", slug)
+                        await asyncio.sleep(5)
+                        continue
+                    for update in data.get("result", []):
+                        update_id = update.get("update_id")
+                        if update_id is not None:
+                            offset = update_id + 1
+                            try:
+                                # Namespaced by slug: two bots sharing one database
+                                # (e.g. central + tenant) have independent
+                                # update_id sequences.
+                                await db_handle.processed_updates.insert_one(
+                                    {"_id": f"{slug}:{token.split(':', 1)[0]}:{update_id}",
+                                     "update_id": update_id})
+                            except DuplicateKeyError:
+                                continue  # already claimed by this bot
+
+                        async with use_bot_tenant(scope):
+                            try:
+                                await process_update(update)
+                            except Exception as error:
+                                logger.error("process_update failed for %s (%s)", slug, type(error).__name__)
+                except asyncio.CancelledError:
+                    raise
+                except Exception as error:
+                    logger.error("poll loop error for %s; backing off (%s)", slug, type(error).__name__)
                     await asyncio.sleep(5)
-                    continue
-                for update in data.get("result", []):
-                    update_id = update.get("update_id")
-                    if update_id is not None:
-                        offset = update_id + 1
-                        try:
-                            # Namespaced by slug: two bots sharing one database
-                            # (e.g. central + tenant) have independent
-                            # update_id sequences.
-                            await db_handle.processed_updates.insert_one(
-                                {"_id": f"{slug}:{update_id}",
-                                 "update_id": update_id})
-                        except Exception:
-                            continue  # duplicate: skip
-                    async with use_bot_tenant(scope):
-                        try:
-                            await process_update(update)
-                        except Exception:
-                            logger.exception("process_update failed for %s", slug)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                logger.exception("poll loop error for %s; backing off", slug)
-                await asyncio.sleep(5)
+    finally:
+        stop_event.set()
+        for task in background_tasks:
+            task.cancel()
+        await asyncio.gather(*background_tasks, return_exceptions=True)
+        async with use_bot_tenant(scope):
+            from bot import _SERVICE_TASKS, _EDIT_TARGETS, _CHECKOUT_LOCKS
+            pending = list(_SERVICE_TASKS.values())
+            for task in pending:
+                task.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
+            _SERVICE_TASKS.clear()
+            _EDIT_TARGETS.clear()
+            _CHECKOUT_LOCKS.clear()
     logger.info("worker stopped for tenant %s", slug)
+
+
+async def _start_tenant_background_tasks(scope, stop_event):
+    """Run existing payment/stock/followup jobs in this worker's tenant scope."""
+    from bot_tenant_scope import use_bot_tenant
+    from gopay_provider import run_gopay_monitor
+    from post_purchase import run_followup
+    from stock_monitor import run_stock_monitor
+    from daily_recap import run_daily_recap
+    from marketing_campaigns import run_marketing
+    async with use_bot_tenant(scope):
+        return [asyncio.create_task(run(stop_event)) for run in (
+            run_gopay_monitor, run_followup, run_stock_monitor,
+            run_daily_recap, run_marketing,
+        )]
 
 
 class Dispatcher:
@@ -215,15 +248,18 @@ class Dispatcher:
 
     @staticmethod
     def _fingerprint(token: str) -> str:
-        return token[:6] + "..." + token[-4:]
+        import hashlib
+        return hashlib.sha256(token.encode()).hexdigest()
 
     @staticmethod
     def _media_fingerprint(welcome_media: dict, admin_ids: list | None = None,
-                           reseller_enabled: bool = True) -> str:
+                           reseller_enabled: bool = True, brand_name: str = "",
+                           database_name: str = "") -> str:
         import hashlib, json
         payload = {"media": welcome_media or {},
                    "admins": sorted(int(x) for x in (admin_ids or [])),
-                   "reseller": bool(reseller_enabled)}
+                   "reseller": bool(reseller_enabled),
+                   "brand": brand_name, "database": database_name}
         return hashlib.sha256(
             json.dumps(payload, sort_keys=True).encode()
         ).hexdigest()[:12]
@@ -235,7 +271,7 @@ class Dispatcher:
             slug = tenant.get("slug") or tenant.get("tenant_id")
             metadata = tenant.get("metadata") or {}
             bot_config = metadata.get("bot_config") or {}
-            brand = bot_config.get("brand_name", "")
+            brand = bot_config.get("brand_name") or tenant.get("name", "")
             welcome_media = normalize_welcome_media(bot_config)
             admin_ids = bot_config.get("admin_ids") or []
             reseller_enabled = bot_config.get("reseller_enabled", False)
@@ -256,11 +292,13 @@ class Dispatcher:
         for slug, (task, stop_event, fp, mfp) in list(self._workers.items()):
             want = desired.get(slug)
             if (want is None
+                    or task.done()
                     or self._fingerprint(want[2]) != fp
-                    or self._media_fingerprint(want[4], want[5], want[6]) != mfp):
+                    or self._media_fingerprint(want[4], want[5], want[6], want[3], want[1]) != mfp):
                 logger.info("stopping worker for %s", slug)
                 stop_event.set()
                 task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
                 del self._workers[slug]
 
         # Start missing workers.
@@ -276,7 +314,7 @@ class Dispatcher:
                                        self._fingerprint(token),
                                        self._media_fingerprint(welcome_media,
                                                                admin_ids,
-                                                               reseller_enabled))
+                                                               reseller_enabled, brand, database_name))
                 logger.info("started worker for tenant %s", slug)
                 if slug != "central":
                     await _mark_provisioning_running(slug)
@@ -293,6 +331,8 @@ class Dispatcher:
 async def _amain(once: bool):
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s %(name)s %(levelname)s %(message)s")
+    from secret_safe_logging import protect_root_logs
+    protect_root_logs()
     # Never log request URLs: they embed the bot token.
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)

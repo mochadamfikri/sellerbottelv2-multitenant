@@ -1888,6 +1888,15 @@ async def _broadcast_worker(
     query = _broadcast_user_query(query)
     cursor = db.bot_users.find(query, {"telegram_id": 1})
     async for user in cursor:
+        from bot_tenant_scope import get_current_scope
+        scope = get_current_scope()
+        if scope is not None and scope.slug != "central":
+            from dependencies import get_tenant_registry
+            tenant = await get_tenant_registry().get_tenant(scope.slug)
+            if not tenant or tenant.get("status") != "active":
+                await db.broadcasts.update_one({"_id": broadcast_id},
+                    {"$set": {"status": "cancelled", "finished_at": now_iso()}})
+                return
         tid = user["telegram_id"]
 
         # Re-check immediately before sending. This covers a user being

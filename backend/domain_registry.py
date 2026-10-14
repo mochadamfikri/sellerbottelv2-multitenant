@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 from datetime import datetime, timezone
 from typing import Any
+from pymongo.errors import DuplicateKeyError
 
 from tenant_db import resolve_platform_database_name
 
@@ -39,8 +40,8 @@ async def register_domain(
     origin: str = "owner_subdomain",
     created_by: str | None = None,
 ) -> dict[str, Any]:
-    """Register or update a domain mapping. Domain is stored lowercase."""
-    domain = domain.strip().lower()
+    """Claim a domain without ever reassigning another tenant's ownership."""
+    domain = domain.strip().lower().rstrip(".")
     if not domain or "." not in domain:
         raise ValueError("Domain tidak valid.")
     if purpose not in ("storefront", "stock_panel", "config_panel", "api", "platform"):
@@ -52,18 +53,25 @@ async def register_domain(
         "tenant_id": tenant_id,
         "purpose": purpose,
         "origin": origin,
-        "verified": True,
-        "verified_at": now,
+        "verified": origin != "custom",
+        "verified_at": now if origin != "custom" else None,
         "created_at": now,
         "created_by": created_by,
     }
-    await coll.update_one({"domain": domain}, {"$set": doc}, upsert=True)
-    return doc
+    await ensure_domain_indexes(db_client)
+    try:
+        await coll.insert_one(doc.copy())
+        return doc
+    except DuplicateKeyError:
+        existing = await coll.find_one({"domain": domain})
+        if existing and existing.get("tenant_id") == tenant_id:
+            return {key: value for key, value in existing.items() if key != "_id"}
+        raise ValueError("Domain sudah dimiliki tenant lain.") from None
 
 
 async def resolve_domain(db_client, host: str) -> dict[str, Any] | None:
     """Resolve a Host header value to its domain registration, if any."""
-    host = (host or "").strip().lower().split(":")[0]
+    host = (host or "").strip().lower().split(":")[0].rstrip(".")
     if not host:
         return None
     coll = _domains_collection(db_client)
@@ -76,10 +84,11 @@ async def list_domains(db_client, tenant_id: str | None = None) -> list[dict[str
     if tenant_id:
         query["tenant_id"] = tenant_id
     cursor = coll.find(query).sort("domain", 1)
-    return await cursor.to_list(length=None)
+    return [{key: value for key, value in row.items() if key != "_id"}
+            for row in await cursor.to_list(length=None)]
 
 
 async def remove_domain(db_client, domain: str) -> bool:
     coll = _domains_collection(db_client)
-    result = await coll.delete_one({"domain": domain.strip().lower()})
+    result = await coll.delete_one({"domain": domain.strip().lower().rstrip(".")})
     return result.deleted_count > 0

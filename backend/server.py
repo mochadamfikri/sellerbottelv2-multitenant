@@ -54,6 +54,8 @@ from tenant_context import configure_tenant_registry_resolver
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+from secret_safe_logging import protect_root_logs
+protect_root_logs()
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
@@ -157,7 +159,7 @@ async def tls_ask(domain: str = ""):
         if not tenant:
             return JSONResponse(status_code=404, content={"error": "unknown tenant"})
         status = (tenant.get("status") or "").lower()
-        if status in ("suspended", "deleted", "disabled", "banned"):
+        if status != "active":
             return JSONResponse(status_code=403, content={"error": "tenant not eligible"})
         return {"ok": True}
     except Exception:
@@ -234,6 +236,8 @@ async def startup():
     from platform_indexes import ensure_platform_indexes
     platform_db = client[mongo_registry.platform_database_name]
     await ensure_platform_indexes(platform_db)
+    from domain_registry import ensure_domain_indexes
+    await ensure_domain_indexes(client)
     logger.info("Platform indexes ensured")
 
     await ensure_settings()

@@ -126,5 +126,5 @@ def test_return_to_main_uses_dynamic_start_welcome(monkeypatch):
         })
 
     asyncio.run(run())
-    assert "Selamat Datang di Bot Store" in sent[0][1]
+    assert "Selamat Datang di Test Store Market" in sent[0][1]
     assert "<b>@returnuser</b>" in sent[0][1]

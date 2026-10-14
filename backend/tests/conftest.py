@@ -6,3 +6,24 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 # Install MongoDB mocks BEFORE test collection imports any application module.
 # This also blocks outbound sockets, including legacy HTTP integration tests.
 import run_offline_tests  # noqa: F401,E402
+
+import asyncio
+import pytest
+
+
+@pytest.fixture(scope="module", autouse=True)
+def isolate_mock_database_modules():
+    """Discard mock data AND indexes left by unrelated test modules."""
+    from db import client
+    from mongomock_motor import AsyncMongoMockClient
+    assert isinstance(client, AsyncMongoMockClient), "Tests must use mock MongoDB"
+
+    async def reset():
+        for name in await client.list_database_names():
+            database = client[name]
+            for collection in await database.list_collection_names():
+                await database.drop_collection(collection)
+
+    asyncio.run(reset())
+    yield
+    asyncio.run(reset())

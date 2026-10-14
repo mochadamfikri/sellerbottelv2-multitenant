@@ -14,12 +14,16 @@ from __future__ import annotations
 import os
 import re
 import secrets
+import logging
+from pymongo.errors import DuplicateKeyError
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from auth import hash_password
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/public", tags=["public-registration"])
 
@@ -116,9 +120,8 @@ async def _send_otp_email(email: str, code: str) -> None:
 
     # Dev fallback: kalau SMTP belum dikonfigurasi, log aja
     if not all((host, user, password)):
-        if os.environ.get("PUBLIC_REG_OTP_DEV_LOG", "1") == "1":
-            print(f"[public-reg] OTP for {email}: {code} (SMTP belum dikonfigurasi)")
-        return
+        logger.warning("Registration email delivery unavailable: SMTP is not configured")
+        raise HTTPException(503, "Email pendaftaran belum dikonfigurasi.")
 
     msg = EmailMessage()
     msg["Subject"] = "Kode OTP Pendaftaran IDSEConnect"
@@ -190,6 +193,7 @@ async def _send_otp_email(email: str, code: str) -> None:
                 server.getreply()
             else:
                 server = smtplib.SMTP()
+                server._host = host
                 server.sock = sock
                 server.getreply()
                 server.starttls()
@@ -234,11 +238,16 @@ async def request_registration_code(body: RequestCodeBody) -> dict:
         },
         upsert=True,
     )
-    await _send_otp_email(body.email, code)
+    try:
+        await _send_otp_email(body.email, code)
+    except Exception as error:
+        await coll.delete_one({"email": body.email, "code": code})
+        logger.warning("Registration email delivery failed (%s)", type(error).__name__)
+        raise HTTPException(503, "Kode verifikasi gagal dikirim. Silakan coba lagi.") from None
     return {"ok": True}
 
 
-class VerifyCodeBody(BaseModel):
+class VerifyCodeBody(RequestCodeBody):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     email: str = Field(min_length=5, max_length=254)
@@ -337,10 +346,10 @@ async def _notify_owner_new_registration(data: dict) -> None:
                         f"https://api.telegram.org/bot{token}/sendMessage",
                         json={"chat_id": aid, "text": text, "parse_mode": "HTML"},
                     )
-                except Exception:
-                    pass
-    except Exception:
-        pass  # notifikasi gagal jangan ganggu pendaftaran
+                except Exception as error:
+                    logger.warning("Registration notification failed (%s)", type(error).__name__)
+    except Exception as error:
+        logger.warning("Registration notification unavailable (%s)", type(error).__name__)
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
@@ -360,7 +369,6 @@ async def register_tenant(body: RegisterBody) -> dict:
             vexp = vexp.replace(tzinfo=timezone.utc)
         if not vdoc or vdoc.get("verify_token") != body.verify_token or not vexp or vexp < now:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Verifikasi kadaluarsa. Ulangi dari awal.")
-        await _platform_db()["public_reg_verified"].delete_one({"email": email_norm})
     else:
         # Flow lama: verifikasi kode langsung
         if not body.code:
@@ -377,7 +385,6 @@ async def register_tenant(body: RegisterBody) -> dict:
         if record.get("code") != body.code:
             await coll.update_one({"email": email_norm}, {"$inc": {"attempts": 1}})
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Kode OTP salah.")
-        await coll.delete_one({"email": email_norm})
 
     # 2. Normalisasi slug → single DNS label
     # Lestari.Store → lestari-store, LESTARI_STORE → lestari-store
@@ -398,6 +405,29 @@ async def register_tenant(body: RegisterBody) -> dict:
     if await registry.get_tenant(safe_slug):
         raise HTTPException(status.HTTP_409_CONFLICT, f'Sub-domain "{safe_slug}" sudah dipakai. Pilih yang lain.')
 
+    from db import client as registration_client
+    from inventory_transform import DOMAIN_RE
+    if body.has_domain:
+        shop_domain = (body.custom_domain or "").strip().lower().rstrip(".")
+        if not DOMAIN_RE.fullmatch(shop_domain):
+            raise HTTPException(422, "Custom domain tidak valid.")
+        if shop_domain in {BASE_DOMAIN, "idsestock.my.id", "idsehub.my.id", "idsedm.duckdns.org"} or shop_domain.endswith("." + BASE_DOMAIN):
+            raise HTTPException(409, "Domain platform tidak dapat didaftarkan sebagai custom domain.")
+        domain_origin = "custom"
+    else:
+        shop_domain = f"{safe_slug}.{BASE_DOMAIN}"
+        domain_origin = "owner_subdomain"
+    await _owners_collection().create_index("email", unique=True, name="owner_email_unique")
+    if await _owners_collection().find_one({"email": email_norm}):
+        raise HTTPException(409, "Email sudah terdaftar sebagai pemilik tenant.")
+    existing_domain = await domain_registry.resolve_domain(registration_client, shop_domain)
+    if existing_domain:
+        raise HTTPException(409, "Domain sudah terdaftar.")
+    from tenant_db import tenant_database_name
+    database_name = tenant_database_name(safe_slug, registry.platform_database_name)
+    if database_name in await registration_client.list_database_names():
+        raise HTTPException(409, "Database tenant sudah ada. Hubungi admin platform.")
+
     # 3. Create tenant (paket yang dipilih).
     valid_packages = {"demo", "monthly", "yearly", "lifetime"}
     plan = body.package.strip().lower() if body.package else "demo"
@@ -412,86 +442,84 @@ async def register_tenant(body: RegisterBody) -> dict:
     except ValueError as error:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(error)) from error
 
-    # 4. Store owner credentials.
-    owner_doc = {
-        "tenant_id": str(tenant["_id"]),
-        "tenant_slug": safe_slug,
-        "email": body.email,
-        "whatsapp": body.whatsapp,
-        "password_hash": hash_password(body.password),
-        "created_at": now.isoformat(),
-    }
-    # Simpan admin ID kalau diisi (token hanya disimpan terenkripsi di metadata)
-    bot_token = (body.bot_token or "").strip()
-    admin_tg = (body.admin_telegram_id or "").strip()
-    if admin_tg:
-        owner_doc["admin_telegram_id"] = admin_tg
-    await _owners_collection().insert_one(owner_doc)
-
-    # Kalau token bot diisi, langsung simpan ke tenant bot_config (status pending)
-    # biar bisa diproses/aktivasi dari platform panel
-    if bot_token:
-        from inventory import _fernet
-        enc_token = _fernet().encrypt(bot_token.encode()).decode()
-        # Validasi token ke Telegram sebelum simpan
-        bot_valid = False
-        bot_username = None
-        try:
-            import httpx
-            async with httpx.AsyncClient(timeout=10) as hc:
-                r = await hc.get(f"https://api.telegram.org/bot{bot_token}/getMe")
-                if r.status_code == 200:
-                    j = r.json()
-                    if j.get("ok"):
-                        bot_valid = True
-                        bot_username = j.get("result", {}).get("username")
-        except Exception:
-            pass
-        bot_config = {
-            "token_encrypted": enc_token,
-            "provisioning_status": "active" if bot_valid else "invalid_token",
-            "bot_username": bot_username,
-        }
-        if admin_tg:
-            try:
-                bot_config["admin_ids"] = [int(admin_tg)]
-            except ValueError:
-                pass
-        # Merge dengan metadata yang ada
-        existing = await registry.get_tenant(safe_slug)
-        existing_meta = dict((existing.get("metadata") or {}))
-        existing_meta["bot_config"] = bot_config
-        await registry.set_metadata(safe_slug, existing_meta)
-
-    # Aktifkan tenant agar bot langsung jalan (kalau token valid)
-    try:
-        await registry.update_status(safe_slug, "active")
-    except Exception:
-        pass
-
-    # 5. Auto-register shop domain.
-    from db import db as _db
-
-    if body.has_domain and body.custom_domain:
-        # User punya domain sendiri
-        shop_domain = body.custom_domain.strip().lower()
-        domain_origin = "custom"
-    else:
-        # Subdomain: selalu single DNS label (normalized slug)
-        # Contoh: Lestari.Store → lestari-store → lestari-store.idseconnect.my.id
-        shop_domain = f"{safe_slug}.{BASE_DOMAIN}"
-        domain_origin = "owner_subdomain"
     try:
         await domain_registry.register_domain(
-            _db.client,
-            domain=shop_domain,
-            tenant_id=str(tenant["_id"]),
-            purpose="storefront",
-            origin=domain_origin,
-            created_by="public-registration",
+            registration_client, domain=shop_domain, tenant_id=str(tenant["_id"]),
+            purpose="storefront", origin=domain_origin, created_by="public-registration",
         )
-    except ValueError:
-        pass  # domain issue shouldn't fail registration
+        # 4. Store owner credentials.
+        owner_doc = {
+            "tenant_id": str(tenant["_id"]),
+            "tenant_slug": safe_slug,
+            "email": email_norm,
+            "store_name": body.store_name,
+            "whatsapp": body.whatsapp,
+            "password_hash": hash_password(body.password),
+            "created_at": now.isoformat(),
+        }
+        # Simpan admin ID kalau diisi (token hanya disimpan terenkripsi di metadata)
+        bot_token = (body.bot_token or "").strip()
+        admin_tg = (body.admin_telegram_id or "").strip()
+        if admin_tg:
+            owner_doc["admin_telegram_id"] = admin_tg
+        await _owners_collection().insert_one(owner_doc)
+
+        # Kalau token bot diisi, langsung simpan ke tenant bot_config (status pending)
+        # biar bisa diproses/aktivasi dari platform panel
+        if bot_token:
+            from inventory import _fernet
+            enc_token = _fernet().encrypt(bot_token.encode()).decode()
+            # Validasi token ke Telegram sebelum simpan
+            bot_valid = False
+            bot_username = None
+            try:
+                import httpx
+                async with httpx.AsyncClient(timeout=10) as hc:
+                    r = await hc.get(f"https://api.telegram.org/bot{bot_token}/getMe")
+                    if r.status_code == 200:
+                        j = r.json()
+                        if j.get("ok"):
+                            bot_valid = True
+                            bot_username = j.get("result", {}).get("username")
+            except Exception as error:
+                logger.warning("Bot validation unavailable for tenant %s (%s)", safe_slug, type(error).__name__)
+            bot_config = {
+                "token_encrypted": enc_token,
+                "provisioning_status": "active" if bot_valid else "invalid_token",
+                "bot_username": bot_username,
+            }
+            if admin_tg:
+                try:
+                    bot_config["admin_ids"] = [int(admin_tg)]
+                except ValueError:
+                    pass
+            # Merge dengan metadata yang ada
+            existing = await registry.get_tenant(safe_slug)
+            existing_meta = dict((existing.get("metadata") or {}))
+            existing_meta["bot_config"] = bot_config
+            await registry.set_metadata(safe_slug, existing_meta)
+
+        from tenant_provisioning import provision_tenant_database
+        await provision_tenant_database(safe_slug, registration_client)
+        await registration_client[tenant["database_name"]].settings.update_one(
+            {"_id": "main"}, {"$set": {"store_name": body.store_name}},
+        )
+        await registry.update_status(safe_slug, "active")
+    except Exception as error:
+        # Only remove records created by this attempt; never another tenant's domain.
+        await _owners_collection().delete_many({"tenant_id": str(tenant["_id"])})
+        await _platform_db().domains.delete_one({"domain": shop_domain, "tenant_id": str(tenant["_id"])})
+        # The preflight and registry's unique database_name claim guarantee
+        # this is a new database owned only by this registration attempt.
+        await registration_client.drop_database(tenant["database_name"])
+        await registry.collection.delete_one({"_id": tenant["_id"], "slug": safe_slug})
+        logger.error("Registration rolled back for tenant %s (%s)", safe_slug, type(error).__name__)
+        if isinstance(error, (ValueError, DuplicateKeyError)):
+            raise HTTPException(409, "Domain atau email sudah terdaftar.") from None
+        raise HTTPException(503, "Pendaftaran gagal. Silakan coba lagi.") from None
+
+    await _platform_db()["public_reg_verified"].delete_one({"email": email_norm})
+    await _otp_collection().delete_one({"email": email_norm})
 
     result = {
         "ok": True,
@@ -549,6 +577,8 @@ async def tenant_login(body: TenantLoginBody) -> dict:
     if not owner or not verify_password(body.password, owner.get("password_hash", "")):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Email atau password salah.")
 
+    await _active_owner_tenant(owner)
+
     token = create_access_token(str(owner["_id"]), email)
     return {
         "ok": True,
@@ -580,7 +610,18 @@ async def _require_tenant_owner(request) -> dict:
         owner = None
     if not owner:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Akun tidak ditemukan.")
+    await _active_owner_tenant(owner)
     return owner
+
+
+async def _active_owner_tenant(owner):
+    from dependencies import get_tenant_registry
+    tenant = await get_tenant_registry().get_tenant(owner.get("tenant_slug"))
+    if not tenant or str(tenant.get("_id")) != str(owner.get("tenant_id")):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Tenant tidak ditemukan.")
+    if tenant.get("status") != "active":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Tenant tidak aktif.")
+    return tenant
 
 
 @router.get("/tenant/me")
@@ -699,8 +740,8 @@ async def tenant_stats(request: Request) -> dict:
     _, tenant, tenant_db = await _get_tenant_db(request)
     products = await tenant_db.products.count_documents({})
     orders = await tenant_db.purchases.count_documents({})
-    catalogs = await tenant_db.catalogs.count_documents({})
-    users = await tenant_db.users.count_documents({})
+    catalogs = await tenant_db.product_catalogs.count_documents({})
+    users = await tenant_db.bot_users.count_documents({})
     return {
         "tenant_slug": tenant.get("slug"),
         "store_name": tenant.get("name"),
@@ -793,30 +834,17 @@ async def tenant_users(request: Request) -> dict:
     """List pengguna/customer tenant."""
     _, tenant, tenant_db = await _get_tenant_db(request)
     users = []
-    async for u in tenant_db.users.find({}).sort("created_at", -1).limit(100):
+    async for u in tenant_db.bot_users.find({}).sort("created_at", -1).limit(100):
         users.append(_json_safe(u))
-    return {"users": users, "total": await tenant_db.users.count_documents({})}
+    return {"users": users, "total": await tenant_db.bot_users.count_documents({})}
 
 
 # === BROADCAST ===
 @router.post("/tenant/broadcast")
 async def tenant_broadcast(request: Request, body: dict) -> dict:
-    """Kirim broadcast ke semua user bot tenant."""
-    owner, tenant, tenant_db = await _get_tenant_db(request)
-    message = str(body.get("message", "")).strip()
-    if not message or len(message) > 4000:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Pesan wajib diisi (maks 4000 karakter).")
-    # Simpan ke queue untuk diproses dispatcher
-    from datetime import datetime, timezone
-    doc = {
-        "tenant_slug": tenant.get("slug"),
-        "message": message,
-        "status": "queued",
-        "created_at": datetime.now(timezone.utc),
-        "created_by": owner.get("email"),
-    }
-    result = await tenant_db.broadcasts.insert_one(doc)
-    return {"ok": True, "broadcast_id": str(result.inserted_id), "status": "queued"}
+    """Compatibility route; execute the canonical scoped broadcast implementation."""
+    from tenant_full_routes import tenant_send_broadcast
+    return await tenant_send_broadcast(request, body)
 
 
 @router.get("/tenant/broadcasts")
@@ -827,3 +855,22 @@ async def tenant_broadcasts(request: Request) -> dict:
     async for b in tenant_db.broadcasts.find({}).sort("created_at", -1).limit(20):
         items.append(_json_safe(b))
     return {"broadcasts": items}
+
+
+@router.get("/artwork-preview")
+async def public_artwork_preview(name: str = "Produk", catalog_name: str = ""):
+    from fastapi import Response
+    from product_artwork import render_product_artwork
+    return Response(render_product_artwork(name[:300], catalog_name[:80]), media_type="image/webp")
+
+
+@router.get("/host-config")
+async def public_host_config(request: Request, host: str = ""):
+    from db import client
+    from domain_registry import resolve_domain
+    registration = await resolve_domain(client, host or request.headers.get("host", ""))
+    if registration and registration.get("purpose") == "storefront" and registration.get("tenant_id"):
+        tenant = await _platform_db().tenants.find_one({"_id": registration["tenant_id"]})
+        if tenant:
+            return {"tenant_slug": tenant["slug"]}
+    return {"tenant_slug": None}

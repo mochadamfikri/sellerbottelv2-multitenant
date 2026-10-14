@@ -31,7 +31,8 @@ async def provision_tenant_database(tenant_id: str, database_client: Any) -> dic
     database = database_client[database_name]
 
     settings = deepcopy(DEFAULT_SETTINGS)
-    settings.update({"_id": "main", "tenant_id": tenant_id, "store_name": ""})
+    settings.update({"_id": "main", "tenant_id": tenant_id, "store_name": "",
+                     "admin_telegram_id": ""})
     await database.settings.update_one(
         {"_id": "main"}, {"$setOnInsert": settings}, upsert=True
     )

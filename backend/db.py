@@ -126,6 +126,8 @@ async def ensure_settings():
 
 
 async def ensure_indexes():
+    from commerce.fulfillment.repository import ensure_fulfillment_indexes
+    await ensure_fulfillment_indexes(db)
     await db.inventory_items.create_index("marketing.event_id", unique=True,
         partialFilterExpression={"marketing.event_id": {"$type": "string"}}, name="marketing_event_unique")
     await db.broadcasts.create_index([("kind", 1), ("status", 1), ("next_scheduled_at", 1)], name="marketing_schedule")

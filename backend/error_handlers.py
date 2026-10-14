@@ -9,7 +9,9 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from pymongo.errors import PyMongoError
 from inventory import InventoryError
+from commerce.fulfillment_types import CommerceError
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +22,15 @@ def register_error_handlers(app: FastAPI) -> None:
     Panggil SEBELUM ``CORSMiddleware`` ditambahkan supaya respons error 500 tetap
     melewati CORS (jika tidak, browser menampilkannya sebagai "Network Error").
     """
+
+    @app.exception_handler(CommerceError)
+    async def commerce_error_handler(request: Request, exc: CommerceError):
+        return JSONResponse(status_code=exc.status_code, content={"detail": str(exc)})
+
+    @app.exception_handler(PyMongoError)
+    async def database_error_handler(request: Request, exc: PyMongoError):
+        logger.warning("Database unavailable path=%s exception=%s", request.url.path, type(exc).__name__)
+        return JSONResponse(status_code=503, content={"detail": "Database temporarily unavailable; retry"})
 
     @app.exception_handler(InventoryError)
     async def inventory_error_handler(request: Request, exc: InventoryError):

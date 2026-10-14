@@ -29,6 +29,8 @@ async def provision_tenant_database(tenant_id: str, database_client: Any) -> dic
     """
     database_name = tenant_database_name(tenant_id)
     database = database_client[database_name]
+    from commerce.fulfillment.repository import ensure_fulfillment_indexes
+    await ensure_fulfillment_indexes(database)
 
     settings = deepcopy(DEFAULT_SETTINGS)
     settings.update({"_id": "main", "tenant_id": tenant_id, "store_name": "",

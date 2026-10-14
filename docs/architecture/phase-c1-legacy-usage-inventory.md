@@ -1,0 +1,51 @@
+# C1 legacy usage inventory
+
+Baseline: `026fa480624d36e4a0ef73444cf76b3e9e099fcd`. Locations refer to that revision, before C1 edits. Each matching use of `product_kind`, `delivery_type`, `inventory_mode` and `service_wait_minutes` is included, grouped by its containing function/model. Tests are excluded. Classification preserves existing delivery formats and UI restrictions while moving operational routing to canonical snapshots.
+
+| File | Function/model | Baseline lines | Classification | Decision |
+|---|---|---|---|---|
+| backend/admin_routes.py | _normalized_product_kind | 112,113,117 | future C2 concern | Keep existing digital/service UI choices in C1; generalized authoring waits for C2. |
+| backend/admin_routes.py | _is_inventory_product | 123 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/admin_routes.py | list_products | 140,141 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/admin_routes.py | _validate_product_kind | 170 | future C2 concern | Keep existing digital/service UI choices in C1; generalized authoring waits for C2. |
+| backend/admin_routes.py | create_product | 227,232,234,235,241,246,251,252,279,280,284,291,294,295,296 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/admin_routes.py | update_product | 325,330,332,333,344,349,357,362,366,376,377,384,386,394,399,401,409,435 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/admin_routes.py | _parse_inventory_input | 706,793 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/admin_routes.py | add_inventory_manual | 899 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/admin_routes.py | _build_product_broadcast | 2070 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/admin_routes.py | _build_auto_broadcast | 2107 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/bot.py | show_product_detail | 837 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/bot.py | deliver_product | 1091,1100 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/bot.py | queue_service_delivery | 1447 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/bot.py | resume_service_waiters | 1497 | should call resolver | Route frozen order items; restore service tasks from snapshots. |
+| backend/bot.py | _do_checkout | 1604,1613 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/bot2.py | reserve_order_items | 461 | should call resolver | Routing/reservation decisions use canonical classification; keep payment and reservation mechanics. |
+| backend/bot2.py | process_confirmed_bot2_order | 543,546 | should call resolver | Routing/reservation decisions use canonical classification; keep payment and reservation mechanics. |
+| backend/bot2.py | create_bot2_checkout | 633 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/bot2.py | deliver_order | 774,779,780 | should call resolver | Routing/reservation decisions use canonical classification; keep payment and reservation mechanics. |
+| backend/bulk_product_import.py | _parse_product_rows | 205 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/bulk_product_import.py | import_workbook | 275,291,292,296,300,302,329 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/catalog_routes.py | catalog_products | 32 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/checkout.py | stock_for | 44,45 | should call resolver | Routing/reservation decisions use canonical classification; keep payment and reservation mechanics. |
+| backend/checkout.py | execute_checkout | 241,283 | should call resolver | Routing/reservation decisions use canonical classification; keep payment and reservation mechanics. |
+| backend/direct_checkout.py | create_qris_order | 123,140 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/direct_checkout.py | create_store_qris_order | 232,249 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/direct_checkout.py | finalize_qris_order | 392,398 | should call resolver | Routing/reservation decisions use canonical classification; keep payment and reservation mechanics. |
+| backend/direct_checkout.py | _finalize_store_qris_order | 449,465 | should call resolver | Routing/reservation decisions use canonical classification; keep payment and reservation mechanics. |
+| backend/inventory.py | add_records | 247 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/inventory_admin.py | get_product | 62 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/inventory_admin.py | set_schema | 74 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/inventory_admin.py | inventory_template | 91 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/inventory_admin.py | edit_inventory | 134 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/inventory_admin.py | replace_inventory_file | 144 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/inventory_transform.py | _read_source | 56 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/marketing_campaigns.py | inventory_product | 56 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/order_fulfillment.py | fulfillment | 38,40 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/product_catalog.py | catalog_name | 11 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/reseller_bot.py | buy | 317 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/stock_monitor.py | scan_stock | 31 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/storefront_routes.py | send_order_completion_email | 145,146,149,175 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/storefront_routes.py | _public_product | 436 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/storefront_routes.py | _finalize_store_balance_order | 823 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/tenant_full_routes.py | tenant_create_product | 79,84,86,87,99,101,102 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |
+| backend/tenant_full_routes.py | tenant_update_product | 120,125,127,128,140,142,143 | must remain | Legacy fields, presentation, delivery format, service queue settings or compatibility writes remain; canonical writes/snapshots wrap them where needed. |

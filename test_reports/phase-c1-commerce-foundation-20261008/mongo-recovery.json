@@ -1,0 +1,12 @@
+{
+  "container": "sellerbottelv2-dev-mongo",
+  "port": 27019,
+  "incident": "WiredTiger error 24: Too many open files; exit 14",
+  "soft_limit_before": 1024,
+  "hard_limit": 524288,
+  "soft_limit_after": 65535,
+  "recovery": "restart existing container, retain volume, raise current process limit",
+  "data_reset": false,
+  "preflight": "harness requires soft limit >=65535 before writes",
+  "remaining": "process limit must be reapplied after container restart unless Docker nofile is configured persistently"
+}

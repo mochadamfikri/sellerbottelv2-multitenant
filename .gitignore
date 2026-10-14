@@ -99,3 +99,6 @@ backend/gobiz/.env
 
 # Generated after the audit report commit to record its final SHA.
 /test_reports/live-dev-e2e-20261008/git-final.json
+
+# C1 final SHA recorded after the report commit.
+/test_reports/phase-c1-commerce-foundation-20261008/git-final.json

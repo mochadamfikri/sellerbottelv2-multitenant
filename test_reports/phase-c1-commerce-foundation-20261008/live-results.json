@@ -1,0 +1,223 @@
+{
+  "platform_database": "sellerbottel_c1_dev_c65710e1",
+  "tenant_databases": [
+    "sellerbottel_tenant_c1_a_c65710e1",
+    "sellerbottel_tenant_c1_b_c65710e1"
+  ],
+  "delivery_transport": "mocked",
+  "mongo": "real dedicated localhost:27019",
+  "checks": [
+    {
+      "test": "dedicated Mongo file limit sufficient",
+      "result": "PASS"
+    },
+    {
+      "test": "dedicated Mongo ping",
+      "result": "PASS"
+    },
+    {
+      "test": "fresh isolated C1 platform",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP backend startup",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP tenant provisioning a",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP owner login a",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP canonical product write a",
+      "result": "PASS"
+    },
+    {
+      "test": "real unique fulfillment index a",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP tenant provisioning b",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP owner login b",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP canonical product write b",
+      "result": "PASS"
+    },
+    {
+      "test": "real unique fulfillment index b",
+      "result": "PASS"
+    },
+    {
+      "test": "real legacy digital/service balance checkout c1-a-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "mixed paid records complete and unique c1-a-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "repeated real routing sends once c1-a-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP fulfillment read c1-a-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "foreign HTTP fulfillment denied c1-a-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "service completion record c1-a-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "historical snapshot routing after edit c1-a-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "concurrent paid event unique records c1-a-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "concurrent real claims one delivery c1-a-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "physical placeholder pending c1-a-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "handler failure safe and never replayed c1-a-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "real insert failure compensates wallet and reservation c1-a-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "same-product distinct lines deliver distinct inventory c1-a-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "real QRIS reservation before payment c1-a-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "duplicate real QRIS success no consumption or fulfillment duplication c1-a-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "real migration dry-run preserves data c1-a-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "real legacy digital/service balance checkout c1-b-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "mixed paid records complete and unique c1-b-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "repeated real routing sends once c1-b-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP fulfillment read c1-b-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "foreign HTTP fulfillment denied c1-b-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "service completion record c1-b-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "historical snapshot routing after edit c1-b-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "concurrent paid event unique records c1-b-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "concurrent real claims one delivery c1-b-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "physical placeholder pending c1-b-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "handler failure safe and never replayed c1-b-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "real insert failure compensates wallet and reservation c1-b-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "same-product distinct lines deliver distinct inventory c1-b-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "real QRIS reservation before payment c1-b-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "duplicate real QRIS success no consumption or fulfillment duplication c1-b-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "real migration dry-run preserves data c1-b-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "central bot shares owner fulfillment idempotency",
+      "result": "PASS"
+    },
+    {
+      "test": "foreign record ID invisible",
+      "result": "PASS"
+    },
+    {
+      "test": "foreign mutation rejected",
+      "result": "PASS"
+    },
+    {
+      "test": "suspended tenant routing blocked",
+      "result": "PASS"
+    },
+    {
+      "test": "backend restart health",
+      "result": "PASS"
+    },
+    {
+      "test": "restart reads tenant records c1-a-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "restart reads tenant records c1-b-c65710e1",
+      "result": "PASS"
+    },
+    {
+      "test": "retained audit tenants preserved",
+      "result": "PASS"
+    },
+    {
+      "test": "secret-safe runtime log",
+      "result": "PASS"
+    }
+  ]
+}

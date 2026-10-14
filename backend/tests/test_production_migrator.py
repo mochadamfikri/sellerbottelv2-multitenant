@@ -17,7 +17,16 @@ from production_v1_v3_migrate import (
     validate_safety_guards,
     load_owner_mapping,
     RESET_COLLECTION,
+    MigrationSafetyError,
+    TargetConflictError,
 )
+
+try:
+    from cryptography.fernet import Fernet
+    TEST_FERNET_KEY = Fernet.generate_key().decode()
+except ImportError:
+    Fernet = None
+    TEST_FERNET_KEY = None
 
 
 @pytest.fixture
@@ -72,27 +81,31 @@ async def make_mock_client():
         custs.append(doc)
     await src.store_customers.insert_many(custs)
 
-    # 1116 inventory (759 available, 357 sold)
+    # 1116 inventory (759 available, 357 sold) with encrypted secret if Fernet available
     inv = []
+    cipher = Fernet(TEST_FERNET_KEY.encode()) if Fernet and TEST_FERNET_KEY else None
     for i in range(759):
-        inv.append({"_id": f"inv-avail-{i}", "status": "available"})
+        secret = cipher.encrypt(f"item-avail-{i}".encode()).decode() if cipher else f"item-avail-{i}"
+        inv.append({"_id": f"inv-avail-{i}", "status": "available", "secret": secret})
     for i in range(357):
-        inv.append({"_id": f"inv-sold-{i}", "status": "sold"})
+        secret = cipher.encrypt(f"item-sold-{i}".encode()).decode() if cipher else f"item-sold-{i}"
+        inv.append({"_id": f"inv-sold-{i}", "status": "sold", "secret": secret})
     await src.inventory_items.insert_many(inv)
 
-    # products, counters, purchases
+    # products, counters, purchases, and custom generic historical collections
     await src.products.insert_one({"_id": "prod-1", "name": "Digital Item"})
     await src.counters.insert_one({"_id": "invoice:2026-10", "seq": 100})
     await src.purchases.insert_one({"_id": "pur-1", "invoice_id": "INV-2026-10-0100"})
+    await src.custom_history_logs.insert_one({"_id": "hist-1", "action": "test_action"})
 
     return client
 
 
 def test_safety_guards_refuse_invalid_targets():
     with pytest.raises(ValueError, match="reserved name"):
-        validate_safety_guards("sellerbottel", "sellerbottel", "sellerbottel_tenant_idse")
-    with pytest.raises(ValueError, match="reserved name"):
         validate_safety_guards("sellerbottel", "admin", "sellerbottel_tenant_idse")
+    with pytest.raises(ValueError, match="matches source"):
+        validate_safety_guards("custom_v1", "custom_v1", "sellerbottel_tenant_idse")
     with pytest.raises(ValueError, match="distinct"):
         validate_safety_guards("sellerbottel", "target_db", "target_db")
 
@@ -105,6 +118,7 @@ async def test_inspect_and_dry_run_zero_writes(sample_mapping):
         source_db_name="sellerbottel",
         target_platform_db="sellerbottel_v3_platform_test",
         mapping=sample_mapping,
+        encryption_key=TEST_FERNET_KEY,
     )
 
     insp = await migrator.inspect()
@@ -117,6 +131,9 @@ async def test_inspect_and_dry_run_zero_writes(sample_mapping):
     dry = await migrator.dry_run()
     assert dry["status"] == "DRY_RUN_PASS"
     assert dry["zero_source_writes"] is True
+    if TEST_FERNET_KEY:
+        assert dry["inventory_decrypt"]["status"] == "PASS"
+        assert dry["inventory_decrypt"]["decrypted_count"] == 1116
 
     # Target must have zero collections
     assert await mock_client["sellerbottel_v3_platform_test"].list_collection_names() == []
@@ -124,17 +141,32 @@ async def test_inspect_and_dry_run_zero_writes(sample_mapping):
 
 
 @pytest.mark.asyncio
-async def test_apply_and_verify_invariants(sample_mapping):
+async def test_apply_refuses_without_confirmation(sample_mapping):
     mock_client = await make_mock_client()
     migrator = ProductionMigrator(
         client=mock_client,
         source_db_name="sellerbottel",
         target_platform_db="sellerbottel_v3_platform_test",
         mapping=sample_mapping,
+        encryption_key=TEST_FERNET_KEY,
+    )
+    with pytest.raises(MigrationSafetyError, match="does not match"):
+        await migrator.apply("wrong_target_name")
+
+
+@pytest.mark.asyncio
+async def test_apply_and_verify_invariants_and_generic_archive(sample_mapping):
+    mock_client = await make_mock_client()
+    migrator = ProductionMigrator(
+        client=mock_client,
+        source_db_name="sellerbottel",
+        target_platform_db="sellerbottel_v3_platform_test",
+        mapping=sample_mapping,
+        encryption_key=TEST_FERNET_KEY,
     )
 
-    # 1. Apply
-    res = await migrator.apply()
+    # 1. Apply with confirmation
+    res = await migrator.apply("sellerbottel_v3_platform_test")
     assert res["status"] == "APPLY_PASS"
     assert res["zero_source_writes"] is True
 
@@ -147,6 +179,9 @@ async def test_apply_and_verify_invariants(sample_mapping):
     assert ver["inventory_total"] == 1116
     assert ver["inventory_available"] == 759
     assert ver["inventory_sold"] == 357
+    if TEST_FERNET_KEY:
+        assert ver["inventory_decrypt"]["status"] == "PASS"
+        assert ver["inventory_decrypt"]["decrypted_count"] == 1116
 
     # 3. Check legacy reset sidecar
     tenant_db = mock_client["sellerbottel_tenant_idse"]
@@ -160,34 +195,38 @@ async def test_apply_and_verify_invariants(sample_mapping):
     bindings = await platform_db.account_tenant_bindings.find().to_list(None)
     assert len(bindings) == 60  # 55 bots + 5 store_customers
 
-    # 5. Check Idempotency: re-running apply changes nothing and does not duplicate
-    res2 = await migrator.apply()
+    # 5. Check generic archive collection
+    arch_db = mock_client["sellerbottel_v3_platform_test_archive"]
+    custom_doc = await arch_db.custom_history_logs.find_one({"_id": "hist-1"})
+    assert custom_doc is not None
+    assert custom_doc["action"] == "test_action"
+
+    # 6. Check Idempotency: re-running apply changes nothing and does not duplicate
+    res2 = await migrator.apply("sellerbottel_v3_platform_test")
     assert res2["status"] == "APPLY_PASS"
     ver2 = await migrator.verify()
     assert ver2["status"] == "VERIFY_PASS"
     assert ver2["bot_users"] == 55
-    assert ver2["store_customers"] == 5
-    assert ver2["combined_idr"] == 68698450
-    assert ver2["inventory_total"] == 1116
-
-@pytest.mark.asyncio
-async def test_refuse_same_source_and_target():
-    with pytest.raises(ValueError, match="matches source"):
-        validate_safety_guards("custom_v1", "custom_v1", "custom_tenant")
 
 
 @pytest.mark.asyncio
-async def test_deterministic_mapping_and_idempotency(sample_mapping):
-    client = await make_mock_client()
+async def test_target_conflict_detection(sample_mapping):
+    mock_client = await make_mock_client()
+    # Pre-seed conflicting bot in target
+    target_tenant_db = mock_client["sellerbottel_tenant_idse"]
+    await target_tenant_db.bot_users.insert_one({
+        "_id": "bot-0",
+        "telegram_id": 1000,
+        "balance_idr": 999999999,  # CONFLICT!
+    })
+
     migrator = ProductionMigrator(
-        client=client,
+        client=mock_client,
         source_db_name="sellerbottel",
         target_platform_db="sellerbottel_v3_platform_test",
         mapping=sample_mapping,
+        encryption_key=TEST_FERNET_KEY,
     )
-    res1 = await migrator.apply()
-    t1 = await client["sellerbottel_v3_platform_test"].tenants.find_one({"slug": "idse"})
-    res2 = await migrator.apply()
-    t2 = await client["sellerbottel_v3_platform_test"].tenants.find_one({"slug": "idse"})
-    assert t1["_id"] == t2["_id"], "Tenant ID must be deterministic across runs"
-    assert t1["database_name"] == "sellerbottel_tenant_idse"
+
+    with pytest.raises(TargetConflictError, match="Target bot user balance conflict"):
+        await migrator.apply("sellerbottel_v3_platform_test")

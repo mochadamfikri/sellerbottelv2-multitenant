@@ -72,3 +72,25 @@ async def test_new_tenant_test_connection_uses_platform_route(monkeypatch):
     monkeypatch.setattr(router, "resolve", resolve_platform)
 
     assert await router.test_connection() == expected
+
+
+@async_test
+async def test_v1_launch_rejects_tenant_self_gateway(monkeypatch):
+    import payments.router as router
+    from commerce.fulfillment_types import CommerceError
+
+    tenant = TenantDb()
+    monkeypatch.setattr(router, "_resolve_db", lambda: tenant)
+    monkeypatch.setattr(router, "tenant_identity", lambda _database: "tenant-new")
+    monkeypatch.setattr(router.launch, "enabled", lambda: True)
+    monkeypatch.setattr(router.launch, "require_provider", lambda _provider: None)
+
+    body = router.SettingsBody(
+        payment_mode="self_gateway", provider="kasera", environment="sandbox"
+    )
+    try:
+        await router.save_settings(body)
+    except CommerceError as error:
+        assert "Settlement IDSE" in str(error)
+    else:  # pragma: no cover - explicit regression guard
+        raise AssertionError("self gateway must be rejected in V1 launch mode")

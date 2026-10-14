@@ -64,6 +64,11 @@ async def get_settings():
 async def save_settings(body: SettingsBody):
     launch.require_provider(body.provider)
     tenant = tenant_identity(_resolve_db())
+    if launch.enabled() and body.payment_mode != "platform_settlement":
+        raise CommerceError(
+            "Checkout tenant produksi wajib memakai Kasera Live melalui Settlement IDSE. "
+            "Jangan masukkan API key Kasera atau GoPay Merchant di panel tenant."
+        )
     if body.payment_mode == "platform_settlement" and (body.provider != "kasera" or body.credentials):
         raise CommerceError("Platform Kasera credentials are controlled by IDSE")
     if body.credentials:

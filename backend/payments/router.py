@@ -27,14 +27,26 @@ class SettingsBody(BaseModel):
     available_delay_seconds: int = Field(default=0, ge=0, le=2592000)
 
 async def settings_response():
-    doc = await db.payment_settings.find_one({"_id": "main"}) or {"payment_mode": "platform_settlement", "provider": "kasera", "environment": "mock"}
-    credential = await db.gateway_credentials.find_one({"_id": doc.get("credential_id")}) or {}
+    """Return the effective payment route for this tenant.
+
+    A newly provisioned tenant has no local payment settings or credentials yet.
+    It must still inherit the IDSE Kasera Live route, rather than falling back to
+    a misleading mock configuration.
+    """
+    doc = await db.payment_settings.find_one({"_id": "main"}) or {
+        "payment_mode": "platform_settlement",
+        "provider": "kasera",
+    }
+    platform = None
+    if doc.get("payment_mode", "platform_settlement") == "platform_settlement":
+        platform = await platform_db().platform_payment_settings.find_one({"_id": "kasera"}) or {}
+        doc = {**doc, "provider": "kasera", "environment": platform.get("environment") or "live"}
+    credential = {} if platform is not None else await db.gateway_credentials.find_one({"_id": doc.get("credential_id")}) or {}
     result = {k: v for k, v in doc.items() if k != "secret"}
     result.update({"credential_schemas": SCHEMAS, "masked_fields": credential.get("masked_fields", {}), "revoked": credential.get("revoked", False), "webhook_url": "/api/commerce/webhooks/payments/" + doc.get("provider", "kasera")})
     if launch.enabled():
         result.update({"launch_profile": "v1_kasera", "credential_schemas": {"kasera": SCHEMAS["kasera"]}, "webhook_url": "/api/payments/webhooks/kasera"})
-    if doc.get("payment_mode") == "platform_settlement":
-        platform = await platform_db().platform_payment_settings.find_one({"_id": "kasera"}) or {}
+    if platform is not None:
         result["capabilities"] = platform.get("capabilities")
         result["platform_configured"] = bool(platform.get("credential_id") and platform.get("capabilities"))
     if launch.enabled():
@@ -65,8 +77,8 @@ async def save_settings(body: SettingsBody):
 
 @owner.post("/payment-settings/test")
 async def test_connection():
-    config = await db.payment_settings.find_one({"_id": "main"}) or {}
-    if config.get("payment_mode") == "platform_settlement":
+    config = await db.payment_settings.find_one({"_id": "main"}) or {"payment_mode": "platform_settlement"}
+    if config.get("payment_mode", "platform_settlement") == "platform_settlement":
         _, _, _, caps = await resolve(_resolve_db(), platform_db(), tenant_identity(_resolve_db()))
         return caps
     return await credentials.test_connection(_resolve_db(), tenant_identity(_resolve_db()))

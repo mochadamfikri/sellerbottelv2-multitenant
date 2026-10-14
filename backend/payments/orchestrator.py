@@ -20,7 +20,7 @@ def tenant_identity(database):
 
 async def resolve(database, platform, tenant_id):
     config = await database.payment_settings.find_one({"_id": "main"}) or {}
-    mode = config.get("payment_mode")
+    mode = config.get("payment_mode", "platform_settlement")
     if mode == "self_gateway":
         adapter = await load(database, tenant_id, config.get("credential_id"))
         launch.require_provider(adapter.name)

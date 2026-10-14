@@ -108,3 +108,6 @@ backend/gobiz/.env
 
 # Phase 3 final SHA recorded after documentation commit.
 /test_reports/phase-3-payment-shipping-post-purchase-20261008/git-final.json
+
+# Phase 4 final SHA is generated after documentation commit.
+/test_reports/phase-4-final-hardening-20261008/git-final.json

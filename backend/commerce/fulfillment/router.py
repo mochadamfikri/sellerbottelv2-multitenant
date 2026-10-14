@@ -7,7 +7,7 @@ from .registry import registry
 from .repository import FulfillmentRepository, ensure_fulfillment_indexes
 
 logger = logging.getLogger(__name__)
-PAID_STATES = {"paid", "service_waiting", "delivered", "completed", "delivery_failed"}
+PAID_STATES = {"paid", "service_waiting", "delivered", "completed", "delivery_failed", "physical_pending"}
 
 
 def current_repository():

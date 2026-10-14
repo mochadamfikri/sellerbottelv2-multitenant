@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 from pymongo.errors import DuplicateKeyError
 
 from checkout import next_invoice_id, stock_for, _cart_after_purchase
-from db import db, get_settings
+from db import db, get_settings, _resolve_db
 from gopay_provider import _run_node, qris_expiry_minutes
 from inventory import commit_items, decrypt_items, release_items, reserve_items
 from pricing import price_for_product
@@ -35,14 +35,14 @@ async def store_qris_ready():
     return bool(settings.get("store_qris_enabled")) and os.environ.get("GOPAY_ENABLED", "").lower() in {"1", "true", "yes"}
 
 
-async def quote_items(user, cart_items, coupon_code=None):
+async def quote_items(user, cart_items, coupon_code=None, *, allow_physical=False, shipping_address=None, require_address=True):
     items = []
     for raw in cart_items:
         product = await db.products.find_one({"_id": raw.get("pid"), "active": True})
         if not product:
             return {"error": "Produk sudah tidak tersedia."}
         try:
-            require_operational(product)
+            require_operational(product, allow_physical=allow_physical)
         except CommerceError:
             return {"error": "Fulfillment unavailable"}
         qty = max(1, int(raw.get("qty") or 1))
@@ -52,8 +52,17 @@ async def quote_items(user, cart_items, coupon_code=None):
         stock = await stock_for(product)
         if stock is not None and stock < qty:
             return {"error": f"Stok {product['name']} berubah. Tersedia {stock}."}
+        physical_snapshot = {}
+        if resolve_fulfillment_type(product) == FulfillmentType.PHYSICAL:
+            from commerce.physical.models import checkout_variant, line_snapshot
+            variant = await checkout_variant(_resolve_db(), product, raw.get("variant_id"))
+            if variant["on_hand"] - variant["reserved"] < qty:
+                return {"error": "Insufficient physical stock"}
+            physical_snapshot = line_snapshot(variant)
+            if variant.get("price_override") is not None:
+                product = {**product, "price_idr": variant["price_override"]}
         pricing = await price_for_product(product, "IDR", qty)
-        items.append({"product": product, "qty": qty, **pricing,
+        items.append({"product": product, "physical_snapshot": physical_snapshot, "qty": qty, **pricing,
                       "subtotal": pricing["unit_price"] * qty})
     if not items:
         return {"error": "Keranjang kosong."}
@@ -80,20 +89,27 @@ async def quote_items(user, cart_items, coupon_code=None):
             total = round(total - coupon_amount, 2)
         else:
             coupon = None
-    total = int(round(total))
+    from commerce.physical.models import shipping_quote
+    shipping = await shipping_quote(_resolve_db(), [item["product"] for item in items], shipping_address, require_address=require_address)
+    items_total = total
+    total = int(round(total + shipping["shipping_fee"]))
     if total < 1:
         return {"error": "Total QRIS harus minimal Rp1."}
-    return {"items": items, "total": total, "coupon": coupon,
+    return {"items": items, "items_total": items_total, **shipping, "total": total, "coupon": coupon,
             "coupon_amount": coupon_amount}
 
 
 async def _release_order_stock(order):
+    from commerce.physical.stock import PhysicalStock
+    await PhysicalStock(_resolve_db()).release_order(order)
     await release_items(f"qris:{order['_id']}")
-    for item in order.get("items", []):
+    for index, item in enumerate(order.get("items", [])):
         if item.get("reserved_stock_qty"):
-            await db.products.update_one({"_id": item["product_id"]},
-                                         {"$inc": {"stock": int(item["reserved_stock_qty"])}})
+            reference = f"{order['_id']}:{item.get('line_id') or index}"
+            await db.products.update_one({"_id": item["product_id"], "stock_release_refs": {"$ne": reference}},
+                {"$inc": {"stock": int(item["reserved_stock_qty"])}, "$addToSet": {"stock_release_refs": reference}})
     await release_coupon(order["_id"])
+    await db.purchases.update_one({"_id": order["_id"]}, {"$set": {"stock_release_pending": False}})
 
 
 async def create_qris_order(user, cart_items, coupon_code=None, preserve_cart=False):
@@ -209,7 +225,7 @@ async def create_qris_order(user, cart_items, coupon_code=None, preserve_cart=Fa
         raise
 
 
-async def create_store_qris_order(customer, cart_items, coupon_code=None, idempotency_key=None):
+async def create_store_qris_order(customer, cart_items, coupon_code=None, idempotency_key=None, shipping_address=None):
     """Create a QRIS order for an authenticated web customer without charging a wallet."""
     if not await store_qris_ready():
         return {"error": "Pembayaran QRIS sedang tidak tersedia."}
@@ -224,7 +240,7 @@ async def create_store_qris_order(customer, cart_items, coupon_code=None, idempo
                         "image": base64.b64decode(data["image_base64"], validate=True)}
             return {"order": existing, "payment": None, "image": None}
 
-    quote = await quote_items({**customer, "customer_id": customer_id, "currency": "IDR"}, cart_items, coupon_code)
+    quote = await quote_items({**customer, "customer_id": customer_id, "currency": "IDR"}, cart_items, coupon_code, allow_physical=True, shipping_address=shipping_address)
     if quote.get("error"):
         return quote
 
@@ -235,30 +251,26 @@ async def create_store_qris_order(customer, cart_items, coupon_code=None, idempo
     payment_id = str(uuid.uuid4())
     order = {"_id": order_id, "items": []}
     try:
-        for item in quote["items"]:
-            product = item["product"]
-            qty = item["qty"]
-            stock_qty = 0
-            if uses_digital_inventory(product):
+        order["items"] = normalize_order_items([{
+            **item.get("physical_snapshot", {}), "product_id": item["product"]["_id"], "name": item["product"]["name"],
+            "qty": item["qty"], **{key: item[key] for key in ("unit_price", "base_unit_price", "discount_per_unit", "discount_total", "discount_id", "discount_name", "subtotal")},
+            "delivery_type": item["product"].get("delivery_type"), "reserved_stock_qty": 0,
+        } for item in quote["items"]], order_id=order_id, products={str(item["product"]["_id"]): item["product"] for item in quote["items"]})
+        for index, item in enumerate(quote["items"]):
+            product, qty = item["product"], item["qty"]
+            line = order["items"][index]
+            if resolve_fulfillment_type(product) == FulfillmentType.PHYSICAL:
+                from commerce.physical.stock import PhysicalStock
+                await PhysicalStock(_resolve_db()).move(line["variant_id"], "RESERVATION", qty, reference_id=line["line_id"])
+            elif uses_digital_inventory(product):
                 reserved = await reserve_items(product["_id"], qty, reservation_id)
                 if len(reserved) != qty:
-                    raise ValueError(f"Stok {product['name']} baru saja habis.")
+                    raise CommerceError("Inventory unavailable")
             elif product.get("stock") is not None:
-                changed = await db.products.update_one(
-                    {"_id": product["_id"], "active": True, "stock": {"$gte": qty}},
-                    {"$inc": {"stock": -qty}},
-                )
+                changed = await db.products.update_one({"_id": product["_id"], "active": True, "stock": {"$gte": qty}}, {"$inc": {"stock": -qty}})
                 if changed.modified_count != 1:
-                    raise ValueError(f"Stok {product['name']} baru saja habis.")
-                stock_qty = qty
-            order["items"].append({
-                "product_id": product["_id"], "name": product["name"], "qty": qty,
-                "unit_price": item["unit_price"], "base_unit_price": item["base_unit_price"],
-                "discount_per_unit": item["discount_per_unit"], "discount_total": item["discount_total"],
-                "discount_id": item["discount_id"], "discount_name": item["discount_name"],
-                "subtotal": item["subtotal"], "delivery_type": product.get("delivery_type"),
-                "reserved_stock_qty": stock_qty,
-            })
+                    raise CommerceError("Stock unavailable")
+                line["reserved_stock_qty"] = qty
 
         buyer = {"customer_id": customer_id}
         if quote["coupon"] and not await reserve_coupon(quote["coupon"], buyer, order_id, quote["coupon_amount"]):
@@ -268,6 +280,9 @@ async def create_store_qris_order(customer, cart_items, coupon_code=None, idempo
         invoice_id = await next_invoice_id()
         created_at = now_iso()
         order.update({
+            **{key: quote[key] for key in ("shipping_fee", "requires_shipping", "shipping_mode", "shipping_address") if key in quote},
+            "items_subtotal": sum(item["base_unit_price"] * item["qty"] for item in quote["items"]), "items_total": quote["items_total"], "grand_total": total + admin_fee,
+            "tax": 0, "payment_fee": admin_fee,
             "invoice_id": invoice_id, "user_tid": customer.get("telegram_id"), "customer_id": customer_id, "purchase_source": "WEB",
             "customer_email": customer.get("email"), "username": customer.get("username", ""),
             "total": total, "currency": "IDR", "payment_method": "qris", "payment_id": payment_id,
@@ -334,13 +349,13 @@ async def create_store_qris_order(customer, cart_items, coupon_code=None, idempo
 async def expire_qris_orders():
     now = now_iso()
     async for order in db.purchases.find({"payment_scope": {"$in": [PAYMENT_SCOPE, "store"]},
-                                           "payment_method": "qris", "status": "pending_payment",
-                                           "expires_at": {"$lte": now}}):
+                                           "payment_method": "qris",
+                                           "$or": [{"status": "pending_payment", "expires_at": {"$lte": now}}, {"status": "expired", "stock_release_pending": True}] }):
         changed = await db.purchases.update_one(
             {"_id": order["_id"], "status": "pending_payment"},
-            {"$set": {"status": "expired"}},
+            {"$set": {"status": "expired", "stock_release_pending": True}},
         )
-        if changed.modified_count:
+        if changed.modified_count or (order.get("status") == "expired" and order.get("stock_release_pending")):
             await _release_order_stock(order)
             await db.gopay_payments.update_one({"_id": order["payment_id"], "status": "pending"},
                 {"$set": {"status": "expired", "expired_at": now}, "$unset": {"active_payment_amount": ""}})
@@ -444,10 +459,12 @@ async def _finalize_store_qris_order(order):
     order_id = order["_id"]
     try:
         await ensure_order_fulfillments(order)
+        from commerce.physical.stock import PhysicalStock
+        await PhysicalStock(_resolve_db()).consume_order(order)
         await commit_items(f"qris:{order_id}", order_id, order.get("user_tid"), customer_id=order.get("customer_id"))
         from commerce.fulfillment.adapters import fulfill_web_order
         states = await fulfill_web_order(order)
-        if any(state not in {"delivered", "queued", "completed"} for state in states):
+        if any(state not in {"delivered", "queued", "completed", "pending"} for state in states):
             raise CommerceError("Fulfillment delivery incomplete")
         products = []
         for item in order.get("items") or []:
@@ -456,11 +473,12 @@ async def _finalize_store_qris_order(order):
             products.append((item, product))
         has_service = any(
             item["fulfillment_type"] == FulfillmentType.SERVICE
-            for _, product in products
+            for item, product in products
         )
-        status = "service_waiting" if has_service else "delivered"
+        has_physical = any(item["fulfillment_type"] == FulfillmentType.PHYSICAL for item, _ in products)
+        status = "service_waiting" if has_service else "physical_pending" if has_physical else "delivered"
         changed = await db.purchases.update_one({"_id": order_id, "status": "paid"}, {"$set": {
-            "status": status, "delivered_at": None if has_service else now_iso(), "delivery_error": None,
+            "status": status, "delivered_at": None if has_service or has_physical else now_iso(), "delivery_error": None,
         }})
         if not changed.modified_count:
             return True
@@ -478,7 +496,7 @@ async def _finalize_store_qris_order(order):
                 f"Pelanggan: {escape(str(order.get('customer_email') or '-'))}\nProduk jasa: {escape(names)}\n"
                 "Selesaikan pesanan dari menu Orders setelah pekerjaan selesai."
             )
-        else:
+        elif not has_physical:
             from storefront_routes import send_order_completion_email
             await send_order_completion_email(order_id)
         return True

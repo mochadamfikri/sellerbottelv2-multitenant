@@ -111,7 +111,7 @@ async def reset_stats(body: ResetStatsBody, admin: dict = Depends(get_current_ad
 
 def _normalized_product_kind(product: dict) -> str:
     kind = product.get("product_kind")
-    if kind in {"digital", "service"}:
+    if kind in {"digital", "service", "physical"}:
         return kind
     return "digital" if (
         product.get("delivery_type") == "inventory"
@@ -148,6 +148,11 @@ async def list_products():
             product["marketing_allocated"] = await db.inventory_items.count_documents({"product_id": product["_id"], "status": "marketing_allocated"})
             product["stock"] = _effective_admin_stock(product, actual, product["marketing_allocated"])
             product["inventory_enabled"] = True
+        elif kind == "physical":
+            from checkout import stock_for
+            product["stock"] = await stock_for(product)
+            product["inventory_stock"] = 0
+            product["inventory_enabled"] = False
         else:
             product["inventory_stock"] = 0
             product["stock"] = None
@@ -1024,16 +1029,21 @@ async def toggle_product(pid: str):
     if not prod:
         raise HTTPException(404, "Produk tidak ditemukan")
     from commerce.fulfillment_types import canonical_product
-    changed = canonical_product({**prod, "active": not prod.get("active", True)})
+    if prod.get("fulfillment_type") == "physical" and prod.get("requires_shipping"):
+        changed = {**prod, "active": not prod.get("active", True)}
+    else:
+        changed = canonical_product({**prod, "active": not prod.get("active", True)})
     await db.products.update_one({"_id": pid}, {"$set": {"active": changed["active"], "fulfillment_type": changed["fulfillment_type"]}})
     return {"active": not prod.get("active", True)}
 
 
 @router.delete("/products/{pid}")
 async def delete_product(pid: str):
-    product = await db.products.find_one({"_id": pid}, {"image_path": 1})
+    product = await db.products.find_one({"_id": pid}, {"image_path": 1, "fulfillment_type": 1})
     if not product:
         raise HTTPException(404, "Produk tidak ditemukan")
+    if product.get("fulfillment_type") == "physical":
+        raise HTTPException(409, "Deactivate physical products to preserve variants and order history")
     await db.products.delete_one({"_id": pid})
     if product.get("image_path"):
         try:
@@ -1416,15 +1426,18 @@ async def complete_service_order(oid: str):
         raise HTTPException(400, "Hanya pesanan jasa yang sedang menunggu yang bisa diselesaikan.")
     from commerce.fulfillment.router import complete_service_records
     await complete_service_records(order)
+    from commerce.fulfillment.router import current_repository
+    pending_physical = any(record["type"] == "physical" and record["status"] != "delivered" for record in await current_repository().list_order(oid))
+    final_status = "physical_pending" if pending_physical else "delivered"
     changed = await db.purchases.update_one(
         {"_id": oid, "status": "service_waiting"},
-        {"$set": {"status": "delivered", "delivered_at": now_iso(), "delivery_error": None,
+        {"$set": {"status": final_status, "delivered_at": None if pending_physical else now_iso(), "delivery_error": None,
                   "service_completed_by_admin_at": now_iso()}},
     )
     if changed.modified_count != 1:
         raise HTTPException(409, "Status pesanan berubah. Muat ulang daftar pesanan.")
     email_sent = False
-    if order.get("customer_email") or order.get("customer_id"):
+    if not pending_physical and (order.get("customer_email") or order.get("customer_id")):
         from storefront_routes import send_order_completion_email
         email_sent = await send_order_completion_email(oid)
     if order.get("user_tid") and not order.get("customer_id"):
@@ -1471,6 +1484,8 @@ async def refund_order(oid: str):
         raise HTTPException(404, "Order tidak ditemukan")
     if order.get("status") not in {"failed", "delivery_failed"}:
         raise HTTPException(400, "Hanya order gagal yang bisa direfund otomatis.")
+    if order.get("requires_shipping"):
+        raise HTTPException(409, "Physical orders require reconciliation or shipment cancellation; automated physical refunds are deferred")
 
     field = "balance_usd" if order["currency"] == "USD" else "balance_idr"
     refund_key = f"refund:{oid}"

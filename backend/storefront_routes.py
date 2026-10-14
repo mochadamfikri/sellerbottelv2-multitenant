@@ -27,6 +27,8 @@ from product_catalog import catalog_name
 from product_artwork import artwork_urls, image_response
 from pricing import price_for_product
 from checkout import stock_for
+from commerce.physical.models import Address, normalize_cart, shipping_quote, public_variant
+from commerce.fulfillment_types import FulfillmentType, resolve_fulfillment_type
 from storage import get_object
 from inventory import decrypt_items
 from services import fmt_amount
@@ -220,7 +222,9 @@ async def send_order_completion_email(order_id: str) -> bool:
 
 
 def _set_customer_cookie(response: Response, customer: dict):
-    session = jwt.encode({"sub": customer["_id"], "type": "customer", "sv": customer.get("session_version", 0),
+    from bot_tenant_scope import get_current_scope
+    scope = get_current_scope()
+    session = jwt.encode({"tenant_id": scope.tenant_id if scope else None, "sub": customer["_id"], "type": "customer", "sv": customer.get("session_version", 0),
                           "exp": datetime.now(timezone.utc) + timedelta(hours=12)}, get_jwt_secret(), algorithm=JWT_ALGORITHM)
     secure = os.getenv("COOKIE_SECURE", "true").lower() in {"1", "true", "yes"}
     response.set_cookie("customer_access_token", session, httponly=True, secure=secure, samesite="lax", max_age=43200, path="/")
@@ -234,6 +238,10 @@ async def current_customer(request: Request):
         payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALGORITHM])
         if payload.get("type") != "customer":
             raise HTTPException(401, "Sesi pelanggan tidak valid.")
+        from bot_tenant_scope import get_current_scope
+        scope = get_current_scope()
+        if payload.get("tenant_id") != (scope.tenant_id if scope else None):
+            raise HTTPException(401, "Customer session belongs to another store")
         customer = await db.store_customers.find_one({"_id": payload["sub"]})
         if not customer or payload.get("sv", 0) != customer.get("session_version", 0):
             raise HTTPException(401, "Akun pelanggan tidak ditemukan.")
@@ -438,7 +446,7 @@ async def customer_logout(response: Response):
 
 def _public_product(product):
     item = {key: product.get(key) for key in (
-        "name", "description", "price_usd", "price_idr", "product_kind", "delivery_type", "fulfillment_type", "minimum_purchase_qty"
+        "name", "description", "price_usd", "price_idr", "product_kind", "delivery_type", "fulfillment_type", "minimum_purchase_qty", "requires_shipping", "physical_profile"
     )}
     # Convert ObjectId ke string
     item["_id"] = str(product.get("_id", ""))
@@ -476,6 +484,8 @@ async def store_products(request: Request, search: str = ""):
         item = _public_product(product)
         stock = await stock_for(product)
         item["stock"] = stock
+        if resolve_fulfillment_type(product) == FulfillmentType.PHYSICAL:
+            item["variants"] = [public_variant(v) for v in await db.physical_variants.find({"product_id": product["_id"], "active": True}).to_list(None)]
         item["sales_count"] = sales_by_product.get(str(product["_id"]), 0)
         for currency in ("IDR", "USD"):
             pricing = await price_for_product(product, currency, 1)
@@ -492,6 +502,8 @@ async def store_product(product_id: str):
         raise HTTPException(404, "Produk tidak ditemukan.")
     item = _public_product(product)
     item["stock"] = await stock_for(product)
+    if resolve_fulfillment_type(product) == FulfillmentType.PHYSICAL:
+        item["variants"] = [public_variant(v) for v in await db.physical_variants.find({"product_id": product["_id"], "active": True}).to_list(None)]
     for currency in ("IDR", "USD"):
         pricing = await price_for_product(product, currency, 1)
         item[f"price_{currency.lower()}_current"] = pricing["unit_price"]
@@ -527,7 +539,7 @@ def profile_payload(user, bot_user=None):
             "balance_idr": (bot_user or {}).get("balance_idr", 0) if user.get("telegram_id") else user.get("balance_idr", 0),
             "balance_usd": (bot_user or {}).get("balance_usd", 0) if user.get("telegram_id") else user.get("balance_usd", 0),
             "web_balance_idr": user.get("balance_idr", 0), "web_balance_usd": user.get("balance_usd", 0),
-            "telegram_linked": bool(user.get("telegram_id")), "currency": (bot_user or {}).get("currency", "IDR"),
+            "shipping_address": user.get("shipping_address"), "telegram_linked": bool(user.get("telegram_id")), "currency": (bot_user or {}).get("currency", "IDR"),
             "frozen": (bot_user or {}).get("frozen", False)}
 
 
@@ -573,6 +585,7 @@ class CheckoutBody(BaseModel):
     coupon_code: str | None = Field(default=None, max_length=32)
     payment_method: str = "qris"
     idempotency_key: str = Field(min_length=8, max_length=80)
+    shipping_address: Address | None = None
 
 
 class QuoteBody(BaseModel):
@@ -603,6 +616,22 @@ async def store_quote(body: QuoteBody):
     except (TypeError, ValueError, AttributeError):
         raise HTTPException(400, "Isi keranjang tidak valid.")
 
+    from db import _resolve_db
+    cart = normalize_cart(body.items)
+    products = [await db.products.find_one({"_id": row["pid"], "active": True}) for row in cart]
+    if any(product and resolve_fulfillment_type(product) == FulfillmentType.PHYSICAL for product in products):
+        if body.currency != "IDR":
+            raise HTTPException(400, "Physical checkout uses IDR")
+        from direct_checkout import quote_items as commerce_quote
+        quote = await commerce_quote({"customer_id": "__storefront_quote__"}, cart, body.coupon_code, allow_physical=True, require_address=False)
+        if quote.get("error"):
+            raise HTTPException(409, quote["error"])
+        lines = [{**item["physical_snapshot"], "product_id": item["product"]["_id"], "name": item["product"]["name"], "qty": item["qty"],
+                  "unit_price": item["unit_price"], "subtotal": item["subtotal"]} for item in quote["items"]]
+        return {"items": lines, "subtotal": sum(item["base_unit_price"] * item["qty"] for item in quote["items"]), "items_total": quote["items_total"],
+                "shipping_fee": quote["shipping_fee"], "requires_shipping": True, "shipping_mode": "manual_shipping",
+                "total": quote["total"], "currency": "IDR", "coupon_discount": quote["coupon_amount"],
+                "coupon_applied": bool(quote["coupon"]), "coupon_error": None, "discount_total": quote["coupon_amount"] + sum(item["discount_total"] for item in quote["items"])}
     quote_items = []
     for product_id, qty in quantities.items():
         product = await db.products.find_one({"_id": product_id, "active": True})
@@ -671,7 +700,9 @@ async def store_checkout(body: CheckoutBody, user: dict = Depends(current_custom
         raise HTTPException(400, "Kunci checkout tidak valid.")
     existing = await db.purchases.find_one({"customer_id": user["_id"], "idempotency_key": body.idempotency_key})
     if existing:
-        return {key: existing.get(key) for key in ("_id", "invoice_id", "status", "total", "currency", "payment_method", "discount_total", "created_at", "items", "delivery_email_status")}
+        if existing.get("status") in {"failed", "expired", "cancelled"}:
+            raise HTTPException(409, "Previous checkout ended; create a new checkout key")
+        return {key: existing.get(key) for key in ("_id", "invoice_id", "status", "total", "currency", "payment_method", "discount_total", "created_at", "items", "delivery_email_status", "requires_shipping", "shipping_address", "shipping_fee", "shipping_mode", "items_subtotal", "items_total", "payment_fee", "grand_total")}
     if user.get("account_disabled"):
         raise HTTPException(403, "Akun sedang dinonaktifkan.")
     cart = []
@@ -685,7 +716,7 @@ async def store_checkout(body: CheckoutBody, user: dict = Depends(current_custom
             quantities[pid] = quantities.get(pid, 0) + qty
         if any(qty > 1000 for qty in quantities.values()):
             raise ValueError
-        cart = [{"pid": pid, "qty": qty} for pid, qty in quantities.items()]
+        cart = normalize_cart(body.items)
     except (TypeError, ValueError, AttributeError):
         raise HTTPException(400, "Isi keranjang tidak valid.")
     if user.get("telegram_id"):
@@ -707,7 +738,10 @@ async def store_checkout(body: CheckoutBody, user: dict = Depends(current_custom
                 checkout_user, cart, coupon_code=body.coupon_code, purchase_source="WEB",
                 order_metadata={"idempotency_key": body.idempotency_key,
                                 "customer_id": user["_id"], "customer_email": user.get("email")},
+                shipping_address=body.shipping_address.model_dump() if body.shipping_address else None,
             )
+        except CommerceError:
+            raise
         except Exception:
             logger.exception("Storefront balance checkout failed for customer %s", user["_id"])
             raise HTTPException(503, "Checkout saldo gagal diproses. Saldo belum berhasil dipotong.")
@@ -729,12 +763,15 @@ async def store_checkout(body: CheckoutBody, user: dict = Depends(current_custom
         order_id = result["order"]["_id"]
         await _finalize_store_balance_order(order_id)
         completed = await db.purchases.find_one({"_id": order_id})
-        return {key: completed.get(key) for key in ("_id", "invoice_id", "status", "total", "currency", "payment_method", "discount_total", "created_at", "items", "delivery_email_status")}
+        return {key: completed.get(key) for key in ("_id", "invoice_id", "status", "total", "currency", "payment_method", "discount_total", "created_at", "items", "delivery_email_status", "requires_shipping", "shipping_address", "shipping_fee", "shipping_mode", "items_subtotal", "items_total", "payment_fee", "grand_total")}
     try:
         from direct_checkout import create_store_qris_order
         result = await create_store_qris_order(
-            user, cart, coupon_code=body.coupon_code, idempotency_key=body.idempotency_key
+            user, cart, coupon_code=body.coupon_code, idempotency_key=body.idempotency_key,
+            shipping_address=body.shipping_address.model_dump() if body.shipping_address else None
         )
+    except CommerceError:
+        raise
     except Exception:
         logger.exception("QRIS checkout could not be created for customer %s", user["_id"])
         raise HTTPException(503, "QRIS checkout gagal dibuat. Coba lagi beberapa saat.")
@@ -745,7 +782,7 @@ async def store_checkout(body: CheckoutBody, user: dict = Depends(current_custom
     if order.get("status") in {"failed", "expired"}:
         raise HTTPException(409, "Checkout QRIS sebelumnya gagal atau kedaluwarsa. Coba buat QRIS baru.")
     payment = result.get("payment") or {}
-    response = {key: order.get(key) for key in ("_id", "invoice_id", "status", "total", "currency", "discount_total", "created_at", "items", "expires_at", "expires_in_minutes")}
+    response = {key: order.get(key) for key in ("_id", "invoice_id", "status", "total", "currency", "discount_total", "created_at", "items", "expires_at", "expires_in_minutes", "requires_shipping", "shipping_address", "shipping_fee", "grand_total")}
     response.update({
         "payment_method": "QRIS", "payment_amount": payment.get("payment_amount"),
         "payment_status": payment.get("status"),
@@ -760,7 +797,7 @@ async def customer_orders(user: dict = Depends(current_customer)):
     if user.get("telegram_id"):
         query = {"$or": [{"customer_id": user["_id"]}, {"user_tid": user["telegram_id"]}]}
     orders = await db.purchases.find(query).sort("created_at", -1).limit(100).to_list(100)
-    return [{key: order.get(key) for key in ("_id", "invoice_id", "status", "total", "currency", "discount_total", "created_at", "items", "payment_method", "delivery_email_status", "expires_at", "expires_in_minutes")} for order in orders]
+    return [{key: order.get(key) for key in ("_id", "invoice_id", "status", "total", "currency", "discount_total", "created_at", "items", "payment_method", "delivery_email_status", "expires_at", "expires_in_minutes", "requires_shipping", "shipping_address", "shipping_fee", "grand_total")} for order in orders]
 
 
 @router.get("/orders/{order_id}/qris")
@@ -825,19 +862,23 @@ async def _finalize_store_balance_order(order_id: str) -> bool:
     from commerce.fulfillment.adapters import fulfill_web_order
     from commerce.fulfillment_types import FulfillmentType, FulfillmentUnavailable
     states = await fulfill_web_order(order)
-    if any(state not in {"delivered", "queued", "completed"} for state in states):
+    if any(state not in {"delivered", "queued", "completed", "pending"} for state in states):
         await db.purchases.update_one({"_id": order_id}, {"$set": {"status": "delivery_failed", "delivery_error": "Fulfillment delivery incomplete"}})
         raise FulfillmentUnavailable("Fulfillment delivery incomplete")
+    has_physical = any(line["fulfillment_type"] == FulfillmentType.PHYSICAL for line in order.get("items", []))
     service_names = []
     for item in order.get("items") or []:
         product = await db.products.find_one({"_id": item.get("product_id")})
         if item["fulfillment_type"] == FulfillmentType.SERVICE:
             service_names.append(f"{item.get('name') or product.get('name') or 'Jasa'} ×{item.get('qty') or 1}")
-    if service_names:
-        changed = await db.purchases.update_one({"_id": order_id, "status": "paid"}, {"$set": {"status": "service_waiting"}})
+    if service_names or has_physical:
+        aggregate_status = "service_waiting" if service_names else "physical_pending"
+        changed = await db.purchases.update_one({"_id": order_id, "status": "paid"}, {"$set": {"status": aggregate_status}})
         if changed.modified_count:
             from services import notify_transaction_channel_safely
-            await notify_transaction_channel_safely({**order, "status": "service_waiting"})
+            await notify_transaction_channel_safely({**order, "status": aggregate_status})
+        if not service_names:
+            return True
         try:
             from services import notify_admin
             await notify_admin(
@@ -993,9 +1034,67 @@ async def tenant_store_products(slug: str, search: str = ""):
     result = []
     for product in products:
         item = _public_product(product)
+        for image_key in ("image_url", "catalog_image_url"):
+            if item.get(image_key, "").startswith("/api/store/"):
+                item[image_key] = item[image_key].replace("/api/store/", f"/api/store/t/{slug}/", 1)
+        if resolve_fulfillment_type(product) == FulfillmentType.PHYSICAL:
+            item["variants"] = [public_variant(v) for v in await tenant_db.physical_variants.find({"product_id": product["_id"], "active": True}).to_list(None)]
+            item["stock"] = sum(v["available"] for v in item["variants"])
+            result.append(item)
+            continue
         try:
             item["stock"] = await stock_for(product)
         except Exception:
             item["stock"] = None
         result.append(item)
     return result
+
+
+@router.get("/address")
+async def get_customer_address(user: dict = Depends(current_customer)):
+    return user.get("shipping_address") or {}
+
+
+@router.put("/address")
+async def save_customer_address(body: Address, user: dict = Depends(current_customer)):
+    from commerce.physical.models import address_snapshot
+    address = address_snapshot(body.model_dump())
+    await db.store_customers.update_one({"_id": user["_id"]}, {"$set": {"shipping_address": address}})
+    return address
+
+
+@router.get("/orders/{oid}/shipping")
+async def customer_shipping(oid: str, user: dict = Depends(current_customer)):
+    from order_fulfillment import owned_order
+    order = await owned_order(oid, user)
+    records = await db.fulfillments.find({"order_id": oid, "type": FulfillmentType.PHYSICAL}).to_list(None)
+    return {"shipping_address": order.get("shipping_address"), "shipping_fee": order.get("shipping_fee", 0),
+            "shipments": [{"fulfillment_id": r["_id"], "status": r["status"], **(r.get("shipment_snapshot") or {})} for r in records]}
+
+
+@router.post("/orders/{oid}/cancel")
+async def cancel_physical_checkout(oid: str, user: dict = Depends(current_customer)):
+    from order_fulfillment import owned_order
+    order = await owned_order(oid, user)
+    if not order.get("requires_shipping") or order.get("status") not in {"pending_payment", "cancelled"}:
+        raise HTTPException(409, "Only unpaid physical checkout can be cancelled; contact store for paid orders")
+    changed = await db.purchases.update_one({"_id": oid, "status": "pending_payment"}, {"$set": {"status": "cancelled", "stock_release_pending": True}})
+    if changed.modified_count or order.get("status") == "cancelled":
+        from direct_checkout import _release_order_stock
+        await _release_order_stock(order)
+        await db.gopay_payments.update_one({"_id": order.get("payment_id"), "status": "pending"}, {"$set": {"status": "cancelled"}, "$unset": {"active_payment_amount": ""}})
+    else:
+        raise HTTPException(409, "Payment state changed; reload order")
+    return {"ok": True}
+
+
+# Path-based tenant storefronts use the same handlers/contracts as registered
+# hosts. Middleware validates the slug and binds its database before auth.
+_existing_paths = {route.path for route in router.routes}
+for _route in list(router.routes):
+    if "/api/store/t/" in _route.path:
+        continue
+    _relative = _route.path.removeprefix("/api/store")
+    if "/api/store/t/{slug}" + _relative not in _existing_paths:
+        router.add_api_route("/t/{slug}" + _relative, _route.endpoint, methods=list(_route.methods),
+                             response_model=_route.response_model, dependencies=_route.dependencies)

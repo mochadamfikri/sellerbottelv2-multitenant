@@ -30,6 +30,7 @@ from inventory_transform import router as inventory_transform_router
 from stock_monitor import run_stock_monitor, router as stock_events_router
 from bot_moderation_routes import router as bot_moderation_router
 from storefront_routes import router as storefront_router
+from physical_routes import router as physical_router
 from balance_admin import router as balance_admin_router
 from marketing_campaigns import router as marketing_router, run_marketing
 from analytics_routes import router as analytics_router, public_router as analytics_public_router
@@ -177,6 +178,9 @@ app.include_router(inventory_transform_router)
 app.include_router(stock_events_router)
 app.include_router(bot_moderation_router)
 app.include_router(storefront_router)
+app.include_router(physical_router)
+from store_tenant_scope import install_store_scope
+install_store_scope(app)
 app.include_router(balance_admin_router)
 app.include_router(marketing_router)
 app.include_router(v2_platform_router)

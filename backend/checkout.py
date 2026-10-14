@@ -2,12 +2,12 @@ import uuid
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
-from db import db
+from db import db, _resolve_db
 from inventory import commit_items, release_items, reserve_items
 from rates import get_rate
 from pricing import price_for_product
 from promo_service import validate_coupon, coupon_discount, reserve_coupon, release_coupon
-from commerce.fulfillment_types import CommerceError, require_operational, uses_digital_inventory
+from commerce.fulfillment_types import CommerceError, FulfillmentType, resolve_fulfillment_type, require_operational, uses_digital_inventory
 from commerce.order_items import normalize_order_items
 from commerce.fulfillment.router import ensure_order_fulfillments
 
@@ -43,6 +43,9 @@ async def product_price(product, currency):
 
 
 async def stock_for(product):
+    if resolve_fulfillment_type(product) == FulfillmentType.PHYSICAL:
+        rows = await db.physical_variants.find({"product_id": product["_id"], "active": True}).to_list(None)
+        return sum(max(0, row.get("on_hand", 0) - row.get("reserved", 0)) for row in rows)
     is_inventory = uses_digital_inventory(product)
     if is_inventory:
         available = await db.inventory_items.count_documents({
@@ -68,6 +71,10 @@ async def _fail_checkout(order_id, allocations, reservation_id, error, message, 
                 {"_id": allocation["product_id"]},
                 {"$inc": {"stock": allocation["qty"]}},
             )
+    from commerce.physical.stock import PhysicalStock
+    failed_order = await db.purchases.find_one({"_id": order_id})
+    if failed_order:
+        await PhysicalStock(_resolve_db()).release_order(failed_order, reverse_sale=True)
     await release_items(reservation_id)
     await release_coupon(order_id)
 
@@ -118,7 +125,7 @@ def _cart_after_purchase(cart, purchased_items):
 
 
 async def execute_checkout(user, cart_items, preserve_cart=False, coupon_code=None,
-                           unit_price_overrides=None, order_metadata=None, purchase_source="BOT"):
+                           unit_price_overrides=None, order_metadata=None, purchase_source="BOT", shipping_address=None):
     if purchase_source not in {"WEB", "BOT"}:
         raise ValueError("Invalid checkout channel")
     currency = user["currency"]
@@ -141,10 +148,12 @@ async def execute_checkout(user, cart_items, preserve_cart=False, coupon_code=No
             "active": True,
         })
         if not product:
+            if purchase_source == "WEB":
+                return {"ok": False, "error": "product", "message": "Product unavailable"}
             continue
 
         try:
-            require_operational(product)
+            require_operational(product, allow_physical=purchase_source == "WEB")
         except CommerceError:
             return {"ok": False, "error": "fulfillment", "message": "Fulfillment unavailable"}
 
@@ -166,6 +175,17 @@ async def execute_checkout(user, cart_items, preserve_cart=False, coupon_code=No
                 "stock": stock,
             }
 
+        physical_snapshot = {}
+        if resolve_fulfillment_type(product) == FulfillmentType.PHYSICAL:
+            from commerce.physical.models import checkout_variant, line_snapshot
+            if currency != "IDR":
+                raise CommerceError("Physical checkout uses IDR")
+            variant = await checkout_variant(_resolve_db(), product, raw.get("variant_id"))
+            if variant["on_hand"] - variant["reserved"] < qty:
+                return {"ok": False, "error": "stock", "product": product, "stock": variant["on_hand"] - variant["reserved"]}
+            physical_snapshot = line_snapshot(variant)
+            if variant.get("price_override") is not None:
+                product = {**product, "price_idr": variant["price_override"]}
         pricing = await price_for_product(product, currency, qty)
         if unit_price_overrides and product["_id"] in unit_price_overrides:
             override = float(unit_price_overrides[product["_id"]])
@@ -176,6 +196,7 @@ async def execute_checkout(user, cart_items, preserve_cart=False, coupon_code=No
                        "discount_id": None, "discount_name": None}
         price = pricing["unit_price"]
         items.append({
+            "physical_snapshot": physical_snapshot,
             "product": product,
             "qty": qty,
             "unit_price": price,
@@ -221,6 +242,10 @@ async def execute_checkout(user, cart_items, preserve_cart=False, coupon_code=No
         else:
             coupon = None
 
+    from commerce.physical.models import shipping_quote
+    shipping = await shipping_quote(_resolve_db(), [item["product"] for item in items], shipping_address)
+    items_total = total
+    total = round(total + shipping["shipping_fee"], 2)
     invoice_id = await next_invoice_id()
     order = {
         "_id": order_id,
@@ -232,6 +257,7 @@ async def execute_checkout(user, cart_items, preserve_cart=False, coupon_code=No
         "username": user.get("username", ""),
         "items": [
             {
+                **item.get("physical_snapshot", {}),
                 "product_id": item["product"]["_id"],
                 "name": item["product"]["name"],
                 "qty": item["qty"],
@@ -246,6 +272,9 @@ async def execute_checkout(user, cart_items, preserve_cart=False, coupon_code=No
             }
             for item in items
         ],
+        **shipping,
+        "items_subtotal": sum(item["base_unit_price"] * item["qty"] for item in items), "items_total": items_total, "grand_total": total,
+        "tax": 0, "payment_fee": 0,
         "total": total,
         "currency": currency,
         "payment_method": "balance",
@@ -283,11 +312,15 @@ async def execute_checkout(user, cart_items, preserve_cart=False, coupon_code=No
     allocations = []
     balance_debited = False
     try:
-        for item in items:
+        for index, item in enumerate(items):
             product = item["product"]
             qty = item["qty"]
 
-            if uses_digital_inventory(product):
+            if resolve_fulfillment_type(product) == FulfillmentType.PHYSICAL:
+                from commerce.physical.stock import PhysicalStock
+                line = order["items"][index]
+                await PhysicalStock(_resolve_db()).move(line["variant_id"], "RESERVATION", qty, reference_id=line["line_id"])
+            elif uses_digital_inventory(product):
                 reserved = await reserve_items(product["_id"], qty, reservation_id)
                 if len(reserved) != qty:
                     raise ValueError(f"Stok {product['name']} tidak cukup.")
@@ -359,6 +392,8 @@ async def execute_checkout(user, cart_items, preserve_cart=False, coupon_code=No
         # Create durable work before consumption: insert failure can still release
         # reserved stock and refund through the existing checkout compensation.
         await ensure_order_fulfillments(order)
+        from commerce.physical.stock import PhysicalStock
+        await PhysicalStock(_resolve_db()).consume_order(order)
 
         if user.get("traffic_source_code") and telegram_id:
             await db.prospects.update_many(
@@ -382,6 +417,8 @@ async def execute_checkout(user, cart_items, preserve_cart=False, coupon_code=No
         }
 
     except Exception as exc:
+        from commerce.physical.stock import PhysicalStock
+        await PhysicalStock(_resolve_db()).release_order(order, reverse_sale=True)
         for allocation in allocations:
             if allocation["kind"] == "stock":
                 await db.products.update_one(

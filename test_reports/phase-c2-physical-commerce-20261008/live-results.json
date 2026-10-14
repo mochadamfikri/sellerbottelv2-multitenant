@@ -1,0 +1,240 @@
+{
+  "platform_database": "sellerbottel_c2_dev_aaa32612",
+  "tenant_databases": [
+    "sellerbottel_tenant_c2_a_aaa32612",
+    "sellerbottel_tenant_c2_b_aaa32612"
+  ],
+  "mongo": "real dedicated localhost:27019",
+  "providers": "mocked, no real SMTP/Telegram/payment requests",
+  "browser": "compiled React in Chromium",
+  "checks": [
+    {
+      "test": "dedicated Mongo file limit",
+      "result": "PASS"
+    },
+    {
+      "test": "real dedicated Mongo ping",
+      "result": "PASS"
+    },
+    {
+      "test": "fresh C2 platform",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP backend startup",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP tenant provisioning a",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP owner login a",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP physical authoring a",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP variant normalized SKU a",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP stock receive a",
+      "result": "PASS"
+    },
+    {
+      "test": "real unique SKU index a",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP manual shipping settings a",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP tenant provisioning b",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP owner login b",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP physical authoring b",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP variant normalized SKU b",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP stock receive b",
+      "result": "PASS"
+    },
+    {
+      "test": "real unique SKU index b",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP manual shipping settings b",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP cross tenant denied /products/3498193d-8fdc-4863-b1f2-014583a62739/variants",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP cross tenant denied /variants/7dffe7e7-a522-4837-b4ef-697f0b24111c/stock-movements",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP cross tenant denied /orders/foreign-order",
+      "result": "PASS"
+    },
+    {
+      "test": "same-ID customer cookie foreign tenant denied",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP physical quote shipping included",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP physical balance checkout",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP repeated checkout no double payment",
+      "result": "PASS"
+    },
+    {
+      "test": "address and variant immutable snapshot",
+      "result": "PASS"
+    },
+    {
+      "test": "balance reservation consumed once",
+      "result": "PASS"
+    },
+    {
+      "test": "foreign shipment fulfillment denied",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP shipment packing",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP repeated shipment packing",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP shipment ready_to_ship",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP repeated shipment ready_to_ship",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP shipment shipped",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP repeated shipment shipped",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP shipment delivered",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP repeated shipment delivered",
+      "result": "PASS"
+    },
+    {
+      "test": "shipment collection delivered",
+      "result": "PASS"
+    },
+    {
+      "test": "real Mongo twenty concurrent buyers last unit one winner",
+      "result": "PASS"
+    },
+    {
+      "test": "real Mongo release restores availability",
+      "result": "PASS"
+    },
+    {
+      "test": "real Mongo simultaneous wallet checkouts one winner",
+      "result": "PASS"
+    },
+    {
+      "test": "real Mongo checkout invariant and loser wallet preserved",
+      "result": "PASS"
+    },
+    {
+      "test": "real Mongo QRIS mock reservation",
+      "result": "PASS"
+    },
+    {
+      "test": "paid fulfillment insert failure preserved",
+      "result": "PASS"
+    },
+    {
+      "test": "failed paid order recoverable reserved stock",
+      "result": "PASS"
+    },
+    {
+      "test": "HTTP explicit paid initialization recovery",
+      "result": "PASS"
+    },
+    {
+      "test": "duplicate payment event no double sale",
+      "result": "PASS"
+    },
+    {
+      "test": "real Mongo mixed digital physical one order",
+      "result": "PASS"
+    },
+    {
+      "test": "real Mongo mixed separate durable fulfillments",
+      "result": "PASS"
+    },
+    {
+      "test": "browser physical product variant options stock authoring",
+      "result": "PASS"
+    },
+    {
+      "test": "browser physical checkout requires address",
+      "result": "PASS"
+    },
+    {
+      "test": "browser physical balance checkout",
+      "result": "PASS"
+    },
+    {
+      "test": "browser packing shipping delivered customer tracking",
+      "result": "PASS"
+    },
+    {
+      "test": "browser no unhandled React errors",
+      "result": "PASS"
+    },
+    {
+      "test": "backend restart preserves stock shipment",
+      "result": "PASS"
+    },
+    {
+      "test": "repeat index initialization idempotent",
+      "result": "PASS"
+    },
+    {
+      "test": "retained tenants unchanged",
+      "result": "PASS"
+    },
+    {
+      "test": "secret-safe runtime logs",
+      "result": "PASS"
+    }
+  ]
+}

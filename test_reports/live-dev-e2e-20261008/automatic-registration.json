@@ -1,0 +1,34 @@
+{
+  "recipient": "idsegwork@gmail.com",
+  "steps": [
+    {
+      "step": "SMTP request-code",
+      "status": 200,
+      "result": "PASS"
+    },
+    {
+      "step": "verify-code",
+      "status": 200,
+      "result": "PASS"
+    },
+    {
+      "step": "register provision",
+      "status": 201,
+      "result": "PASS"
+    }
+  ],
+  "OTP_entry": "automated from dedicated E2E DB; inbox receipt not verified",
+  "tenant": {
+    "slug": "e2e-auto-registration",
+    "id": "35feb802-3d8f-42f2-8ffc-513f076e207a",
+    "database_name": "sellerbottel_tenant_e2e_auto_registration",
+    "status": "active",
+    "bot_configured": false
+  },
+  "OTP_inbox_receipt": "User supplied received OTP after successful automation; code excluded",
+  "cleanup": {
+    "result": "PASS",
+    "recipient_available_for_future_registration": true,
+    "tenant_A_B_preserved": true
+  }
+}

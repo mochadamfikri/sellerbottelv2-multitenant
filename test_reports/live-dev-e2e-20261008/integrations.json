@@ -1,0 +1,20 @@
+{
+  "TELEGRAM_TOKEN": {
+    "result": "FAIL",
+    "getMe_ok": false,
+    "bot_id": null,
+    "existing_webhook_present": false,
+    "live_user_flows": "NOT RUN \u2014 no dedicated second bot or user interaction"
+  },
+  "BOT2_TELEGRAM_TOKEN": {
+    "result": "NOT RUN",
+    "reason": "development token not configured"
+  },
+  "SMTP": {
+    "result": "PASS",
+    "recipient": "idsegwork@gmail.com",
+    "delivery_state": "sent",
+    "inbox_receipt": "PASS \u2014 user confirmed both completion email and registration OTP",
+    "other_tenant_content": "NOT VERIFIED \u2014 emitted MIME not captured"
+  }
+}

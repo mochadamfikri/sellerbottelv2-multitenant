@@ -1,0 +1,30 @@
+{
+  "backend_health": 200,
+  "frontend_http": 200,
+  "tenants": [
+    {
+      "slug": "e2e-tenant-a",
+      "id": "500b0493-6afb-4f86-ba69-38d3de64f435",
+      "database_name": "sellerbottel_tenant_e2e_tenant_a",
+      "status": "active",
+      "bot_configured": true,
+      "processed_telegram_update_count": 3
+    },
+    {
+      "slug": "e2e-tenant-b",
+      "id": "1ed2f781-d4e3-4dfc-ae5b-4cc5650b54d6",
+      "database_name": "sellerbottel_tenant_e2e_tenant_b",
+      "status": "active",
+      "bot_configured": false,
+      "processed_telegram_update_count": 0
+    }
+  ],
+  "automatic_registration_owner_cleaned": true,
+  "dispatcher_restart": {
+    "result": "PASS",
+    "expected_worker_slugs": [
+      "e2e-tenant-a"
+    ],
+    "restart_log_worker_start_count": 1
+  }
+}

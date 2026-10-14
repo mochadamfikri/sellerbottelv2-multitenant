@@ -1,0 +1,1108 @@
+{
+  "tests": [
+    {
+      "test": "real Mongo ping",
+      "result": "PASS"
+    },
+    {
+      "test": "dedicated platform has no existing tenants",
+      "result": "PASS"
+    },
+    {
+      "test": "backend startup HTTP health",
+      "result": "PASS"
+    },
+    {
+      "test": "real platform owner unique index",
+      "result": "PASS"
+    },
+    {
+      "test": "provision e2e-tenant-a",
+      "result": "PASS",
+      "status": 201
+    },
+    {
+      "test": "active registry e2e-tenant-a",
+      "result": "PASS"
+    },
+    {
+      "test": "normalized owner e2e-tenant-a",
+      "result": "PASS"
+    },
+    {
+      "test": "owner login e2e-tenant-a",
+      "result": "PASS"
+    },
+    {
+      "test": "tenant JWT e2e-tenant-a",
+      "result": "PASS"
+    },
+    {
+      "test": "invalid login e2e-tenant-a",
+      "result": "PASS"
+    },
+    {
+      "test": "invalid login e2e-tenant-a",
+      "result": "PASS"
+    },
+    {
+      "test": "provision e2e-tenant-b",
+      "result": "PASS",
+      "status": 201
+    },
+    {
+      "test": "active registry e2e-tenant-b",
+      "result": "PASS"
+    },
+    {
+      "test": "normalized owner e2e-tenant-b",
+      "result": "PASS"
+    },
+    {
+      "test": "owner login e2e-tenant-b",
+      "result": "PASS"
+    },
+    {
+      "test": "tenant JWT e2e-tenant-b",
+      "result": "PASS"
+    },
+    {
+      "test": "invalid login e2e-tenant-b",
+      "result": "PASS"
+    },
+    {
+      "test": "invalid login e2e-tenant-b",
+      "result": "PASS"
+    },
+    {
+      "test": "distinct tenant IDs",
+      "result": "PASS"
+    },
+    {
+      "test": "product create A",
+      "result": "PASS",
+      "status": 200
+    },
+    {
+      "test": "inventory schema A",
+      "result": "PASS"
+    },
+    {
+      "test": "inventory validate A",
+      "result": "PASS",
+      "status": 200
+    },
+    {
+      "test": "inventory import A",
+      "result": "PASS",
+      "status": 200
+    },
+    {
+      "test": "inventory edit A",
+      "result": "PASS"
+    },
+    {
+      "test": "inventory manual A",
+      "result": "PASS"
+    },
+    {
+      "test": "inventory summary A",
+      "result": "PASS"
+    },
+    {
+      "test": "inventory template A",
+      "result": "PASS"
+    },
+    {
+      "test": "inventory delete A",
+      "result": "PASS"
+    },
+    {
+      "test": "catalog create A",
+      "result": "PASS"
+    },
+    {
+      "test": "catalog assign A",
+      "result": "PASS"
+    },
+    {
+      "test": "catalog rename A",
+      "result": "PASS"
+    },
+    {
+      "test": "order detail A",
+      "result": "PASS"
+    },
+    {
+      "test": "refund A",
+      "result": "PASS"
+    },
+    {
+      "test": "refund DB balance A",
+      "result": "PASS"
+    },
+    {
+      "test": "image upload JPEG A",
+      "result": "PASS",
+      "status": 200
+    },
+    {
+      "test": "stored valid WEBP JPEG A",
+      "result": "PASS"
+    },
+    {
+      "test": "image upload PNG A",
+      "result": "PASS",
+      "status": 200
+    },
+    {
+      "test": "stored valid WEBP PNG A",
+      "result": "PASS"
+    },
+    {
+      "test": "image upload WEBP A",
+      "result": "PASS",
+      "status": 200
+    },
+    {
+      "test": "stored valid WEBP WEBP A",
+      "result": "PASS"
+    },
+    {
+      "test": "invalid image mime A",
+      "result": "PASS",
+      "status": 400
+    },
+    {
+      "test": "invalid image corrupt A",
+      "result": "PASS",
+      "status": 400
+    },
+    {
+      "test": "invalid image oversize A",
+      "result": "PASS",
+      "status": 400
+    },
+    {
+      "test": "product create B",
+      "result": "PASS",
+      "status": 200
+    },
+    {
+      "test": "inventory schema B",
+      "result": "PASS"
+    },
+    {
+      "test": "inventory validate B",
+      "result": "PASS",
+      "status": 200
+    },
+    {
+      "test": "inventory import B",
+      "result": "PASS",
+      "status": 200
+    },
+    {
+      "test": "inventory edit B",
+      "result": "PASS"
+    },
+    {
+      "test": "inventory manual B",
+      "result": "PASS"
+    },
+    {
+      "test": "inventory summary B",
+      "result": "PASS"
+    },
+    {
+      "test": "inventory template B",
+      "result": "PASS"
+    },
+    {
+      "test": "inventory delete B",
+      "result": "PASS"
+    },
+    {
+      "test": "catalog create B",
+      "result": "PASS"
+    },
+    {
+      "test": "catalog assign B",
+      "result": "PASS"
+    },
+    {
+      "test": "catalog rename B",
+      "result": "PASS"
+    },
+    {
+      "test": "order detail B",
+      "result": "PASS"
+    },
+    {
+      "test": "refund B",
+      "result": "PASS"
+    },
+    {
+      "test": "refund DB balance B",
+      "result": "PASS"
+    },
+    {
+      "test": "image upload JPEG B",
+      "result": "PASS",
+      "status": 200
+    },
+    {
+      "test": "stored valid WEBP JPEG B",
+      "result": "PASS"
+    },
+    {
+      "test": "image upload PNG B",
+      "result": "PASS",
+      "status": 200
+    },
+    {
+      "test": "stored valid WEBP PNG B",
+      "result": "PASS"
+    },
+    {
+      "test": "image upload WEBP B",
+      "result": "PASS",
+      "status": 200
+    },
+    {
+      "test": "stored valid WEBP WEBP B",
+      "result": "PASS"
+    },
+    {
+      "test": "invalid image mime B",
+      "result": "PASS",
+      "status": 400
+    },
+    {
+      "test": "invalid image corrupt B",
+      "result": "PASS",
+      "status": 400
+    },
+    {
+      "test": "invalid image oversize B",
+      "result": "PASS",
+      "status": 400
+    },
+    {
+      "test": "foreign denial A->B DELETE /products/3a8a1038-9639-4e79-b1d9-c34f39180c3f",
+      "result": "PASS",
+      "status": 404
+    },
+    {
+      "test": "foreign denial A->B GET /products/3a8a1038-9639-4e79-b1d9-c34f39180c3f/inventory",
+      "result": "PASS",
+      "status": 404
+    },
+    {
+      "test": "foreign denial A->B GET /orders/order-B",
+      "result": "PASS",
+      "status": 404
+    },
+    {
+      "test": "foreign denial A->B POST /orders/order-B/refund",
+      "result": "PASS",
+      "status": 404
+    },
+    {
+      "test": "foreign DB unchanged A->B",
+      "result": "PASS"
+    },
+    {
+      "test": "product read isolation A",
+      "result": "PASS"
+    },
+    {
+      "test": "same ID read namespace A",
+      "result": "PASS"
+    },
+    {
+      "test": "same ID toggle namespace A",
+      "result": "PASS"
+    },
+    {
+      "test": "same ID foreign preserved A",
+      "result": "PASS"
+    },
+    {
+      "test": "tenant users A",
+      "result": "PASS"
+    },
+    {
+      "test": "tenant stats A",
+      "result": "PASS"
+    },
+    {
+      "test": "foreign denial B->A DELETE /products/e4d04c4b-27dc-4950-b7ae-7840e19f54f5",
+      "result": "PASS",
+      "status": 404
+    },
+    {
+      "test": "foreign denial B->A GET /products/e4d04c4b-27dc-4950-b7ae-7840e19f54f5/inventory",
+      "result": "PASS",
+      "status": 404
+    },
+    {
+      "test": "foreign denial B->A GET /orders/order-A",
+      "result": "PASS",
+      "status": 404
+    },
+    {
+      "test": "foreign denial B->A POST /orders/order-A/refund",
+      "result": "PASS",
+      "status": 404
+    },
+    {
+      "test": "foreign DB unchanged B->A",
+      "result": "PASS"
+    },
+    {
+      "test": "product read isolation B",
+      "result": "PASS"
+    },
+    {
+      "test": "same ID read namespace B",
+      "result": "PASS"
+    },
+    {
+      "test": "same ID toggle namespace B",
+      "result": "PASS"
+    },
+    {
+      "test": "same ID foreign preserved B",
+      "result": "PASS"
+    },
+    {
+      "test": "tenant users B",
+      "result": "PASS"
+    },
+    {
+      "test": "tenant stats B",
+      "result": "PASS"
+    },
+    {
+      "test": "old JWT denied suspended",
+      "result": "PASS"
+    },
+    {
+      "test": "login denied suspended",
+      "result": "PASS"
+    },
+    {
+      "test": "B unaffected by A suspended",
+      "result": "PASS"
+    },
+    {
+      "test": "old JWT denied disabled",
+      "result": "PASS"
+    },
+    {
+      "test": "login denied disabled",
+      "result": "PASS"
+    },
+    {
+      "test": "B unaffected by A disabled",
+      "result": "PASS"
+    },
+    {
+      "test": "old JWT denied provisioning",
+      "result": "PASS"
+    },
+    {
+      "test": "login denied provisioning",
+      "result": "PASS"
+    },
+    {
+      "test": "B unaffected by A provisioning",
+      "result": "PASS"
+    },
+    {
+      "test": "old JWT denied failed",
+      "result": "PASS"
+    },
+    {
+      "test": "login denied failed",
+      "result": "PASS"
+    },
+    {
+      "test": "B unaffected by A failed",
+      "result": "PASS"
+    },
+    {
+      "test": "reactivation fresh login",
+      "result": "PASS"
+    },
+    {
+      "test": "real domain takeover prevented",
+      "result": "PASS"
+    },
+    {
+      "test": "real duplicate owner rejected",
+      "result": "PASS"
+    },
+    {
+      "test": "real DB normalized alias rejected",
+      "result": "PASS"
+    },
+    {
+      "test": "storage traversal rejected",
+      "result": "PASS"
+    },
+    {
+      "test": "storage file read",
+      "result": "PASS"
+    },
+    {
+      "test": "storage deletion",
+      "result": "PASS"
+    },
+    {
+      "test": "product edit A",
+      "result": "PASS"
+    },
+    {
+      "test": "catalog delete A",
+      "result": "PASS"
+    },
+    {
+      "test": "session import A",
+      "result": "PASS"
+    },
+    {
+      "test": "session replacement A",
+      "result": "PASS"
+    },
+    {
+      "test": "transform inspect A",
+      "result": "PASS"
+    },
+    {
+      "test": "transform download A",
+      "result": "PASS"
+    },
+    {
+      "test": "product import template A",
+      "result": "PASS"
+    },
+    {
+      "test": "service completion A",
+      "result": "PASS"
+    },
+    {
+      "test": "service completion persisted A",
+      "result": "PASS"
+    },
+    {
+      "test": "host resolution A",
+      "result": "PASS"
+    },
+    {
+      "test": "product edit B",
+      "result": "PASS"
+    },
+    {
+      "test": "catalog delete B",
+      "result": "PASS"
+    },
+    {
+      "test": "session import B",
+      "result": "PASS"
+    },
+    {
+      "test": "session replacement B",
+      "result": "PASS"
+    },
+    {
+      "test": "transform inspect B",
+      "result": "PASS"
+    },
+    {
+      "test": "transform download B",
+      "result": "PASS"
+    },
+    {
+      "test": "product import template B",
+      "result": "PASS"
+    },
+    {
+      "test": "service completion B",
+      "result": "PASS"
+    },
+    {
+      "test": "service completion persisted B",
+      "result": "PASS"
+    },
+    {
+      "test": "host resolution B",
+      "result": "PASS"
+    },
+    {
+      "test": "real provisioning rollback response",
+      "result": "PASS",
+      "status": 503
+    },
+    {
+      "test": "rollback tenant removed",
+      "result": "PASS"
+    },
+    {
+      "test": "rollback owner removed",
+      "result": "PASS"
+    },
+    {
+      "test": "rollback domain removed",
+      "result": "PASS"
+    },
+    {
+      "test": "rollback new DB removed",
+      "result": "PASS"
+    },
+    {
+      "test": "rollback verification retained",
+      "result": "PASS"
+    },
+    {
+      "test": "rollback existing A DB preserved",
+      "result": "PASS"
+    },
+    {
+      "test": "real concurrent domain claim one winner",
+      "result": "PASS"
+    },
+    {
+      "test": "duplicate owner public registration rejected",
+      "result": "PASS",
+      "status": 409
+    },
+    {
+      "test": "failed product DB save rejects request",
+      "result": "PASS",
+      "status": 500
+    },
+    {
+      "test": "failed product DB save removes uploaded image",
+      "result": "PASS"
+    },
+    {
+      "test": "real balance checkout e2e-tenant-a",
+      "result": "PASS"
+    },
+    {
+      "test": "checkout balance/cart e2e-tenant-a",
+      "result": "PASS"
+    },
+    {
+      "test": "checkout inventory sold e2e-tenant-a",
+      "result": "PASS"
+    },
+    {
+      "test": "checkout coupon used e2e-tenant-a",
+      "result": "PASS"
+    },
+    {
+      "test": "checkout foreign DB unchanged e2e-tenant-a",
+      "result": "PASS"
+    },
+    {
+      "test": "insufficient balance e2e-tenant-a",
+      "result": "PASS"
+    },
+    {
+      "test": "insufficient leaves stock available e2e-tenant-a",
+      "result": "PASS"
+    },
+    {
+      "test": "checkout delivery failure e2e-tenant-a",
+      "result": "PASS"
+    },
+    {
+      "test": "checkout rollback balance e2e-tenant-a",
+      "result": "PASS"
+    },
+    {
+      "test": "checkout rollback inventory e2e-tenant-a",
+      "result": "PASS"
+    },
+    {
+      "test": "checkout rollback coupon e2e-tenant-a",
+      "result": "PASS"
+    },
+    {
+      "test": "real Mongo mocked Telegram start branding e2e-tenant-a",
+      "result": "PASS"
+    },
+    {
+      "test": "vertical menu e2e-tenant-a",
+      "result": "PASS"
+    },
+    {
+      "test": "start user initialized e2e-tenant-a",
+      "result": "PASS"
+    },
+    {
+      "test": "QRIS mock pending e2e-tenant-a",
+      "result": "PASS"
+    },
+    {
+      "test": "QRIS mock reserve e2e-tenant-a",
+      "result": "PASS"
+    },
+    {
+      "test": "QRIS mock success e2e-tenant-a",
+      "result": "PASS"
+    },
+    {
+      "test": "QRIS duplicate signal ignored e2e-tenant-a",
+      "result": "PASS"
+    },
+    {
+      "test": "QRIS mock expiration e2e-tenant-a",
+      "result": "PASS"
+    },
+    {
+      "test": "QRIS expiration releases inventory e2e-tenant-a",
+      "result": "PASS"
+    },
+    {
+      "test": "real balance checkout e2e-tenant-b",
+      "result": "PASS"
+    },
+    {
+      "test": "checkout balance/cart e2e-tenant-b",
+      "result": "PASS"
+    },
+    {
+      "test": "checkout inventory sold e2e-tenant-b",
+      "result": "PASS"
+    },
+    {
+      "test": "checkout coupon used e2e-tenant-b",
+      "result": "PASS"
+    },
+    {
+      "test": "checkout foreign DB unchanged e2e-tenant-b",
+      "result": "PASS"
+    },
+    {
+      "test": "insufficient balance e2e-tenant-b",
+      "result": "PASS"
+    },
+    {
+      "test": "insufficient leaves stock available e2e-tenant-b",
+      "result": "PASS"
+    },
+    {
+      "test": "checkout delivery failure e2e-tenant-b",
+      "result": "PASS"
+    },
+    {
+      "test": "checkout rollback balance e2e-tenant-b",
+      "result": "PASS"
+    },
+    {
+      "test": "checkout rollback inventory e2e-tenant-b",
+      "result": "PASS"
+    },
+    {
+      "test": "checkout rollback coupon e2e-tenant-b",
+      "result": "PASS"
+    },
+    {
+      "test": "real Mongo mocked Telegram start branding e2e-tenant-b",
+      "result": "PASS"
+    },
+    {
+      "test": "vertical menu e2e-tenant-b",
+      "result": "PASS"
+    },
+    {
+      "test": "start user initialized e2e-tenant-b",
+      "result": "PASS"
+    },
+    {
+      "test": "QRIS mock pending e2e-tenant-b",
+      "result": "PASS"
+    },
+    {
+      "test": "QRIS mock reserve e2e-tenant-b",
+      "result": "PASS"
+    },
+    {
+      "test": "QRIS mock success e2e-tenant-b",
+      "result": "PASS"
+    },
+    {
+      "test": "QRIS duplicate signal ignored e2e-tenant-b",
+      "result": "PASS"
+    },
+    {
+      "test": "QRIS mock expiration e2e-tenant-b",
+      "result": "PASS"
+    },
+    {
+      "test": "QRIS expiration releases inventory e2e-tenant-b",
+      "result": "PASS"
+    },
+    {
+      "test": "real registry dispatcher two mock workers",
+      "result": "PASS"
+    },
+    {
+      "test": "real registry mock token rotation target only",
+      "result": "PASS"
+    },
+    {
+      "test": "real registry suspension stops target only",
+      "result": "PASS"
+    },
+    {
+      "test": "real registry reactivation two workers",
+      "result": "PASS"
+    },
+    {
+      "test": "browser TenantAdmin login A",
+      "result": "PASS"
+    },
+    {
+      "test": "browser tenant navigation A products",
+      "result": "PASS"
+    },
+    {
+      "test": "browser tenant navigation A catalogs",
+      "result": "PASS"
+    },
+    {
+      "test": "browser tenant navigation A inventory",
+      "result": "PASS"
+    },
+    {
+      "test": "browser tenant navigation A orders",
+      "result": "PASS"
+    },
+    {
+      "test": "browser tenant navigation A users",
+      "result": "PASS"
+    },
+    {
+      "test": "browser logout reload remains logged out A",
+      "result": "PASS"
+    },
+    {
+      "test": "browser public/platform bearer leak A",
+      "result": "PASS"
+    },
+    {
+      "test": "browser no persisted bearer A",
+      "result": "PASS"
+    },
+    {
+      "test": "browser TenantAdmin login B",
+      "result": "PASS"
+    },
+    {
+      "test": "browser tenant navigation B products",
+      "result": "PASS"
+    },
+    {
+      "test": "browser tenant navigation B catalogs",
+      "result": "PASS"
+    },
+    {
+      "test": "browser tenant navigation B inventory",
+      "result": "PASS"
+    },
+    {
+      "test": "browser tenant navigation B orders",
+      "result": "PASS"
+    },
+    {
+      "test": "browser tenant navigation B users",
+      "result": "PASS"
+    },
+    {
+      "test": "browser logout reload remains logged out B",
+      "result": "PASS"
+    },
+    {
+      "test": "browser public/platform bearer leak B",
+      "result": "PASS"
+    },
+    {
+      "test": "browser no persisted bearer B",
+      "result": "PASS"
+    },
+    {
+      "test": "dedicated Mongo outage fails safely",
+      "result": "PASS",
+      "status": 503
+    },
+    {
+      "test": "Mongo outage recovery",
+      "result": "PASS"
+    },
+    {
+      "test": "backend restart indexes idempotent",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 0",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 0",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 1",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 1",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 2",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 2",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 3",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 3",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 4",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 4",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 5",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 5",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 6",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 6",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 7",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 7",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 8",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 8",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 9",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 9",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 10",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 10",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 11",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 11",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 12",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 12",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 13",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 13",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 14",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 14",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 15",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 15",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 16",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 16",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 17",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 17",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 18",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 18",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 19",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 19",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 20",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 20",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 21",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 21",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 22",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 22",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 23",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 23",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 24",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 24",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 25",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 25",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 26",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 26",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 27",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 27",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 28",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 28",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 29",
+      "result": "PASS"
+    },
+    {
+      "test": "smoke HTTP 29",
+      "result": "PASS"
+    }
+  ],
+  "tenants": [
+    {
+      "slug": "e2e-tenant-a",
+      "id": "500b0493-6afb-4f86-ba69-38d3de64f435",
+      "database_name": "sellerbottel_tenant_e2e_tenant_a",
+      "status": "active",
+      "bot_configured": false
+    },
+    {
+      "slug": "e2e-tenant-b",
+      "id": "1ed2f781-d4e3-4dfc-ae5b-4cc5650b54d6",
+      "database_name": "sellerbottel_tenant_e2e_tenant_b",
+      "status": "active",
+      "bot_configured": false
+    }
+  ]
+}

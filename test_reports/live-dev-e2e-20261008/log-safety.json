@@ -1,0 +1,26 @@
+[
+  {
+    "path": "test_reports/live-dev-e2e-20261008/runtime.log",
+    "actual_secret_matches": 0,
+    "unredacted_credential_patterns": 0,
+    "result": "PASS"
+  },
+  {
+    "path": "backend/storage_data/live-dev-runtime.log",
+    "actual_secret_matches": 0,
+    "unredacted_credential_patterns": 0,
+    "result": "PASS"
+  },
+  {
+    "path": "backend/storage_data/live-dev-dispatcher.log",
+    "actual_secret_matches": 0,
+    "unredacted_credential_patterns": 0,
+    "result": "PASS"
+  },
+  {
+    "path": "backend/storage_data/live-dev-dispatcher-restart.log",
+    "actual_secret_matches": 0,
+    "unredacted_credential_patterns": 0,
+    "result": "PASS"
+  }
+]

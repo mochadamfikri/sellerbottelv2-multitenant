@@ -1,0 +1,61 @@
+{
+  "backend_offline": {
+    "result": "PASS",
+    "tests": 681,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0
+  },
+  "frontend_unit": {
+    "result": "PASS",
+    "suites": 5,
+    "tests": 9
+  },
+  "frontend_ci_build": {
+    "result": "PASS"
+  },
+  "compileall": {
+    "result": "PASS"
+  },
+  "git_diff_check": {
+    "result": "PASS"
+  },
+  "initial_backend_tests": 678,
+  "npm_ci": {
+    "result": "PASS"
+  },
+  "recommendation": "NOT READY",
+  "result": "PARTIAL",
+  "live_harness": {
+    "result": "PASS",
+    "checks": 264
+  },
+  "live_additional": {
+    "result": "PASS",
+    "checks": 10
+  },
+  "public_registration": {
+    "result": "PASS",
+    "statuses": [
+      200,
+      200,
+      201
+    ],
+    "OTP_inbox_receipt": "user confirmed"
+  },
+  "SMTP": {
+    "result": "PASS",
+    "emails_received": 2,
+    "confirmation": "user"
+  },
+  "telegram_token": {
+    "result": "PASS",
+    "getMe_http": 200
+  },
+  "remaining_blockers": [
+    "second development tenant bot and full live bot flows",
+    "dedicated broadcast recipients and join channel",
+    "verified managed development DNS/TLS",
+    "external payment sandbox credentials"
+  ]
+}

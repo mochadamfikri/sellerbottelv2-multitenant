@@ -96,3 +96,6 @@ backend/gobiz/.env
 
 # Private production backups (database values and encryption keys)
 /backups/
+
+# Generated after the audit report commit to record its final SHA.
+/test_reports/live-dev-e2e-20261008/git-final.json

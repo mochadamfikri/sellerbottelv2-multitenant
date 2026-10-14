@@ -1,0 +1,9 @@
+{
+  "result": "PASS",
+  "tenant_slug": "e2e-tenant-a",
+  "database_name": "sellerbottel_tenant_e2e_tenant_a",
+  "bot_id": 8871740776,
+  "webhook_changed": false,
+  "polling_available": true,
+  "bot2_enabled": false
+}

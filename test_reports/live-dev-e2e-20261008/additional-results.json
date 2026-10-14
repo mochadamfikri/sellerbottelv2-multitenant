@@ -1,0 +1,48 @@
+[
+  {
+    "test": "live product CSV import a",
+    "result": "PASS",
+    "status": 200
+  },
+  {
+    "test": "live own product deletion a",
+    "result": "PASS",
+    "status": 200
+  },
+  {
+    "test": "real Mongo SMTP failure state a",
+    "result": "PASS",
+    "status": 502
+  },
+  {
+    "test": "real Mongo SMTP retry state a",
+    "result": "PASS"
+  },
+  {
+    "test": "mock captured receipt tenant content a",
+    "result": "PASS"
+  },
+  {
+    "test": "live product CSV import b",
+    "result": "PASS",
+    "status": 200
+  },
+  {
+    "test": "live own product deletion b",
+    "result": "PASS",
+    "status": 200
+  },
+  {
+    "test": "real Mongo SMTP failure state b",
+    "result": "PASS",
+    "status": 502
+  },
+  {
+    "test": "real Mongo SMTP retry state b",
+    "result": "PASS"
+  },
+  {
+    "test": "mock captured receipt tenant content b",
+    "result": "PASS"
+  }
+]

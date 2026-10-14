@@ -1,0 +1,16 @@
+{
+  "TELEGRAM_TOKEN": {
+    "result": "PASS",
+    "getMe_ok": true,
+    "http_status": 200,
+    "telegram_error_code": null,
+    "bot_id": 8871740776,
+    "bot_username": "GrizzlySMS_notifbot",
+    "existing_webhook_present": false,
+    "live_user_flows": "NOT RUN \u2014 no dedicated second bot or user interaction"
+  },
+  "BOT2_TELEGRAM_TOKEN": {
+    "result": "NOT RUN",
+    "reason": "development token not configured"
+  }
+}

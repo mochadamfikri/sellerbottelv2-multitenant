@@ -1,0 +1,12 @@
+{
+  "candidate_readonly_and_legacy_migration": {
+    "passed": 105,
+    "failed": 0
+  },
+  "focused_guard_matrix": {
+    "passed": 38,
+    "failed": 0
+  },
+  "real_fastapi_crash_lifecycle": "PASS",
+  "real_password_login_proof": "BLOCKED_WITHOUT_OWNER_FIXTURE"
+}

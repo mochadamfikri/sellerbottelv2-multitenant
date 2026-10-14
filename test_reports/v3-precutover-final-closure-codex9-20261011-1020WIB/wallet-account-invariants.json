@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "bot_users": 53,
+  "store_customers": 5,
+  "logical_wallets": 57,
+  "linked_aliases": 1,
+  "bot_balance_idr": 66287650,
+  "web_balance_idr": 2410800,
+  "combined_balance_idr": 68698450,
+  "usd_balance": 0.0,
+  "inventory_total": 1116,
+  "inventory_decrypted": 1116,
+  "inventory_available": 759,
+  "inventory_sold": 357,
+  "inventory_reserved": 0
+}

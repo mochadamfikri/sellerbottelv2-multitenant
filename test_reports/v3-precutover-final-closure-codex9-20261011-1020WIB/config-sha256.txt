@@ -1,0 +1,2 @@
+1ab9a6efcb0ba654a50cdab1e2e31029fe3db4b0bc5436c103fe9651ad27e67b  backend/config.py
+e4a1158811b56f9cea7dd5dd85206d502d71c6ee58f5b3c258b447313165272e  backend/candidate_readonly.py

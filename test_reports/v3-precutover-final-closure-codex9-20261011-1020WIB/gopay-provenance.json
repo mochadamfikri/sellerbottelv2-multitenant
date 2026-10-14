@@ -1,0 +1,30 @@
+{
+  "status": "PASS",
+  "classification": "GOPAY_DEPENDENCY_PROVENANCE_EXTERNAL",
+  "call_chain": "SellerBottel (direct_checkout.py / gopay_provider.py) -> node subprocess -> backend/gobiz/ (kavionn MIT) -> GoBiz API (api.gobiz.co.id)",
+  "vendored_path": "backend/gobiz/",
+  "core_library": "backend/gobiz/gobiz.js",
+  "scripts": [
+    "create_qris.mjs",
+    "history.mjs",
+    "auth_email_otp.mjs"
+  ],
+  "dependencies": [
+    "moment-timezone",
+    "crc",
+    "qrcode"
+  ],
+  "license": "MIT License (c) 2026 kavionn",
+  "readonly_mode_behavior": {
+    "qris_create_blocked_before_write": true,
+    "qris_finalize_blocked_before_mutation": true,
+    "no_outbound_network": true,
+    "no_state_mutation": true
+  },
+  "normal_mode_behavior": {
+    "existing_path_reachable": true,
+    "not_broken_by_guards": true,
+    "no_kasera_relabel": true,
+    "historical_semantics_preserved": true
+  }
+}

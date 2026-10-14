@@ -1,0 +1,88 @@
+{
+  "cycles": [
+    {
+      "cycle": 1,
+      "type": "start_smoke_graceful_stop",
+      "pid": 25858,
+      "smoke": {
+        "health": 200,
+        "checkout_blocked": true,
+        "deposit_blocked": true,
+        "payment_blocked": true
+      },
+      "zero_write": true,
+      "hashes_match": true
+    },
+    {
+      "cycle": 2,
+      "type": "restart_smoke_graceful_stop",
+      "pid": 25879,
+      "smoke": {
+        "health": 200,
+        "checkout_blocked": true,
+        "deposit_blocked": true,
+        "payment_blocked": true
+      },
+      "zero_write": true,
+      "hashes_match": true
+    },
+    {
+      "cycle": 3,
+      "type": "start_smoke_SIGKILL_restart_smoke_stop",
+      "pre_crash_pid": 25932,
+      "post_crash_pid": 25948,
+      "pre_crash_smoke": {
+        "health": 200,
+        "checkout_blocked": true,
+        "deposit_blocked": true,
+        "payment_blocked": true
+      },
+      "post_crash_smoke": {
+        "health": 200,
+        "checkout_blocked": true,
+        "deposit_blocked": true,
+        "payment_blocked": true
+      },
+      "zero_write": true,
+      "hashes_match": true
+    }
+  ],
+  "status": "PASS",
+  "before": {
+    "sellerbottel_real_rehearsal_tenant_legacy_owner.bot_users": {
+      "count": 53,
+      "hash": "52cb8a648efea99f19f05689ff9c5779519593422137587487774e6fb1615043"
+    },
+    "sellerbottel_real_rehearsal_tenant_legacy_owner.store_customers": {
+      "count": 5,
+      "hash": "bb95c7c3764e8de0cd0500586ad5dd22ce5a23691cd413a1745f6982cca3b097"
+    },
+    "sellerbottel_real_rehearsal_tenant_legacy_owner.counters": {
+      "count": 16,
+      "hash": "7bfd6ab2d7b8610c257f98e81d3c5c0813b6c27e7139b5ba7b29256353a82194"
+    },
+    "sellerbottel_real_rehearsal_archive.history__inventory_items": {
+      "count": 1116,
+      "hash": "b31d81bd32415b5faa7ef17a7fc3e66af2db027c4a52c9204d5b697e426e65ec"
+    }
+  },
+  "after_final": {
+    "sellerbottel_real_rehearsal_tenant_legacy_owner.bot_users": {
+      "count": 53,
+      "hash": "52cb8a648efea99f19f05689ff9c5779519593422137587487774e6fb1615043"
+    },
+    "sellerbottel_real_rehearsal_tenant_legacy_owner.store_customers": {
+      "count": 5,
+      "hash": "bb95c7c3764e8de0cd0500586ad5dd22ce5a23691cd413a1745f6982cca3b097"
+    },
+    "sellerbottel_real_rehearsal_tenant_legacy_owner.counters": {
+      "count": 16,
+      "hash": "7bfd6ab2d7b8610c257f98e81d3c5c0813b6c27e7139b5ba7b29256353a82194"
+    },
+    "sellerbottel_real_rehearsal_archive.history__inventory_items": {
+      "count": 1116,
+      "hash": "b31d81bd32415b5faa7ef17a7fc3e66af2db027c4a52c9204d5b697e426e65ec"
+    }
+  },
+  "all_hashes_identical": true
+}

@@ -134,8 +134,10 @@ def _effective_admin_stock(product: dict, inventory_stock: int, marketing: int =
 
 @router.get("/products")
 async def list_products():
+    from commerce.fulfillment_types import resolve_fulfillment_type
     products = await db.products.find().sort("created_at", -1).to_list(length=None)
     for product in products:
+        product["fulfillment_type"] = resolve_fulfillment_type(product).value
         product["catalog_name"] = resolve_catalog_name(product)
         kind = _normalized_product_kind(product)
         product["product_kind"] = kind
@@ -237,6 +239,7 @@ async def create_product(
     image: Optional[UploadFile] = File(None),
     remove_image: bool = Form(False),
     file: Optional[UploadFile] = File(None),
+    fulfillment_type: Optional[str] = Form(None),
 ):
     product_kind = _validate_product_kind(product_kind)
     if minimum_purchase_qty < 1 or minimum_purchase_qty > 1000:
@@ -297,6 +300,10 @@ async def create_product(
         "stock_notice_count": 0,
         "created_at": now_iso(),
     }
+    from commerce.fulfillment_types import canonical_product
+    if isinstance(fulfillment_type, str):
+        prod["fulfillment_type"] = fulfillment_type
+    prod = canonical_product(prod)
     product_image = await _store_product_image(product_id, image)
     if product_image:
         prod.update(image_path=product_image["path"], image_content_type=product_image["content_type"])
@@ -336,6 +343,7 @@ async def update_product(
     remove_image: bool = Form(False),
     file: Optional[UploadFile] = File(None),
     files: Optional[list[UploadFile]] = File(None),
+    fulfillment_type: Optional[str] = Form(None),
 ):
     product = await db.products.find_one({"_id": pid})
     if not product:
@@ -409,6 +417,13 @@ async def update_product(
             "inventory_mode": inventory_mode,
         })
 
+    from commerce.fulfillment_types import canonical_product
+    proposed = {**product, **updates}
+    if isinstance(fulfillment_type, str):
+        proposed["fulfillment_type"] = fulfillment_type
+    elif product_kind != _normalized_product_kind(product):
+        proposed.pop("fulfillment_type", None)
+    updates["fulfillment_type"] = canonical_product(proposed)["fulfillment_type"]
     product_image = await _store_product_image(pid, image)
     if product_image:
         updates["image_path"] = product_image["path"]
@@ -1008,7 +1023,9 @@ async def toggle_product(pid: str):
     prod = await db.products.find_one({"_id": pid})
     if not prod:
         raise HTTPException(404, "Produk tidak ditemukan")
-    await db.products.update_one({"_id": pid}, {"$set": {"active": not prod.get("active", True)}})
+    from commerce.fulfillment_types import canonical_product
+    changed = canonical_product({**prod, "active": not prod.get("active", True)})
+    await db.products.update_one({"_id": pid}, {"$set": {"active": changed["active"], "fulfillment_type": changed["fulfillment_type"]}})
     return {"active": not prod.get("active", True)}
 
 
@@ -1397,6 +1414,8 @@ async def complete_service_order(oid: str):
         raise HTTPException(404, "Order tidak ditemukan")
     if order.get("status") != "service_waiting":
         raise HTTPException(400, "Hanya pesanan jasa yang sedang menunggu yang bisa diselesaikan.")
+    from commerce.fulfillment.router import complete_service_records
+    await complete_service_records(order)
     changed = await db.purchases.update_one(
         {"_id": oid, "status": "service_waiting"},
         {"$set": {"status": "delivered", "delivered_at": now_iso(), "delivery_error": None,

@@ -240,10 +240,14 @@ async def add_records(product_id: str, records: list[dict], schema: list[str]):
                 f"Gagal menyimpan inventory ke database ({type(exc).__name__}). Lihat log backend."
             ) from exc
 
+    from commerce.fulfillment_types import resolve_fulfillment_type
+    current_product = await db.products.find_one({"_id": product_id})
+    fulfillment_type = resolve_fulfillment_type(current_product or {}).value
     await db.products.update_one(
         {"_id": product_id},
         {
             "$set": {
+                "fulfillment_type": fulfillment_type,
                 "delivery_type": "inventory",
                 "inventory_enabled": True,
                 "inventory_schema": schema,

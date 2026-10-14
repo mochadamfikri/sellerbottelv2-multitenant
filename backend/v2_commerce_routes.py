@@ -43,6 +43,7 @@ class CreateProductRequest(BaseModel):
     description: str | None = None
     category: str | None = None
     active: bool = True
+    fulfillment_type: str | None = None
 
 
 class UpdateProductRequest(BaseModel):
@@ -51,6 +52,7 @@ class UpdateProductRequest(BaseModel):
     description: str | None = None
     category: str | None = None
     active: bool | None = None
+    fulfillment_type: str | None = None
 
 
 class AddInventoryRequest(BaseModel):
@@ -92,7 +94,7 @@ async def create_product(
 ) -> dict[str, Any]:
     """Create a product scoped to the tenant context."""
     repo = CatalogRepository(context)
-    product_data = request.model_dump()
+    product_data = request.model_dump(exclude_none=True)
     product = await repo.create_product(product_data)
     return product
 

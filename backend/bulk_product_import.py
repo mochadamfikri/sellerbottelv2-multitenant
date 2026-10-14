@@ -10,6 +10,7 @@ from rates import get_rate
 from services import now_iso, notify_product_created
 from inventory import add_records, available_count
 from inventory_admin import align_records
+from commerce.fulfillment_types import canonical_product
 
 
 PRODUCT_SHEET_NAME = "product"
@@ -303,6 +304,7 @@ async def import_workbook(data: bytes, metadata_only: bool = False):
             "updated_at": now_iso(),
         }
 
+        doc = canonical_product(doc)
         if item.get("catalog_name"):
             doc["catalog_name"] = item["catalog_name"]
         if item.get("minimum_purchase_qty") is not None:

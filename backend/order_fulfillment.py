@@ -23,11 +23,16 @@ async def fulfillment(order):
         result["message"] = "Data akun tersedia setelah pesanan selesai dikirim."
         return result
     complete = True
+    offsets = {}
     for item in order.get("items") or []:
         pid = item.get("product_id") or item.get("pid")
         quantity = max(1, int(item.get("qty") or 1))
-        stored = await db.inventory_items.find({"order_id": order["_id"], "product_id": pid, "status": "sold"}).sort([("sold_at", 1), ("_id", 1)]).limit(quantity).to_list(quantity)
+        stored = await db.inventory_items.find({"order_id": order["_id"], "product_id": pid, "status": "sold"}).sort("_id", 1).skip(offsets.get(pid, 0)).limit(quantity).to_list(quantity)
+        offsets[pid] = offsets.get(pid, 0) + quantity
         product = await db.products.find_one({"_id": pid}) or {}
+        if item.get("fulfillment_snapshot"):
+            from commerce.order_items import product_for_line
+            product = product_for_line(item, product)
         line = {"product_id": pid, "name": item.get("name") or product.get("name") or "Produk", "qty": quantity, "accounts": [], "files": []}
         for record in stored:
             secret = decrypt_items([record])[0]

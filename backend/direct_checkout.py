@@ -16,6 +16,9 @@ from inventory import commit_items, decrypt_items, release_items, reserve_items
 from pricing import price_for_product
 from promo_service import coupon_discount, release_coupon, reserve_coupon, validate_coupon
 from services import notify_transaction_admin, notify_transaction_channel, now_iso
+from commerce.fulfillment_types import CommerceError, require_operational, uses_digital_inventory, FulfillmentType, resolve_fulfillment_type
+from commerce.order_items import normalize_order_items, product_for_line
+from commerce.fulfillment.router import ensure_order_fulfillments, route_item
 
 logger = logging.getLogger(__name__)
 PAYMENT_SCOPE = "bot1"
@@ -38,6 +41,10 @@ async def quote_items(user, cart_items, coupon_code=None):
         product = await db.products.find_one({"_id": raw.get("pid"), "active": True})
         if not product:
             return {"error": "Produk sudah tidak tersedia."}
+        try:
+            require_operational(product)
+        except CommerceError:
+            return {"error": "Fulfillment unavailable"}
         qty = max(1, int(raw.get("qty") or 1))
         minimum_qty = max(1, int(product.get("minimum_purchase_qty") or 1))
         if qty < minimum_qty:
@@ -120,7 +127,7 @@ async def create_qris_order(user, cart_items, coupon_code=None, preserve_cart=Fa
             product = item["product"]
             qty = item["qty"]
             stock_qty = 0
-            if product.get("product_kind") == "digital" or product.get("delivery_type") == "inventory" or product.get("inventory_enabled"):
+            if uses_digital_inventory(product):
                 reserved = await reserve_items(product["_id"], qty, reservation_id)
                 if len(reserved) != qty:
                     raise ValueError(f"Stok {product['name']} baru saja habis.")
@@ -166,6 +173,9 @@ async def create_qris_order(user, cart_items, coupon_code=None, preserve_cart=Fa
             "source_code": user.get("traffic_source_code"),
             "source_kind": user.get("traffic_source_kind"),
         })
+        order["items"] = normalize_order_items(order["items"], order_id=order_id,
+            products={str(item["product"]["_id"]): item["product"] for item in quote["items"]})
+        order["commerce_schema_version"] = 1
         await db.purchases.insert_one(order)
         payment = None
         for _ in range(200):
@@ -229,7 +239,7 @@ async def create_store_qris_order(customer, cart_items, coupon_code=None, idempo
             product = item["product"]
             qty = item["qty"]
             stock_qty = 0
-            if product.get("product_kind") == "digital" or product.get("delivery_type") == "inventory" or product.get("inventory_enabled"):
+            if uses_digital_inventory(product):
                 reserved = await reserve_items(product["_id"], qty, reservation_id)
                 if len(reserved) != qty:
                     raise ValueError(f"Stok {product['name']} baru saja habis.")
@@ -270,6 +280,9 @@ async def create_store_qris_order(customer, cart_items, coupon_code=None, idempo
             "coupon_discount": quote["coupon_amount"], "source_code": customer.get("traffic_source_code"),
             "source_kind": customer.get("traffic_source_kind"), "idempotency_key": idempotency_key,
         })
+        order["items"] = normalize_order_items(order["items"], order_id=order_id,
+            products={str(item["product"]["_id"]): item["product"] for item in quote["items"]})
+        order["commerce_schema_version"] = 1
         await db.purchases.insert_one(order)
 
         payment = None
@@ -369,6 +382,7 @@ async def finalize_qris_order(order_id, tx_id):
     all_ok = True
     service_count = 0
     try:
+        await ensure_order_fulfillments(order)
         await commit_items(f"qris:{order_id}", order_id, order["user_tid"])
         if order.get("source_code"):
             await db.prospects.update_many({"tg_user_id": order["user_tid"]},
@@ -386,21 +400,12 @@ async def finalize_qris_order(order_id, tx_id):
         await send_message(order["user_tid"], build_invoice_text(order))
         for item in order["items"]:
             product = await db.products.find_one({"_id": item["product_id"]})
-            if not product:
-                all_ok = False
-                continue
-            if product.get("product_kind") == "digital" or product.get("delivery_type") == "inventory" or product.get("inventory_enabled"):
-                stock_items = await db.inventory_items.find({"order_id": order_id, "product_id": product["_id"], "status": "sold"}).to_list(item["qty"])
-                if len(stock_items) != item["qty"]:
-                    all_ok = False
-                    continue
-                all_ok = await deliver_inventory(order["user_tid"], product, decrypt_items(stock_items)) and all_ok
-            elif product.get("product_kind") == "service" or product.get("delivery_type") == "service":
+            from commerce.fulfillment.adapters import fulfill_bot_line
+            state = await fulfill_bot_line(order, item, product, chat_id=order["user_tid"], user=user, lang=lang,
+                queue_service_fn=queue_service_delivery)
+            if item["fulfillment_type"] == FulfillmentType.SERVICE:
                 service_count += 1
-                await queue_service_delivery(order["user_tid"], user, product, order, lang)
-            else:
-                for _ in range(item["qty"]):
-                    all_ok = await deliver_product(order["user_tid"], product, lang) and all_ok
+            all_ok = all_ok and state in {"delivered", "queued", "completed"}
         final_status = "delivery_failed" if not all_ok else ("service_waiting" if service_count else "delivered")
         await db.purchases.update_one({"_id": order_id}, {"$set": {
             "status": final_status, "delivered_at": now_iso() if all_ok and not service_count else None,
@@ -438,15 +443,19 @@ async def finalize_qris_order(order_id, tx_id):
 async def _finalize_store_qris_order(order):
     order_id = order["_id"]
     try:
+        await ensure_order_fulfillments(order)
         await commit_items(f"qris:{order_id}", order_id, order.get("user_tid"), customer_id=order.get("customer_id"))
+        from commerce.fulfillment.adapters import fulfill_web_order
+        states = await fulfill_web_order(order)
+        if any(state not in {"delivered", "queued", "completed"} for state in states):
+            raise CommerceError("Fulfillment delivery incomplete")
         products = []
         for item in order.get("items") or []:
             product = await db.products.find_one({"_id": item.get("product_id")})
-            if not product:
-                raise ValueError(f"Produk {item.get('product_id')} tidak ditemukan setelah pembayaran.")
+            product = product_for_line(item, product)
             products.append((item, product))
         has_service = any(
-            product.get("product_kind") == "service" or product.get("delivery_type") == "service"
+            item["fulfillment_type"] == FulfillmentType.SERVICE
             for _, product in products
         )
         status = "service_waiting" if has_service else "delivered"
@@ -462,7 +471,7 @@ async def _finalize_store_qris_order(order):
             from services import notify_admin
             names = ", ".join(f"{item.get('name') or 'Produk'} ×{item.get('qty') or 1}"
                                for item, product in products
-                               if product.get("product_kind") == "service" or product.get("delivery_type") == "service")
+                               if item["fulfillment_type"] == FulfillmentType.SERVICE)
             await notify_admin(
                 "🛎️ <b>Pesanan jasa dari web menunggu tindak lanjut</b>\n"
                 f"Invoice: <code>{escape(str(order.get('invoice_id') or ''))}</code>\n"

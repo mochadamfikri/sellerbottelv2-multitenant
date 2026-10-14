@@ -100,6 +100,11 @@ class TenantOrdersRepository:
             "invoice_id": invoice_id,
             "created_at": data.get("created_at", datetime.now(timezone.utc)),
         }
+        if order.get("items"):
+            from commerce.order_items import normalize_order_items
+            products = {str(item.get("product_id") or item.get("pid")): await self._database.products.find_one({"_id": item.get("product_id") or item.get("pid"), "tenant_id": self._tenant_id}) for item in order["items"]}
+            order["items"] = normalize_order_items(order["items"], order_id=order["_id"], products=products)
+            order["commerce_schema_version"] = 1
         if idempotency_key is not None:
             order["idempotency_key"] = idempotency_key
 

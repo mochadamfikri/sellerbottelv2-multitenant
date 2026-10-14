@@ -1409,6 +1409,8 @@ async def _run_service_wait(order_id: str, user_tid: int, chat_id: int, product:
         )
         fresh = await db.purchases.find_one({"_id": order_id})
         if fresh and int(fresh.get("service_pending_count") or 0) <= 0:
+            from commerce.fulfillment.router import complete_service_records
+            await complete_service_records(fresh)
             await db.purchases.update_one(
                 {"_id": order_id, "status": "service_waiting"},
                 {"$set": {"status": "delivered", "delivered_at": now_iso(), "delivery_error": None}},
@@ -1497,6 +1499,9 @@ async def resume_service_waiters():
             if item.get("delivery_type") != "service":
                 continue
             product = await db.products.find_one({"_id": item.get("product_id")})
+            if item.get("fulfillment_snapshot"):
+                from commerce.order_items import product_for_line
+                product = product_for_line(item, product)
             if not product:
                 continue
             task_key = f"{order['_id']}:{product['_id']}"
@@ -1597,28 +1602,18 @@ async def _do_checkout(chat_id, user, cart_items, preserve_cart=False, order_met
         for item in result.get("allocations", [])
     }
 
-    for item in result["items"]:
+    from commerce.fulfillment.adapters import fulfill_bot_line
+    from commerce.fulfillment_types import FulfillmentType
+    for index, item in enumerate(result["items"]):
         product = item["product"]
-        qty = item["qty"]
-
-        if product.get("product_kind") == "digital" or product.get("delivery_type") == "inventory" or product.get("inventory_enabled"):
-            allocation = allocation_by_product.get(product["_id"])
-            inventory_items = allocation.get("items", []) if allocation else []
-            ok = await deliver_inventory(
-                chat_id,
-                product,
-                decrypt_items(inventory_items),
-            )
-            all_delivered = all_delivered and ok
-        elif product.get("product_kind") == "service" or product.get("delivery_type") == "service":
+        line = order["items"][index]
+        allocation = allocation_by_product.get(product["_id"])
+        state = await fulfill_bot_line(order, line, product, chat_id=chat_id, user=user, lang=lang,
+            inventory_items=allocation.get("items", []) if allocation else None,
+            queue_service_fn=queue_service_delivery)
+        if line["fulfillment_type"] == FulfillmentType.SERVICE:
             service_count += 1
-            await queue_service_delivery(chat_id, user, product, order, lang)
-        else:
-            ok = True
-            for _ in range(qty):
-                one = await deliver_product(chat_id, product, lang)
-                ok = ok and one
-            all_delivered = all_delivered and ok
+        all_delivered = all_delivered and state in {"delivered", "queued", "completed"}
 
     if service_count:
         if not all_delivered:

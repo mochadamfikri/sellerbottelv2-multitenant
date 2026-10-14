@@ -2,6 +2,7 @@
 from __future__ import annotations
 from typing import Any, Mapping
 import uuid
+from commerce.fulfillment_types import canonical_product
 
 from tenant_db import validate_tenant_id
 
@@ -56,7 +57,7 @@ class CatalogRepository:
         product_tenant = product.get("tenant_id")
         validate_tenant_scope(self.tenant_id, product_tenant)
 
-        doc = dict(product)
+        doc = canonical_product(dict(product))
         doc["tenant_id"] = self.tenant_id
         if "_id" not in doc:
             doc["_id"] = str(uuid.uuid4())
@@ -115,6 +116,13 @@ class CatalogRepository:
         update_dict.pop("_id", None)
         # Ensure tenant_id remains the scoped tenant if included
         update_dict["tenant_id"] = self.tenant_id
+        existing = await self.collection.find_one({"_id": product_id, "tenant_id": self.tenant_id})
+        if existing is None:
+            return None
+        proposed = {**existing, **update_dict}
+        if "fulfillment_type" not in updates and any(field in updates for field in ("product_kind", "delivery_type")):
+            proposed.pop("fulfillment_type", None)
+        update_dict["fulfillment_type"] = canonical_product(proposed)["fulfillment_type"]
 
         result = await self.collection.update_one(
             {"_id": product_id, "tenant_id": self.tenant_id},

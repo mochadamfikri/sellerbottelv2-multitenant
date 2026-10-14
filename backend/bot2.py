@@ -9,6 +9,10 @@ from html import escape
 
 import httpx
 
+from commerce.fulfillment_types import CommerceError, FulfillmentType, require_operational, uses_digital_inventory
+from commerce.order_items import normalize_order_items, product_for_line
+from commerce.fulfillment.router import ensure_order_fulfillments, route_item
+from commerce.fulfillment.adapters import fulfill_bot_line
 from db import db, get_settings
 from bot_tenant_scope import get_current_scope, TenantScopedDict
 from inventory import commit_items, decrypt_items, release_items, reserve_items
@@ -458,7 +462,7 @@ async def reserve_order_items(order_id, items):
     for item in items:
         product = item["product"]
         qty = item["qty"]
-        if product.get("product_kind") == "digital" or product.get("delivery_type") == "inventory" or product.get("inventory_enabled"):
+        if uses_digital_inventory(product):
             reserved = await reserve_items(product["_id"], qty, reservation_id)
             if len(reserved) != qty:
                 await release_items(reservation_id)
@@ -538,25 +542,15 @@ async def process_confirmed_bot2_order(chat_id, user, pid, qty, mode, note):
         allocation_map = {x["product_id"]: x for x in result.get("allocations", [])}
         all_ok = True
         has_service = False
-        for item in result["items"]:
-            product = item["product"]
-            if product.get("product_kind") == "service" or product.get("delivery_type") == "service":
-                has_service = True
-                continue
-            if product.get("product_kind") == "digital" or product.get("delivery_type") == "inventory" or product.get("inventory_enabled"):
-                allocation = allocation_map.get(product["_id"], {})
-                ok = await deliver_inventory(
-                    chat_id, product, decrypt_items(allocation.get("items", [])),
-                    send_message_fn=send2, send_document_fn=send_document2
-                )
-            else:
-                ok = True
-                for _ in range(item["qty"]):
-                    ok = (await deliver_product(
-                        chat_id, product, "id",
-                        send_message_fn=send2, send_document_fn=send_document2
-                    )) and ok
-            all_ok = all_ok and ok
+        for index, quoted in enumerate(result["items"]):
+            product = quoted["product"]
+            line = order["items"][index]
+            has_service = has_service or line["fulfillment_type"] == FulfillmentType.SERVICE
+            state = await fulfill_bot_line(order, line, product, chat_id=chat_id, user=user, lang="id",
+                inventory_items=allocation_map.get(product["_id"], {}).get("items"),
+                send_message_fn=send2, send_document_fn=send_document2,
+                inventory_delivery_fn=deliver_inventory, product_delivery_fn=deliver_product)
+            all_ok = all_ok and state in {"delivered", "queued", "completed"}
         final_status = "delivery_failed" if not all_ok else ("service_waiting" if has_service else "delivered")
         await db.purchases.update_one({"_id": order["_id"]}, {"$set": {
             "note": note,
@@ -578,6 +572,11 @@ async def create_bot2_checkout(chat_id, user, pid, qty, note=''):
     product = await db.products.find_one({"_id": pid, "active": True})
     if not product:
         await send2(chat_id, "❌ Produk sudah tidak tersedia.", kb=menu_keyboard())
+        return
+    try:
+        require_operational(product)
+    except CommerceError:
+        await send2(chat_id, "❌ Checkout gagal.", kb=menu_keyboard())
         return
     qty = max(1, int(qty))
     stock = await stock_for(product)
@@ -652,6 +651,8 @@ async def create_bot2_checkout(chat_id, user, pid, qty, note=''):
         "purchase_source": "BOT",
     }
 
+    order["items"] = normalize_order_items(order["items"], order_id=order_id, products={str(product["_id"]): product})
+    order["commerce_schema_version"] = 1
     await db.purchases.insert_one(order)
     try:
         await db.gopay_payments.insert_one({
@@ -763,61 +764,42 @@ async def notify_service_waiting(order):
 
 
 async def deliver_order(chat_id, order):
+    await ensure_order_fulfillments(order)
     all_ok = True
-    for item in order.get("items", []):
-        product = await db.products.find_one({"_id": item["product_id"]})
-        if not product:
-            all_ok = False
-            continue
-        qty = int(item.get("qty") or 1)
-
-        if product.get("product_kind") == "service" or product.get("delivery_type") == "service":
+    for line in order.get("items", []):
+        current = await db.products.find_one({"_id": line["product_id"]})
+        product = product_for_line(line, current)
+        if line["fulfillment_type"] == FulfillmentType.SERVICE:
             order["has_service"] = True
-            continue
-
-        if (
-            product.get("product_kind") == "digital"
-            or product.get("delivery_type") == "inventory"
-            or product.get("inventory_enabled")
-        ):
-            reservation_id = f"bot2:{order['_id']}"
-            inventory = await db.inventory_items.find(
-                {"reservation_id": reservation_id, "product_id": product["_id"], "status": "reserved"}
-            ).to_list(qty)
-            if len(inventory) != qty:
-                all_ok = False
-                continue
-
-            try:
-                records = decrypt_items(inventory)
-                ok = await deliver_inventory(
-                    chat_id,
-                    product,
-                    records,
-                    send_message_fn=send2,
-                    send_document_fn=send_document2,
-                )
-                if ok:
-                    await commit_items(reservation_id, order["_id"], order["user_tid"])
-                else:
+        async def execute(line=line, product=product, current=current):
+            if line["fulfillment_type"] == FulfillmentType.SERVICE:
+                return True
+            if uses_digital_inventory(product):
+                reservation_id = f"bot2:{order['_id']}"
+                records = await db.inventory_items.find({"reservation_id": reservation_id, "product_id": line["product_id"], "status": "reserved"}).to_list(line["qty"])
+                if len(records) != line["qty"]:
+                    return False
+                try:
+                    ok = await deliver_inventory(chat_id, product, decrypt_items(records), send_message_fn=send2, send_document_fn=send_document2)
+                    if ok:
+                        await commit_items(reservation_id, order["_id"], order["user_tid"])
+                    else:
+                        await release_items(reservation_id)
+                    return ok
+                except Exception:
                     await release_items(reservation_id)
-                all_ok = all_ok and ok
-            except Exception:
-                logger.exception("Bot2 inventory delivery failed")
-                await release_items(reservation_id)
-                all_ok = False
-        else:
+                    raise
+            if current is None:
+                return False
             ok = True
-            for _ in range(qty):
-                ok = await deliver_product(
-                    chat_id,
-                    product,
-                    "id",
-                    send_message_fn=send2,
-                    send_document_fn=send_document2,
-                ) and ok
-            all_ok = all_ok and ok
-
+            for _ in range(line["qty"]):
+                ok = await deliver_product(chat_id, product, "id", send_message_fn=send2, send_document_fn=send_document2) and ok
+            return ok
+        try:
+            state = await route_item(order, line, execute)
+            all_ok = all_ok and state in {"delivered", "queued", "completed"}
+        except CommerceError:
+            all_ok = False
     return all_ok
 
 
@@ -833,7 +815,12 @@ async def finalize_bot2_checkout(order_id, tx_id=None):
     if not claimed.modified_count:
         return False
     order["status"] = "paid"
-    ok = await deliver_order(user_tid, order)
+    try:
+        ok = await deliver_order(user_tid, order)
+    except Exception as error:
+        logger.warning("Bot2 fulfillment unavailable order=%s exception=%s", order_id, type(error).__name__)
+        await release_items(f"bot2:{order_id}")
+        ok = False
     final_status = ("service_waiting" if order.get("has_service") else "delivered") if ok else "delivery_failed"
     await db.purchases.update_one(
         {"_id": order_id},

@@ -7,6 +7,9 @@ from inventory import commit_items, release_items, reserve_items
 from rates import get_rate
 from pricing import price_for_product
 from promo_service import validate_coupon, coupon_discount, reserve_coupon, release_coupon
+from commerce.fulfillment_types import CommerceError, require_operational, uses_digital_inventory
+from commerce.order_items import normalize_order_items
+from commerce.fulfillment.router import ensure_order_fulfillments
 
 
 CUR_FIELD = {"USD": "balance_usd", "IDR": "balance_idr"}
@@ -40,11 +43,7 @@ async def product_price(product, currency):
 
 
 async def stock_for(product):
-    is_inventory = (
-        product.get("product_kind") == "digital"
-        or product.get("delivery_type") == "inventory"
-        or product.get("inventory_enabled")
-    )
+    is_inventory = uses_digital_inventory(product)
     if is_inventory:
         available = await db.inventory_items.count_documents({
             "product_id": product["_id"],
@@ -143,6 +142,11 @@ async def execute_checkout(user, cart_items, preserve_cart=False, coupon_code=No
         })
         if not product:
             continue
+
+        try:
+            require_operational(product)
+        except CommerceError:
+            return {"ok": False, "error": "fulfillment", "message": "Fulfillment unavailable"}
 
         qty = max(1, int(raw.get("qty", 1)))
         minimum_qty = max(1, int(product.get("minimum_purchase_qty") or 1))
@@ -261,6 +265,9 @@ async def execute_checkout(user, cart_items, preserve_cart=False, coupon_code=No
             "reseller_bot_id", "reseller_admin_tid", "reseller_wholesale", "reseller_margin",
             "idempotency_key", "customer_id", "customer_email"
         ) if key in order_metadata})
+    order["items"] = normalize_order_items(order["items"], order_id=order_id,
+        products={str(item["product"]["_id"]): item["product"] for item in items})
+    order["commerce_schema_version"] = 1
     await db.purchases.insert_one(order)
 
     if coupon:
@@ -280,7 +287,7 @@ async def execute_checkout(user, cart_items, preserve_cart=False, coupon_code=No
             product = item["product"]
             qty = item["qty"]
 
-            if product.get("product_kind") == "digital" or product.get("delivery_type") == "inventory" or product.get("inventory_enabled"):
+            if uses_digital_inventory(product):
                 reserved = await reserve_items(product["_id"], qty, reservation_id)
                 if len(reserved) != qty:
                     raise ValueError(f"Stok {product['name']} tidak cukup.")
@@ -349,6 +356,9 @@ async def execute_checkout(user, cart_items, preserve_cart=False, coupon_code=No
             {"_id": order_id, "status": "pending"},
             {"$set": {"status": "paid", "paid_at": now_iso()}},
         )
+        # Create durable work before consumption: insert failure can still release
+        # reserved stock and refund through the existing checkout compensation.
+        await ensure_order_fulfillments(order)
 
         if user.get("traffic_source_code") and telegram_id:
             await db.prospects.update_many(
@@ -395,11 +405,12 @@ async def execute_checkout(user, cart_items, preserve_cart=False, coupon_code=No
             {"_id": order_id},
             {"$set": {
                 "status": "failed",
-                "delivery_error": str(exc),
+                "delivery_error": type(exc).__name__,
             }},
         )
         return {
             "ok": False,
             "error": "checkout",
-            "message": str(exc),
+            "retryable": not isinstance(exc, ValueError) or getattr(exc, "status_code", 0) >= 500,
+            "message": "Checkout temporarily unavailable",
         }

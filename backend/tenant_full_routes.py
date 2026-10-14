@@ -89,6 +89,7 @@ async def tenant_create_product(
     image: Optional[UploadFile] = File(None),
     remove_image: bool = Form(False),
     file: Optional[UploadFile] = File(None),
+    fulfillment_type: Optional[str] = Form(None),
 ):
     token = await _require_tenant_ctx(request)
     try:
@@ -101,7 +102,7 @@ async def tenant_create_product(
             product_kind=product_kind, stock_mode=stock_mode, inventory_mode=inventory_mode,
             service_wait_minutes=service_wait_minutes,
             service_message_template=service_message_template,
-            image=image, remove_image=remove_image, file=file,
+            image=image, remove_image=remove_image, file=file, fulfillment_type=fulfillment_type,
         )
     finally:
         _restore_ctx(token)
@@ -130,6 +131,7 @@ async def tenant_update_product(
     image: Optional[UploadFile] = File(None),
     remove_image: bool = Form(False),
     file: Optional[UploadFile] = File(None),
+    fulfillment_type: Optional[str] = Form(None),
 ):
     token = await _require_tenant_ctx(request)
     try:
@@ -142,7 +144,7 @@ async def tenant_update_product(
             product_kind=product_kind, stock_mode=stock_mode, inventory_mode=inventory_mode,
             service_wait_minutes=service_wait_minutes,
             service_message_template=service_message_template,
-            image=image, remove_image=remove_image, file=file,
+            image=image, remove_image=remove_image, file=file, fulfillment_type=fulfillment_type,
         )
     finally:
         _restore_ctx(token)
@@ -386,6 +388,19 @@ async def tenant_get_order(request: Request, oid: str):
     try:
         from admin_routes import get_order
         return await get_order(oid=oid)
+    finally:
+        _restore_ctx(token)
+
+
+@router.get("/orders/{oid}/fulfillments")
+async def tenant_order_fulfillments(request: Request, oid: str):
+    token = await _require_tenant_ctx(request)
+    try:
+        from admin_routes import get_order
+        from commerce.fulfillment.router import current_repository
+        await get_order(oid=oid)
+        records = await current_repository().list_order(oid)
+        return [{key: value for key, value in record.items() if key not in {"claim_token", "lease_expires_at"}} for record in records]
     finally:
         _restore_ctx(token)
 

@@ -86,7 +86,7 @@ def _format_order_attachments(order: dict, purchased: dict[str, list[dict]]):
     account_lines = []
     for item in order.get("items") or []:
         product_id = str(item.get("product_id") or "")
-        records = purchased.get(product_id, [])
+        records = purchased.get(item.get("line_id") or product_id, [])
         if not records:
             continue
         product = item.get("_product") or {}
@@ -140,19 +140,24 @@ async def send_order_completion_email(order_id: str) -> bool:
 
     try:
         by_product = {}
+        offsets = {}
         for item in order.get("items") or []:
             product = await db.products.find_one({"_id": item.get("product_id")}, {
                 "inventory_schema": 1, "inventory_mode": 1, "product_kind": 1,
                 "delivery_type": 1, "inventory_enabled": 1, "content": 1,
             })
+            if item.get("fulfillment_snapshot"):
+                from commerce.order_items import product_for_line
+                product = product_for_line(item, product)
             item["_product"] = product or {}
             if product and (product.get("product_kind") == "digital" or product.get("delivery_type") == "inventory" or product.get("inventory_enabled")):
                 stored = await db.inventory_items.find({
                     "order_id": order_id, "product_id": item.get("product_id"), "status": "sold"
-                }).sort("sold_at", 1).limit(max(1, int(item.get("qty") or 1))).to_list(max(1, int(item.get("qty") or 1)))
+                }).sort("_id", 1).skip(offsets.get(item.get("product_id"), 0)).limit(max(1, int(item.get("qty") or 1))).to_list(max(1, int(item.get("qty") or 1)))
                 if len(stored) != int(item.get("qty") or 1):
                     raise ValueError("Data inventory pesanan tidak lengkap.")
-                by_product[str(item.get("product_id"))] = decrypt_items(stored)
+                offsets[item.get("product_id")] = offsets.get(item.get("product_id"), 0) + int(item.get("qty") or 1)
+                by_product[item.get("line_id") or str(item.get("product_id"))] = decrypt_items(stored)
         attachments = _format_order_attachments(order, by_product)
         host = os.getenv("SMTP_HOST", "").strip()
         user = os.getenv("SMTP_USER", "").strip()
@@ -433,7 +438,7 @@ async def customer_logout(response: Response):
 
 def _public_product(product):
     item = {key: product.get(key) for key in (
-        "name", "description", "price_usd", "price_idr", "product_kind", "delivery_type", "minimum_purchase_qty"
+        "name", "description", "price_usd", "price_idr", "product_kind", "delivery_type", "fulfillment_type", "minimum_purchase_qty"
     )}
     # Convert ObjectId ke string
     item["_id"] = str(product.get("_id", ""))
@@ -720,7 +725,7 @@ async def store_checkout(body: CheckoutBody, user: dict = Depends(current_custom
                 detail = "Saldo tidak cukup. Deposit saldo atau pilih pembayaran QRIS."
             else:
                 detail = result.get("message") or "Saldo tidak cukup atau checkout gagal."
-            raise HTTPException(400, detail)
+            raise HTTPException(503 if result.get("retryable") else 400, detail)
         order_id = result["order"]["_id"]
         await _finalize_store_balance_order(order_id)
         completed = await db.purchases.find_one({"_id": order_id})
@@ -817,10 +822,16 @@ async def _finalize_store_balance_order(order_id: str) -> bool:
     order = await db.purchases.find_one({"_id": order_id, "status": "paid"})
     if not order:
         return False
+    from commerce.fulfillment.adapters import fulfill_web_order
+    from commerce.fulfillment_types import FulfillmentType, FulfillmentUnavailable
+    states = await fulfill_web_order(order)
+    if any(state not in {"delivered", "queued", "completed"} for state in states):
+        await db.purchases.update_one({"_id": order_id}, {"$set": {"status": "delivery_failed", "delivery_error": "Fulfillment delivery incomplete"}})
+        raise FulfillmentUnavailable("Fulfillment delivery incomplete")
     service_names = []
     for item in order.get("items") or []:
         product = await db.products.find_one({"_id": item.get("product_id")})
-        if product and (product.get("product_kind") == "service" or product.get("delivery_type") == "service"):
+        if item["fulfillment_type"] == FulfillmentType.SERVICE:
             service_names.append(f"{item.get('name') or product.get('name') or 'Jasa'} ×{item.get('qty') or 1}")
     if service_names:
         changed = await db.purchases.update_one({"_id": order_id, "status": "paid"}, {"$set": {"status": "service_waiting"}})

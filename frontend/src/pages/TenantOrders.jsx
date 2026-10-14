@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { fmtAmount, fmtDate, formatApiErrorDetail } from "../lib/api";
 import { useTenantApi } from "../lib/tenantApi";
+import { TenantPhysicalOrder } from "../components/PhysicalOrder";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 
-const statuses = ["all", "pending", "pending_payment", "paid", "service_waiting", "delivered", "delivery_failed", "failed", "refunded"];
+const statuses = ["all", "pending", "pending_payment", "paid", "physical_pending", "service_waiting", "delivered", "delivery_failed", "failed", "refunded"];
 
 export default function TenantOrders() {
   const api = useTenantApi();
@@ -74,7 +75,7 @@ export default function TenantOrders() {
                 <button className="text-cyan-400 text-xs" onClick={() => openDetail(o)}>Detail</button>
                 {o.status === "service_waiting" && <button className="text-emerald-400 text-xs" onClick={() => completeService(o)}>Selesaikan</button>}
                 {o.status === "delivered" && o.delivery_email_status === "failed" && <button className="text-amber-400 text-xs" onClick={() => retryEmail(o)}>Kirim email ulang</button>}
-                {(o.status === "failed" || o.status === "delivery_failed") && <button className="text-rose-400 text-xs" onClick={() => refund(o)}>Refund</button>}
+                {(o.status === "failed" || o.status === "delivery_failed") && !o.requires_shipping && <button className="text-rose-400 text-xs" onClick={() => refund(o)}>Refund</button>}
               </td>
             </tr>)}
             {!orders.length && <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-500">Belum ada order.</td></tr>}
@@ -99,13 +100,14 @@ export default function TenantOrders() {
                 <p className="font-semibold mb-2">Produk yang dibeli</p>
                 <div className="space-y-2">
                   {(detail.items || []).map((i, idx) => <div key={idx} className="bg-slate-950/70 rounded-lg p-3">
-                    <div className="font-semibold">{i.name} × {i.qty}</div>
+                    <div className="font-semibold">{i.name} × {i.qty}</div><p className="text-xs">{i.fulfillment_type === "physical" ? `Barang fisik · ${i.sku} · ${i.variant_label}` : i.fulfillment_type === "service" ? "Layanan" : "Produk digital"}</p>
                     <div className="text-xs text-slate-400 mt-1">Harga/unit: {fmtAmount(i.unit_price, detail.currency)} · Subtotal: {fmtAmount(i.subtotal, detail.currency)}</div>
                     {Number(i.discount_total || 0) > 0 && <div className="text-xs text-emerald-400">Diskon: {fmtAmount(i.discount_total, detail.currency)}{i.discount_name ? " · " + i.discount_name : ""}</div>}
                     <div className="text-[11px] text-slate-600 mt-1">Product ID: {i.product_id}</div>
                   </div>)}
                 </div>
               </div>
+              <TenantPhysicalOrder orderId={detail._id} onChange={()=>{load();openDetail(detail);}}/>
               <div className="grid grid-cols-2 gap-3 border-t border-slate-800 pt-3">
                 <div>Total diskon: <b>{fmtAmount(detail.discount_total || 0, detail.currency)}</b></div>
                 <div>Coupon: <b>{detail.coupon_code || "-"}</b></div>

@@ -2,20 +2,20 @@ import { useEffect, useState } from "react";
 import { Download, LoaderCircle } from "lucide-react";
 import api, { formatApiErrorDetail } from "../lib/api";
 
-export default function OrderDelivery({ orderId, status }) {
+export default function OrderDelivery({ orderId, status, apiPrefix = "/store" }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     let active = true;
     setData(null); setError("");
-    api.get(`/store/orders/${orderId}/delivery`).then(({ data }) => { if (active) setData(data); }).catch((e) => { if (active) setError(formatApiErrorDetail(e.response?.data?.detail) || "Detail akun belum dapat dimuat."); });
+    api.get(`${apiPrefix}/orders/${orderId}/delivery`).then(({ data }) => { if (active) setData(data); }).catch((e) => { if (active) setError(formatApiErrorDetail(e.response?.data?.detail) || "Detail akun belum dapat dimuat."); });
     return () => { active = false; };
-  }, [orderId, status]);
+  }, [orderId, status, apiPrefix]);
   const download = async (suffix, filename) => {
     setBusy(true); setError("");
     try {
-      const response = await api.get(`/store/orders/${orderId}/${suffix}`, { responseType: "blob" });
+      const response = await api.get(`${apiPrefix}/orders/${orderId}/${suffix}`, { responseType: "blob" });
       const url = URL.createObjectURL(response.data); const a = document.createElement("a"); a.href = url; a.download = filename; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (_) { setError("Unduhan belum tersedia. Muat ulang detail pesanan atau hubungi admin."); }
     finally { setBusy(false); }

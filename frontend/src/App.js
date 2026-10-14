@@ -132,6 +132,14 @@ function App() {
           {/* Per-tenant storefront: each tenant gets their own public store link */}
           <Route path="/store/t/:tenantSlug" element={<Storefront tenantView />} />
           <Route path="/store/t/:tenantSlug/products" element={<Storefront view="products" tenantView />} />
+          <Route path="/store/t/:tenantSlug/product/:productId" element={<Storefront view="detail" tenantView />} />
+          <Route path="/store/t/:tenantSlug/cart" element={<Storefront view="cart" tenantView />} />
+          <Route path="/store/t/:tenantSlug/login" element={<Storefront view="login" tenantView />} />
+          <Route path="/store/t/:tenantSlug/register" element={<Storefront view="register" tenantView />} />
+          <Route path="/store/t/:tenantSlug/orders" element={<Storefront view="orders" tenantView />} />
+          <Route path="/store/t/:tenantSlug/transactions" element={<Storefront view="transactions" tenantView />} />
+          <Route path="/store/t/:tenantSlug/deposit" element={<Storefront view="deposit" tenantView />} />
+          <Route path="/store/t/:tenantSlug/profile" element={<Storefront view="profile" tenantView />} />
           <Route path="/analytics" element={<Protected title="Analytics & Traffic"><Analytics /></Protected>} />
           <Route path="/platform-control" element={<Protected title="Platform Control Center"><PlatformControl /></Protected>} />
           <Route path="/promo-config" element={<Protected title="Konfigurasi Landing Page"><PromoConfig /></Protected>} />

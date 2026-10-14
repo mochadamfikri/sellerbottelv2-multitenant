@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Upload, Database, Boxes, BriefcaseBusiness } from "lucide-react";
 import { fmtUSD, fmtIDR, formatApiErrorDetail } from "../lib/api";
 import { useTenantApi } from "../lib/tenantApi";
+import PhysicalProducts from "../components/PhysicalProducts";
 import TenantImage from "../components/TenantImage";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { Switch } from "../components/ui/switch";
@@ -38,6 +39,8 @@ export default function TenantProducts() {
   const [catalogOptions, setCatalogOptions] = useState([]);
   const [products, setProducts] = useState([]);
   const [open, setOpen] = useState(false);
+  const [physicalOpen,setPhysicalOpen] = useState(false);
+  const [physicalSelected,setPhysicalSelected] = useState(null);
   const [form, setForm] = useState(empty);
   const [editId, setEditId] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -86,6 +89,7 @@ export default function TenantProducts() {
   };
 
   const openEdit = (p) => {
+    if(p.fulfillment_type === "physical"){setPhysicalSelected(p);setPhysicalOpen(true);return;}
     const kind = p.product_kind || (p.delivery_type === "inventory" ? "digital" : "service");
     setForm({
       name: p.name || "",
@@ -266,11 +270,12 @@ export default function TenantProducts() {
     }
   };
 
-  const kindLabel = (p) => p.product_kind === "service"
+  const kindLabel = (p) => p.fulfillment_type === "physical" ? "C. Produk Fisik" : p.product_kind === "service"
     ? "B. Produk Jasa"
     : "A. Produk Digital / Data";
 
   const renderStock = (p) => {
+    if(p.fulfillment_type === "physical")return <span>{p.stock ?? 0} tersedia</span>;
     if (p.product_kind === "service") return <span className="text-cyan-400">Unlimited</span>;
     const actual = Number(p.inventory_stock ?? 0);
     const cap = p.stock_mode === "manual" ? Number(p.manual_stock ?? p.stock ?? 0) : actual;
@@ -289,6 +294,8 @@ export default function TenantProducts() {
 
   return (
     <div className="space-y-4">
+      <button className="rounded-lg bg-emerald-700 px-4 py-2 text-sm text-white" onClick={()=>setPhysicalOpen(!physicalOpen)}>Kelola produk fisik / variant / stok</button>
+      {physicalOpen && <PhysicalProducts initialProduct={physicalSelected}/>}
       <div className="flex justify-between items-center gap-3 flex-wrap">
         <div>
           <p className="text-sm text-slate-400">{products.length} produk</p>
@@ -373,7 +380,7 @@ export default function TenantProducts() {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-1.5">
-                    {p.product_kind !== "service" && (
+                    {p.product_kind !== "service" && p.fulfillment_type !== "physical" && (
                       <button
                         data-testid={"input-inventory-btn-" + p._id}
                         onClick={() => openInventory(p)}

@@ -1,0 +1,21 @@
+{
+  "mapping_version": 1,
+  "source": {
+    "database": "sellerbottel",
+    "business": "IDSE SellerBottel",
+    "admin_collection": "admins",
+    "required_admin_count": 1
+  },
+  "tenant": {
+    "slug": "idse",
+    "name": "IDSE SellerBottel",
+    "database_name": "sellerbottel_tenant_idse",
+    "id_namespace": "sellerbottel:production:v1:sellerbottel"
+  },
+  "identity": {
+    "platform_principal_key": "v1-admin:_id",
+    "tenant_owner_principal_key": "v1-admin:_id",
+    "primary_merchant_key": "v1-settings:main",
+    "bot_store_relationship": "single-v1-business-to-single-idse-tenant"
+  }
+}

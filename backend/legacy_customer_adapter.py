@@ -15,7 +15,14 @@ import logging
 from typing import Any, Mapping
 import bcrypt
 
+from legacy_web_reset import password_reset_required
+
 logger = logging.getLogger(__name__)
+
+class LegacyPasswordResetRequiredError(Exception):
+    """Raised when an account must complete password reset before login."""
+    pass
+
 
 def verify_legacy_password(plain_password: str, hashed_password: str) -> bool:
     """Verify password against legacy hash without mutating the stored hash.
@@ -101,6 +108,9 @@ async def authenticate_legacy_customer(
     cust = await database.store_customers.find_one({"email": clean_id})
     if not cust:
         return None
+
+    if await password_reset_required(database, cust):
+        raise LegacyPasswordResetRequiredError("PASSWORD_RESET_REQUIRED")
 
     stored_hash = cust.get("password_hash")
     if not stored_hash or not verify_legacy_password(password, stored_hash):

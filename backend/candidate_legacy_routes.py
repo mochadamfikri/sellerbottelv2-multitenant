@@ -12,7 +12,12 @@ from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from candidate_readonly import is_candidate_readonly
-from legacy_customer_adapter import authenticate_legacy_customer, resolve_logical_wallet
+from legacy_customer_adapter import (
+    LegacyPasswordResetRequiredError,
+    authenticate_legacy_customer,
+    resolve_logical_wallet,
+)
+from legacy_web_reset import password_reset_required
 from dependencies import get_tenant_registry
 from db import client
 
@@ -41,7 +46,7 @@ def _issue_token(tenant_slug: str, customer_id: str, session_version: int) -> st
     return (encoded + b"." + signature).decode("ascii")
 
 
-def _read_token(token: str, tenant_slug: str) -> str:
+def _read_token(token: str, tenant_slug: str) -> tuple[str, int]:
     try:
         encoded, signature = token.encode("ascii").split(b".", 1)
         expected = hmac.new(_secret(), encoded, hashlib.sha256).hexdigest().encode("ascii")
@@ -51,9 +56,10 @@ def _read_token(token: str, tenant_slug: str) -> str:
         if payload.get("tenant") != tenant_slug:
             raise ValueError("tenant")
         customer_id = str(payload.get("customer") or "")
-        if not customer_id:
+        session_version = payload.get("session")
+        if not customer_id or not isinstance(session_version, int):
             raise ValueError("customer")
-        return customer_id
+        return customer_id, session_version
     except (ValueError, UnicodeError, json.JSONDecodeError):
         raise HTTPException(401, "Invalid candidate customer session.")
 
@@ -72,7 +78,25 @@ async def login(tenant_slug: str, body: LoginBody) -> dict[str, Any]:
     if not is_candidate_readonly():
         raise HTTPException(503, "This endpoint is available only in candidate_readonly.")
     database = await _tenant_database(tenant_slug)
-    identity = await authenticate_legacy_customer(database, body.email, body.password)
+    customer = await database.store_customers.find_one({"email": body.email.strip().lower()})
+    if customer and await password_reset_required(database, customer):
+        raise HTTPException(
+            403,
+            detail={
+                "code": "PASSWORD_RESET_REQUIRED",
+                "message": "Untuk keamanan, akun lama Anda memerlukan pembaruan password. Silakan reset password untuk melanjutkan.",
+            },
+        )
+    try:
+        identity = await authenticate_legacy_customer(database, body.email, body.password)
+    except LegacyPasswordResetRequiredError:
+        raise HTTPException(
+            403,
+            detail={
+                "code": "PASSWORD_RESET_REQUIRED",
+                "message": "Untuk keamanan, akun lama Anda memerlukan pembaruan password. Silakan reset password untuk melanjutkan.",
+            },
+        )
     if not identity or identity.is_blocked:
         raise HTTPException(401, "Email or password is invalid.")
     wallet = await resolve_logical_wallet(database, identity)
@@ -87,11 +111,15 @@ async def login(tenant_slug: str, body: LoginBody) -> dict[str, Any]:
 async def profile(tenant_slug: str, authorization: str = Header(default="")) -> dict[str, Any]:
     """Read-only profile lookup scoped by signed tenant-bound session token."""
     token = authorization.removeprefix("Bearer ").strip()
-    customer_id = _read_token(token, tenant_slug)
+    customer_id, session_version = _read_token(token, tenant_slug)
     database = await _tenant_database(tenant_slug)
     customer = await database.store_customers.find_one({"_id": customer_id})
     if not customer:
         raise HTTPException(404, "Customer not found.")
+    if customer.get("session_version", 1) != session_version:
+        raise HTTPException(401, "Candidate customer session is no longer valid.")
+    if await password_reset_required(database, customer):
+        raise HTTPException(403, detail={"code": "PASSWORD_RESET_REQUIRED", "message": "Password reset is required."})
     from legacy_customer_adapter import LegacyCustomerIdentity
     identity = LegacyCustomerIdentity(customer, "web")
     return {"customer": identity.to_profile_dict()}
@@ -100,11 +128,15 @@ async def profile(tenant_slug: str, authorization: str = Header(default="")) -> 
 @router.get("/{tenant_slug}/balance")
 async def balance(tenant_slug: str, authorization: str = Header(default="")) -> dict[str, Any]:
     token = authorization.removeprefix("Bearer ").strip()
-    customer_id = _read_token(token, tenant_slug)
+    customer_id, session_version = _read_token(token, tenant_slug)
     database = await _tenant_database(tenant_slug)
     customer = await database.store_customers.find_one({"_id": customer_id})
     if not customer:
         raise HTTPException(404, "Customer not found.")
+    if customer.get("session_version", 1) != session_version:
+        raise HTTPException(401, "Candidate customer session is no longer valid.")
+    if await password_reset_required(database, customer):
+        raise HTTPException(403, detail={"code": "PASSWORD_RESET_REQUIRED", "message": "Password reset is required."})
     from legacy_customer_adapter import LegacyCustomerIdentity
     return {"wallet": await resolve_logical_wallet(database, LegacyCustomerIdentity(customer, "web"))}
 

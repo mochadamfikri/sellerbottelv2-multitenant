@@ -32,6 +32,8 @@ from commerce.fulfillment_types import CommerceError, FulfillmentType, resolve_f
 from storage import get_object
 from inventory import decrypt_items
 from services import fmt_amount
+from candidate_readonly import assert_service_writable
+from legacy_web_reset import begin_password_reset, password_reset_required, record_password_reset_completion
 
 router = APIRouter(prefix="/api/store")
 logger = logging.getLogger("storefront")
@@ -250,6 +252,14 @@ async def current_customer(request: Request):
         customer = await db.store_customers.find_one({"_id": payload["sub"]})
         if not customer or payload.get("sv", 0) != customer.get("session_version", 0):
             raise HTTPException(401, "Akun pelanggan tidak ditemukan.")
+        if await password_reset_required(_resolve_db(), customer):
+            raise HTTPException(
+                403,
+                detail={
+                    "code": "PASSWORD_RESET_REQUIRED",
+                    "message": "Untuk keamanan, akun lama Anda memerlukan pembaruan password. Silakan reset password untuk melanjutkan.",
+                },
+            )
         return customer
     except (jwt.InvalidTokenError, KeyError, ValueError):
         raise HTTPException(401, "Sesi pelanggan tidak valid.")
@@ -309,6 +319,7 @@ def _clean_email(raw: str) -> str:
 
 
 async def _issue_email_code(email: str, purpose: str):
+    assert_service_writable("storefront.issue_email_code")
     now = datetime.now(timezone.utc)
     if purpose == "register" and await db.store_customers.find_one({"email": email}, {"_id": 1}):
         raise HTTPException(409, "Email sudah terdaftar. Silakan masuk atau reset kata sandi.")
@@ -367,6 +378,14 @@ async def customer_register(body: RegisterBody, response: Response):
 async def customer_login(body: LoginBody, response: Response):
     email = _clean_email(body.email)
     customer = await db.store_customers.find_one({"email": email})
+    if customer and await password_reset_required(_resolve_db(), customer):
+        raise HTTPException(
+            403,
+            detail={
+                "code": "PASSWORD_RESET_REQUIRED",
+                "message": "Untuk keamanan, akun lama Anda memerlukan pembaruan password. Silakan reset password untuk melanjutkan.",
+            },
+        )
     from auth import verify_password
     if not customer or not verify_password(body.password, customer.get("password_hash", "")):
         raise HTTPException(401, "Email atau kata sandi salah.")
@@ -381,6 +400,7 @@ async def password_reset_code(body: EmailBody):
 
 @router.post("/password/reset")
 async def password_reset(body: ResetBody):
+    assert_service_writable("storefront.password_reset")
     email = _clean_email(body.email)
     record = await db.store_email_codes.find_one({"email": email, "purpose": "reset"})
     now = datetime.now(timezone.utc)
@@ -389,8 +409,23 @@ async def password_reset(body: ResetBody):
     if not hmac.compare_digest(record.get("code_hash", ""), _email_code_hash(email, body.code)):
         await db.store_email_codes.update_one({"_id": record["_id"]}, {"$inc": {"attempts": 1}})
         raise HTTPException(400, "Kode reset salah.")
+    claimed = await db.store_email_codes.update_one(
+        {"_id": record["_id"], "consumed_at": {"$exists": False}},
+        {"$set": {"consumed_at": now}},
+    )
+    if not claimed.modified_count:
+        raise HTTPException(400, "Kode reset tidak valid atau sudah digunakan.")
     from auth import hash_password
-    await db.store_customers.update_one({"email": email}, {"$set": {"password_hash": hash_password(body.password), "password_updated_at": now}, "$inc": {"session_version": 1}})
+    new_password_hash = hash_password(body.password)
+    customer = await db.store_customers.find_one({"email": email}, {"_id": 1})
+    if not customer:
+        raise HTTPException(400, "Kode reset tidak valid atau kedaluwarsa.")
+    await begin_password_reset(_resolve_db(), str(customer["_id"]), new_password_hash)
+    await db.store_customers.update_one(
+        {"_id": customer["_id"]},
+        {"$set": {"password_hash": new_password_hash, "password_updated_at": now}, "$inc": {"session_version": 1}},
+    )
+    await record_password_reset_completion(_resolve_db(), str(customer["_id"]))
     await db.store_email_codes.delete_one({"_id": record["_id"]})
     return {"ok": True}
 

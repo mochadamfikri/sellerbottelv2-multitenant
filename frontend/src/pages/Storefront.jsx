@@ -395,7 +395,19 @@ export default function Storefront({ view = "home", tenantView = false }) {
         if (!codeSent) { await api.post(`${apiPrefix}/register/request-code`, {email}); setCodeSent(true); setNotice("Kode verifikasi terkirim. Periksa inbox dan folder spam."); }
         else { await api.post(`${apiPrefix}/register/verify`, {email, code, password}); await loadProfile(); navigateTo("/store/profile"); }
       } else { await api.post(`${apiPrefix}/login`, {email, password}); await loadProfile(); navigateTo(location.state?.from || "/store/profile"); }
-    } catch (e) { setError(formatApiErrorDetail(e.response?.data?.detail) || "Permintaan gagal. Periksa kembali data yang dimasukkan."); }
+    } catch (e) {
+      const detail = e.response?.data?.detail;
+      const code = typeof detail === "object" ? detail?.code : null;
+      if (code === "PASSWORD_RESET_REQUIRED" || (typeof detail === "string" && detail.includes("PASSWORD_RESET_REQUIRED"))) {
+        setResetMode(true);
+        setCodeSent(false);
+        setCode("");
+        setNotice("Akun Lama Terdeteksi: Untuk keamanan, akun lama Anda memerlukan pembaruan password sebelum dapat digunakan di SellerBottel V3.");
+        setError("");
+      } else {
+        setError(formatApiErrorDetail(detail) || "Permintaan gagal. Periksa kembali data yang dimasukkan.");
+      }
+    }
     finally { setBusy(false); }
   };
 

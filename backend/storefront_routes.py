@@ -22,13 +22,13 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 from auth import JWT_ALGORITHM, get_jwt_secret
-from db import db, get_settings
+from db import db, get_settings, _resolve_db
 from product_catalog import catalog_name
 from product_artwork import artwork_urls, image_response
 from pricing import price_for_product
 from checkout import stock_for
 from commerce.physical.models import Address, normalize_cart, shipping_quote, public_variant
-from commerce.fulfillment_types import FulfillmentType, resolve_fulfillment_type
+from commerce.fulfillment_types import CommerceError, FulfillmentType, resolve_fulfillment_type
 from storage import get_object
 from inventory import decrypt_items
 from services import fmt_amount
@@ -586,6 +586,7 @@ class CheckoutBody(BaseModel):
     payment_method: str = "qris"
     idempotency_key: str = Field(min_length=8, max_length=80)
     shipping_address: Address | None = None
+    shipping_rate_id: str | None = None
 
 
 class QuoteBody(BaseModel):
@@ -694,10 +695,16 @@ async def store_checkout(body: CheckoutBody, user: dict = Depends(current_custom
     if body.currency != "IDR":
         raise HTTPException(400, "Pembayaran saldo dan QRIS Front Store menggunakan IDR.")
     method = str(body.payment_method or "qris").strip().lower()
-    if method not in {"qris", "balance"}:
+    if method not in {"qris", "balance"} and not method.startswith("gateway:"):
         raise HTTPException(400, "Metode pembayaran tidak valid.")
     if not re.fullmatch(r"[A-Za-z0-9_-]{8,80}", body.idempotency_key):
         raise HTTPException(400, "Kunci checkout tidak valid.")
+    if method.startswith("gateway:"):
+        if user.get("account_disabled"):
+            raise HTTPException(403, "Akun sedang dinonaktifkan.")
+        from payments.orchestrator import checkout
+        from db import platform_db
+        return await checkout(_resolve_db(), platform_db(), user, body)
     existing = await db.purchases.find_one({"customer_id": user["_id"], "idempotency_key": body.idempotency_key})
     if existing:
         if existing.get("status") in {"failed", "expired", "cancelled"}:
@@ -739,6 +746,7 @@ async def store_checkout(body: CheckoutBody, user: dict = Depends(current_custom
                 order_metadata={"idempotency_key": body.idempotency_key,
                                 "customer_id": user["_id"], "customer_email": user.get("email")},
                 shipping_address=body.shipping_address.model_dump() if body.shipping_address else None,
+                shipping_rate_id=body.shipping_rate_id,
             )
         except CommerceError:
             raise
@@ -768,7 +776,8 @@ async def store_checkout(body: CheckoutBody, user: dict = Depends(current_custom
         from direct_checkout import create_store_qris_order
         result = await create_store_qris_order(
             user, cart, coupon_code=body.coupon_code, idempotency_key=body.idempotency_key,
-            shipping_address=body.shipping_address.model_dump() if body.shipping_address else None
+            shipping_address=body.shipping_address.model_dump() if body.shipping_address else None,
+            shipping_rate_id=body.shipping_rate_id
         )
     except CommerceError:
         raise
@@ -1076,6 +1085,38 @@ async def customer_shipping(oid: str, user: dict = Depends(current_customer)):
 async def cancel_physical_checkout(oid: str, user: dict = Depends(current_customer)):
     from order_fulfillment import owned_order
     order = await owned_order(oid, user)
+    if order.get("payment_scope") == "gateway":
+        from db import platform_db
+        from payments.orchestrator import payment_adapter, apply_event
+        payment = await db.order_payments.find_one({"_id": order["payment_id"]})
+        if payment["status"] == "cancelled":
+            return {"ok": True}
+        if payment["status"] != "pending":
+            raise HTTPException(409, "Only confirmed pending gateway payment can be cancelled")
+        if not payment["capabilities"].get("cancel_support"):
+            raise HTTPException(409, "Provider API cancellation unsupported; wait for confirmed expiry")
+        adapter = await payment_adapter(_resolve_db(), platform_db(), payment)
+        previous = await platform_db().cancel_operations.find_one({"_id": payment["_id"]})
+        if previous:
+            if previous["state"] == "confirmed":
+                await apply_event(_resolve_db(), platform_db(), payment, {"status": "cancelled", "event_id": "cancel:" + payment["_id"]})
+                return {"ok": True}
+            raise HTTPException(409, "Cancellation outcome unknown; reconcile provider before retry")
+        from pymongo.errors import DuplicateKeyError
+        try:
+            await platform_db().cancel_operations.insert_one({"_id": payment["_id"], "tenant_id": payment["tenant_id"], "tenant_database": _resolve_db().name, "state": "external_unknown", "created_at": datetime.now(timezone.utc)})
+        except DuplicateKeyError:
+            raise HTTPException(409, "Cancellation in progress") from None
+        await db.order_payments.update_one({"_id": payment["_id"]}, {"$set": {"reconciliation": "cancel_unknown"}})
+        try:
+            result = await adapter.cancel_payment(payment)
+        except Exception:
+            raise HTTPException(503, "Provider cancellation outcome unknown; reconcile before retry") from None
+        if result.get("status") != "cancelled":
+            raise HTTPException(409, "Provider cancellation needs reconciliation")
+        await platform_db().cancel_operations.update_one({"_id": payment["_id"]}, {"$set": {"state": "confirmed"}})
+        await apply_event(_resolve_db(), platform_db(), payment, {"status": "cancelled", "event_id": "cancel:" + payment["_id"]})
+        return {"ok": True}
     if not order.get("requires_shipping") or order.get("status") not in {"pending_payment", "cancelled"}:
         raise HTTPException(409, "Only unpaid physical checkout can be cancelled; contact store for paid orders")
     changed = await db.purchases.update_one({"_id": oid, "status": "pending_payment"}, {"$set": {"status": "cancelled", "stock_release_pending": True}})
@@ -1086,6 +1127,82 @@ async def cancel_physical_checkout(oid: str, user: dict = Depends(current_custom
     else:
         raise HTTPException(409, "Payment state changed; reload order")
     return {"ok": True}
+
+
+@router.get("/gateway/methods")
+async def gateway_methods(amount: int | None = None):
+    from db import platform_db
+    from payments.orchestrator import resolve, tenant_identity
+    try:
+        _, adapter, _, caps = await resolve(_resolve_db(), platform_db(), tenant_identity(_resolve_db()))
+        methods = caps["supported_methods"]
+        if amount is not None:
+            from payments.models import money
+            amount = money(amount, positive=True)
+            details = {m["code"]: m for m in caps.get("method_details", [])}
+            methods = [m for m in methods if money(details.get(m, {}).get("min_amount", 0)) <= amount <= money(details.get(m, {}).get("max_amount", 10**12))]
+        return {"methods": [{"code": "gateway:" + m, "label": {"qris": "QRIS", "va_bca": "BCA VA", "va_bni": "BNI VA"}.get(m, m)} for m in methods], "environment": adapter.environment, "coverage": caps["coverage"]}
+    except CommerceError:
+        return {"methods": []}
+
+
+class GatewayRateBody(BaseModel):
+    items: list[dict] = Field(min_length=1, max_length=50)
+    shipping_address: Address
+
+
+@router.post("/gateway/rates")
+async def gateway_rates(body: GatewayRateBody, user: dict = Depends(current_customer)):
+    from direct_checkout import quote_items
+    from shipping.service import rates
+    from payments.orchestrator import tenant_identity
+    quote = await quote_items({**user, "customer_id": user["_id"], "currency": "IDR"}, normalize_cart(body.items), allow_physical=True, shipping_address=body.shipping_address.model_dump())
+    if quote.get("error"):
+        raise HTTPException(422, quote["error"])
+    return await rates(_resolve_db(), tenant_identity(_resolve_db()), user["_id"], quote, body.shipping_address.model_dump())
+
+
+@router.get("/orders/{oid}/payment")
+async def customer_payment(oid: str, user: dict = Depends(current_customer)):
+    from order_fulfillment import owned_order
+    from payments.models import public_payment
+    await owned_order(oid, user)
+    payment = await db.order_payments.find_one({"order_id": oid, "customer_id": {"$exists": False}})
+    return public_payment(payment) if payment else None
+
+
+class ReturnBody(BaseModel):
+    idempotency_key: str = Field(min_length=8, max_length=80, pattern="^[A-Za-z0-9_-]+$")
+    item_lines: list[dict] = Field(min_length=1, max_length=50)
+    reason: str = Field(min_length=1, max_length=500)
+
+
+@router.get("/orders/{oid}/return-eligibility")
+async def customer_return_eligibility(oid: str, user: dict = Depends(current_customer)):
+    from order_fulfillment import owned_order
+    from commerce.aftercare.returns import eligible_lines
+    from commerce.fulfillment.router import current_repository
+    order = await owned_order(oid, user)
+    return await eligible_lines(_resolve_db(), current_repository().tenant_id, order)
+
+
+@router.post("/orders/{oid}/returns")
+async def customer_return(oid: str, body: ReturnBody, user: dict = Depends(current_customer)):
+    from commerce.aftercare.returns import request_return
+    from commerce.fulfillment.router import current_repository
+    return await request_return(_resolve_db(), current_repository().tenant_id, user["_id"], oid, body.idempotency_key, body.item_lines, body.reason)
+
+
+@router.get("/orders/{oid}/returns")
+async def customer_returns(oid: str, user: dict = Depends(current_customer)):
+    from order_fulfillment import owned_order
+    await owned_order(oid, user)
+    # Repair interrupted return projection from the authoritative quantity claim.
+    from commerce.aftercare.returns import project_request
+    order = await db.purchases.find_one({"_id": oid, "customer_id": user["_id"]})
+    for claim in order.get("return_claims", []):
+        await project_request(_resolve_db(), claim)
+    return [{k: v for k, v in doc.items() if k not in {"history", "notes"}} for doc in await db.return_requests.find({"order_id": oid, "customer_id": user["_id"]}).to_list(200)]
 
 
 # Path-based tenant storefronts use the same handlers/contracts as registered

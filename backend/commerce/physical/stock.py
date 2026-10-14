@@ -63,7 +63,7 @@ class PhysicalStock:
                 sale = next((e for e in events if e["type"] == "SALE"), None)
                 sold = sale is not None
                 released = any(e["type"] == "RELEASE" for e in events)
-                returned = any(e["type"] == "RETURN" for e in events)
+                returned = any(e["type"] == "RETURN" and (e["reference_id"] == reference_id or e.get("sale_reference") == reference_id) for e in variant.get("stock_events", []))
                 if kind in {"SALE", "RELEASE"} and (not reservation or reservation["quantity"] != quantity or sold or released):
                     raise CommerceError("Reservation unavailable")
                 if kind == "RETURN" and (not sold or sale["quantity"] != quantity or returned):
@@ -107,3 +107,31 @@ class PhysicalStock:
         for line in order.get("items", []):
             if line.get("fulfillment_type") == "physical":
                 await self.move(line["variant_id"], "SALE", line["qty"], reference_id=line["line_id"])
+
+    async def return_quantity(self, variant_id, quantity, *, sale_reference, reference, damaged=False):
+        """Partial return + damage bundle in ONE CAS: damaged goods never become
+        temporarily available. Original SALE and C2 full reversals stay intact.
+        """
+        if isinstance(quantity, bool) or not isinstance(quantity, int) or not 1 <= quantity <= 1000000000:
+            raise CommerceError("Invalid return quantity")
+        event_id = str(uuid5(NAMESPACE_URL, f"partial-return:{self.database.name}:{variant_id}:{reference}"))
+        for _ in range(30):
+            variant = await self.get(variant_id)
+            prior = next((e for e in variant.get("stock_events", []) if e["_id"] == event_id), None)
+            if prior:
+                if prior["quantity"] != quantity or prior.get("damaged") != damaged or prior["sale_reference"] != sale_reference:
+                    raise CommerceError("Return stock idempotency conflict")
+                return prior
+            sale = next((e for e in variant.get("stock_events", []) if e["type"] == "SALE" and e["reference_id"] == sale_reference), None)
+            returned = sum(e["quantity"] for e in variant.get("stock_events", []) if e["type"] == "RETURN" and (e.get("sale_reference") == sale_reference or e["reference_id"] == sale_reference))
+            if not sale or quantity + returned > sale["quantity"]:
+                raise CommerceError("Return exceeds consumed sale")
+            event = {"_id": event_id, "variant_id": variant_id, "sku": variant["sku"], "type": "RETURN", "quantity": quantity, "delta_on_hand": quantity, "delta_reserved": 0, "reference_type": "return", "reference_id": reference, "sale_reference": sale_reference, "damaged": damaged, "actor": "tenant_owner", "reason": "Inspected physical return", "created_at": datetime.now(timezone.utc)}
+            entries = [event]
+            if damaged:
+                entries.append({**event, "_id": event_id + ":damage", "type": "DAMAGE", "delta_on_hand": -quantity})
+            changed = await self.database.physical_variants.update_one({"_id": variant_id, "stock_version": variant.get("stock_version", 0)}, {"$inc": {"stock_version": 1, "on_hand": 0 if damaged else quantity}, "$push": {"stock_events": {"$each": entries}}})
+            if changed.modified_count:
+                await self.project(await self.database.physical_variants.find_one({"_id": variant_id}))
+                return event
+        raise FulfillmentUnavailable("Stock changed concurrently; retry")

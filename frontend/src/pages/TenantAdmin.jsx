@@ -7,6 +7,7 @@ import TenantProducts from "./TenantProducts";
 import TenantCatalogs from "./TenantCatalogs";
 import TenantInventory from "./TenantInventory";
 import TenantOrders from "./TenantOrders";
+import CommerceAdmin from "../components/CommerceAdmin";
 
 export default function TenantAdmin() {
   const navigate = useNavigate();
@@ -113,6 +114,9 @@ export default function TenantAdmin() {
     { id: "catalogs", label: "Katalog", icon: FolderOpen },
     { id: "inventory", label: "Inventory", icon: Boxes },
     { id: "orders", label: "Order", icon: ShoppingCart },
+    { id: "payments", label: "Payments", icon: BarChart3 },
+    { id: "shipping", label: "Shipping", icon: Package },
+    { id: "returns", label: "Returns / Refunds", icon: Boxes },
     { id: "users", label: "Pengguna", icon: Users },
     { id: "broadcast", label: "Broadcast", icon: Megaphone },
   ];
@@ -167,6 +171,7 @@ export default function TenantAdmin() {
         {tab === "inventory" && <div className="mt-4"><TenantInventory /></div>}
 
         {tab === "orders" && <div className="mt-4"><TenantOrders /></div>}
+        {["payments", "shipping", "returns"].includes(tab) && <CommerceAdmin section={tab}/>}
 
         {tab === "users" && (
           <div className="mt-4">

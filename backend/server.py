@@ -179,6 +179,9 @@ app.include_router(stock_events_router)
 app.include_router(bot_moderation_router)
 app.include_router(storefront_router)
 app.include_router(physical_router)
+from payments.router import owner as phase3_owner, hooks as phase3_hooks
+app.include_router(phase3_owner)
+app.include_router(phase3_hooks)
 from store_tenant_scope import install_store_scope
 install_store_scope(app)
 app.include_router(balance_admin_router)
@@ -251,6 +254,9 @@ async def startup():
     from commerce.physical.expiry import run_physical_expiry
     app.state.physical_expiry_stop = asyncio.Event()
     app.state.physical_expiry_task = asyncio.create_task(run_physical_expiry(app.state.physical_expiry_stop))
+    from payments.maintenance import run as run_payment_maintenance
+    app.state.payment_maintenance_stop = asyncio.Event()
+    app.state.payment_maintenance_task = asyncio.create_task(run_payment_maintenance(app.state.payment_maintenance_stop))
     app.state.marketing_stop = asyncio.Event()
     app.state.marketing_task = asyncio.create_task(run_marketing(app.state.marketing_stop))
     app.state.stock_monitor_stop = asyncio.Event()
@@ -332,6 +338,9 @@ async def startup():
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
+    app.state.payment_maintenance_stop.set()
+    app.state.payment_maintenance_task.cancel()
+    await asyncio.gather(app.state.payment_maintenance_task, return_exceptions=True)
     app.state.physical_expiry_stop.set()
     app.state.physical_expiry_task.cancel()
     await asyncio.gather(app.state.physical_expiry_task, return_exceptions=True)

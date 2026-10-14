@@ -1484,7 +1484,7 @@ async def refund_order(oid: str):
         raise HTTPException(404, "Order tidak ditemukan")
     if order.get("status") not in {"failed", "delivery_failed"}:
         raise HTTPException(400, "Hanya order gagal yang bisa direfund otomatis.")
-    if order.get("requires_shipping"):
+    if order.get("requires_shipping") or order.get("payment_scope") == "gateway":
         raise HTTPException(409, "Physical orders require reconciliation or shipment cancellation; automated physical refunds are deferred")
 
     field = "balance_usd" if order["currency"] == "USD" else "balance_idr"

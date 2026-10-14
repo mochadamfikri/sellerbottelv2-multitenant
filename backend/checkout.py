@@ -125,7 +125,7 @@ def _cart_after_purchase(cart, purchased_items):
 
 
 async def execute_checkout(user, cart_items, preserve_cart=False, coupon_code=None,
-                           unit_price_overrides=None, order_metadata=None, purchase_source="BOT", shipping_address=None):
+                           unit_price_overrides=None, order_metadata=None, purchase_source="BOT", shipping_address=None, shipping_rate_id=None):
     if purchase_source not in {"WEB", "BOT"}:
         raise ValueError("Invalid checkout channel")
     currency = user["currency"]
@@ -244,6 +244,12 @@ async def execute_checkout(user, cart_items, preserve_cart=False, coupon_code=No
 
     from commerce.physical.models import shipping_quote
     shipping = await shipping_quote(_resolve_db(), [item["product"] for item in items], shipping_address)
+    if purchase_source == "WEB" and shipping["requires_shipping"]:
+        from bot_tenant_scope import get_current_scope
+        scope = get_current_scope()
+        if scope:
+            from shipping.service import checkout_shipping
+            shipping = await checkout_shipping(_resolve_db(), scope.tenant_id, {"items": items, **shipping}, shipping_address, shipping_rate_id, customer_id)
     items_total = total
     total = round(total + shipping["shipping_fee"], 2)
     invoice_id = await next_invoice_id()

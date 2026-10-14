@@ -225,7 +225,7 @@ async def create_qris_order(user, cart_items, coupon_code=None, preserve_cart=Fa
         raise
 
 
-async def create_store_qris_order(customer, cart_items, coupon_code=None, idempotency_key=None, shipping_address=None):
+async def create_store_qris_order(customer, cart_items, coupon_code=None, idempotency_key=None, shipping_address=None, shipping_rate_id=None):
     """Create a QRIS order for an authenticated web customer without charging a wallet."""
     if not await store_qris_ready():
         return {"error": "Pembayaran QRIS sedang tidak tersedia."}
@@ -243,6 +243,13 @@ async def create_store_qris_order(customer, cart_items, coupon_code=None, idempo
     quote = await quote_items({**customer, "customer_id": customer_id, "currency": "IDR"}, cart_items, coupon_code, allow_physical=True, shipping_address=shipping_address)
     if quote.get("error"):
         return quote
+    from bot_tenant_scope import get_current_scope
+    scope = get_current_scope()
+    if scope and quote["requires_shipping"]:
+        from shipping.service import checkout_shipping
+        selection = await checkout_shipping(_resolve_db(), scope.tenant_id, quote, shipping_address, shipping_rate_id, customer_id)
+        quote.update(selection)
+        quote["total"] = int(round(quote["items_total"] + selection["shipping_fee"]))
 
     order_id = str(uuid.uuid4())
     reservation_id = f"qris:{order_id}"
@@ -280,7 +287,7 @@ async def create_store_qris_order(customer, cart_items, coupon_code=None, idempo
         invoice_id = await next_invoice_id()
         created_at = now_iso()
         order.update({
-            **{key: quote[key] for key in ("shipping_fee", "requires_shipping", "shipping_mode", "shipping_address") if key in quote},
+            **{key: quote[key] for key in ("shipping_fee", "requires_shipping", "shipping_mode", "shipping_address", "shipping_quote") if key in quote},
             "items_subtotal": sum(item["base_unit_price"] * item["qty"] for item in quote["items"]), "items_total": quote["items_total"], "grand_total": total + admin_fee,
             "tax": 0, "payment_fee": admin_fee,
             "invoice_id": invoice_id, "user_tid": customer.get("telegram_id"), "customer_id": customer_id, "purchase_source": "WEB",

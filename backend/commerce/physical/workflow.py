@@ -41,7 +41,8 @@ async def transition(order_id, fulfillment_id, status, *, carrier_name="", track
         await project_shipment(repo, record)
         await refresh_order(repo, order_id)
         return record
-    if status not in TRANSITIONS.get(record["status"], set()):
+    pickup = order.get("shipping_mode") == "pickup_only" and record["status"] == "ready_to_ship" and status == "delivered"
+    if status not in TRANSITIONS.get(record["status"], set()) and not pickup:
         raise CommerceError("Invalid physical fulfillment transition")
     now = datetime.now(timezone.utc)
     updates = {"status": status, "updated_at": now}
@@ -53,7 +54,10 @@ async def transition(order_id, fulfillment_id, status, *, carrier_name="", track
             "fulfillment_id": record["_id"], "carrier_name": carrier_name, "tracking_number": tracking_number,
             "status": "shipped", "shipped_at": now, "delivered_at": None, "created_at": now}
     elif status == "delivered":
-        updates["shipment_snapshot"] = {**record["shipment_snapshot"], "status": "delivered", "delivered_at": now}
+        if pickup:
+            updates["shipment_snapshot"] = {"_id": str(uuid5(NAMESPACE_URL, "shipment:" + record["_id"])), "order_id": order_id, "fulfillment_id": record["_id"], "carrier_name": "Pickup", "tracking_number": None, "mode": "pickup_only", "status": "delivered", "created_at": now, "delivered_at": now}
+        else:
+            updates["shipment_snapshot"] = {**record["shipment_snapshot"], "status": "delivered", "delivered_at": now}
         updates["completed_at"] = now
     if status in {"cancelled", "failed"}:
         # Claim cancellation before reversing stock. Retrying this state repairs

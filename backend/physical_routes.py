@@ -163,7 +163,7 @@ async def order_physical(oid: str):
     for record in records:
         await repair_compensation(repo, order, record)
         await project_shipment(repo, record)
-    return {"order_status": order["status"], "requires_shipping": order.get("requires_shipping", False), "shipping_address": order.get("shipping_address"), "shipping_fee": order.get("shipping_fee", 0),
+    return {"order_status": order["status"], "requires_shipping": order.get("requires_shipping", False), "shipping_mode": order.get("shipping_mode", "manual_shipping"), "shipping_quote": order.get("shipping_quote"), "shipping_address": order.get("shipping_address"), "shipping_fee": order.get("shipping_fee", 0),
             "items": order.get("items", []), "fulfillments": [{k: v for k, v in r.items() if k not in {"claim_token", "lease_expires_at"}} for r in records]}
 
 

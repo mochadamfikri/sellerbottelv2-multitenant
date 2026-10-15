@@ -76,6 +76,25 @@ class ValidateTelegramBotTokenBody(BaseModel):
 
     telegram_token: str = Field(min_length=1, max_length=256)
 
+class RuntimeEnvBody(BaseModel):
+    """Secrets are write-only; empty secret fields retain their old value."""
+    model_config = ConfigDict(extra="forbid")
+    GOPAY_ENABLED: str | None = None
+    GOPAY_LOGIN_METHOD: str | None = None
+    GOPAY_EMAIL: str | None = Field(default=None, max_length=320)
+    GOPAY_PASSWORD: str | None = Field(default=None, max_length=1024)
+    GOPAY_PHONE: str | None = Field(default=None, max_length=64)
+    GOPAY_QRIS_STRING: str | None = Field(default=None, max_length=4096)
+    GOPAY_QR_TIMEOUT_MINUTES: str | None = None
+    GOPAY_POLL_INTERVAL: str | None = None
+
+class CentralBotConfigBody(BaseModel):
+    """Central token is write-only and stored Fernet-encrypted."""
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    telegram_token: str | None = Field(default=None, min_length=1, max_length=256)
+    owner_tenant_slug: str | None = Field(default=None, min_length=1, max_length=100)
+    admin_ids: list[int] | None = None
+
 
 class UpdateBotConfigBody(BaseModel):
     """Token may be supplied only when initially attaching/replacing a bot."""
@@ -797,6 +816,69 @@ async def _set_tenant_welcome_media(
 def _platform_config_collection():
     from tenant_db import resolve_platform_database_name
     return db.client[resolve_platform_database_name(os.environ)]["platform_config"]
+
+@router.get("/central-bot/config")
+async def get_central_bot_config(_: dict = Depends(require_platform_admin)) -> dict[str, Any]:
+    doc = await _platform_config_collection().find_one({"_id": "central_bot"}) or {}
+    return {
+        "configured": bool(doc.get("token_encrypted")),
+        "telegram_bot_id": doc.get("telegram_bot_id"),
+        "username": doc.get("username") or "",
+        "bot_name": doc.get("bot_name") or "",
+        "owner_tenant_slug": doc.get("owner_tenant_slug") or "idse",
+        "admin_ids": [int(value) for value in (doc.get("admin_ids") or [])],
+    }
+
+@router.put("/central-bot/config")
+async def update_central_bot_config(
+    body: CentralBotConfigBody,
+    admin: dict = Depends(require_platform_admin),
+) -> dict[str, Any]:
+    coll = _platform_config_collection()
+    doc = await coll.find_one({"_id": "central_bot"}) or {}
+    patch: dict[str, Any] = {}
+    if body.telegram_token:
+        try:
+            bot_id, username, bot_name = _bot_identity(await validate_telegram_bot_token(body.telegram_token))
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        patch.update({
+            "token_encrypted": encrypt_telegram_bot_token(body.telegram_token),
+            "telegram_bot_id": bot_id,
+            "username": username,
+            "bot_name": bot_name,
+        })
+    elif not doc.get("token_encrypted"):
+        raise HTTPException(status_code=422, detail="Token Bot Pusat wajib diisi saat konfigurasi pertama.")
+    if body.owner_tenant_slug is not None:
+        patch["owner_tenant_slug"] = body.owner_tenant_slug
+    if body.admin_ids is not None:
+        patch["admin_ids"] = [int(value) for value in body.admin_ids]
+    if patch:
+        await coll.update_one({"_id": "central_bot"}, {"$set": patch}, upsert=True)
+    await _audit(admin, "central.bot_config_updated", "platform", {
+        "token_replaced": bool(body.telegram_token), "owner_tenant_slug_changed": body.owner_tenant_slug is not None,
+        "admin_ids_changed": body.admin_ids is not None,
+    })
+    return await get_central_bot_config(admin)
+
+@router.get("/runtime-env")
+async def get_runtime_env(_: dict = Depends(require_platform_admin)) -> dict[str, Any]:
+    from runtime_env import status
+    return await status(db.client)
+
+@router.put("/runtime-env")
+async def update_runtime_env(
+    body: RuntimeEnvBody,
+    admin: dict = Depends(require_platform_admin),
+) -> dict[str, Any]:
+    from runtime_env import save
+    try:
+        result = await save(db.client, body.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    await _audit(admin, "platform.runtime_env_updated", "platform", {"fields": sorted(k for k, v in body.model_dump().items() if v is not None)})
+    return result
 
 
 async def _set_central_welcome_media(patch: dict[str, Any]) -> dict[str, Any]:

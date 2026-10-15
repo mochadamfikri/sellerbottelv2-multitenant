@@ -28,6 +28,7 @@ const nav = [
     ],
   },
   { to: "/deposits", label: "Deposit", icon: Wallet },
+  { to: "/promo-muse-claims", label: "Promo Muse Claims", icon: ClipboardList },
   { to: "/users", label: "Pengguna", icon: Users },
   { to: "/discounts", label: "Discount", icon: Percent },
   {
@@ -41,7 +42,13 @@ const nav = [
   { to: "/resellers", label: "Bot Reseller", icon: Bot },
   { to: "/messages", label: "Bot Messages", icon: MessageSquareText },
   { to: "/bot-moderation", label: "Tindak Lanjut Bot", icon: ShieldOff },
-  { to: "/settings", label: "Pengaturan", icon: Settings },
+  {
+    label: "Pengaturan", icon: Settings,
+    children: [
+      { to: "/settings", label: "Pengaturan Umum", icon: Settings },
+      { to: "/settings/env", label: "Konfigurasi ENV", icon: ShieldOff },
+    ],
+  },
 ];
 
 export const Layout = ({ children, title }) => {
@@ -59,8 +66,9 @@ export const Layout = ({ children, title }) => {
   const STOCK_PATHS = [
     "/admin", "/analytics", "/catalogs", "/products", "/inventory",
     "/orders", "/reports", "/deposits", "/users", "/discounts",
+    "/promo-muse-claims",
     "/broadcasts", "/central-broadcasts", "/promotions",
-    "/bot-reseller", "/bot-messages", "/settings",
+    "/bot-reseller", "/bot-messages", "/settings", "/settings/env",
   ];
 
   const visibleNav = nav.filter((item) => {

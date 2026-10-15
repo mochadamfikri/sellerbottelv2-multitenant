@@ -191,6 +191,30 @@ async def create_gopay_payment(user, amount, platform_code=None):
         await db.deposits.delete_one({"_id": deposit_id})
         raise
 
+async def create_gopay_muse_payment(claim, pricing):
+    """Create a central GoPay QRIS record without creating a wallet deposit."""
+    assert_service_writable("gopay.create_muse_payment")
+    payment_id = str(uuid.uuid4())
+    amount = int(pricing["final_amount_idr"])
+    expires_in_minutes = await qris_expiry_minutes()
+    expires = datetime.now(timezone.utc) + timedelta(minutes=expires_in_minutes)
+    payment_doc = {
+        "_id": payment_id, "payment_scope": "muse", "payment_type": "muse_claim",
+        "claim_id": claim["claim_id"], "user_tid": claim["telegram_user_id"],
+        "base_amount": int(pricing["base_price_idr"]), "payment_amount": amount,
+        "active_payment_amount": amount, "status": "pending", "tx_id": None,
+        "created_at": now_iso(), "expires_at": expires.isoformat(), "confirmed_at": None,
+    }
+    try:
+        await db.gopay_payments.insert_one(payment_doc)
+        data = await asyncio.to_thread(_run_node, "create_qris.mjs", [str(amount)])
+        return {"payment_id": payment_id, "payment_amount": amount,
+                "image": base64.b64decode(data["image_base64"]), "expires_at": expires,
+                "expires_in_minutes": expires_in_minutes}
+    except Exception:
+        await db.gopay_payments.delete_one({"_id": payment_id})
+        raise
+
 
 async def _history():
     return await asyncio.to_thread(_run_node, "history.mjs", [], 90)
@@ -324,6 +348,12 @@ async def poll_gopay_once():
             matched += 1
             continue
 
+        if payment.get("payment_scope") == "muse" and payment.get("payment_type") == "muse_claim":
+            from muse_promo import confirm_verified_payment
+            await confirm_verified_payment(payment, tx_id)
+            matched += 1
+            continue
+
         deposit = await db.deposits.find_one({"_id": payment["deposit_id"]})
         if not deposit or deposit.get("status") != "pending":
             continue
@@ -335,18 +365,26 @@ async def poll_gopay_once():
 
     # Reconcile gateway history before expiring pending records, so payments made
     # before the deadline still succeed even when a polling cycle runs late.
+    from muse_promo import expire_pending_claims
+    expired_muse = await expire_pending_claims(now)
+    for claim in expired_muse:
+        try:
+            from tgapi import send_message
+            await send_message(claim["telegram_chat_id"], "⌛ <b>Pembayaran Claim Promo Muse expired.</b>\n\nSilakan buat claim baru jika masih ingin melanjutkan.")
+        except Exception:
+            logger.exception("Could not notify expired Muse claim")
     expired = await db.gopay_payments.find(
         {
             "status": "pending",
             "payment_scope": {"$ne": "bot2"},
-            "payment_type": {"$ne": "checkout"},
+            "payment_type": {"$ne": "checkout"}, "payment_scope": {"$ne": "muse"},
             "expires_at": {"$lte": now.isoformat()},
             "expiry_notified_at": {"$exists": False},
         },
         {"_id": 1, "user_tid": 1, "deposit_id": 1, "payment_amount": 1, "qr_message_id": 1},
     ).to_list(500)
     await db.gopay_payments.update_many(
-        {"status": "pending", "payment_scope": {"$ne": "bot2"},
+        {"status": "pending", "payment_scope": {"$nin": ["bot2", "muse"]},
          "payment_type": {"$ne": "checkout"}, "expires_at": {"$lte": now.isoformat()}},
         {"$set": {"status": "expired", "expired_at": now_iso(), "expiry_notified_at": now_iso()}, "$unset": {"active_payment_amount": ""}},
     )

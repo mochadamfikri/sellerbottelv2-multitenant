@@ -231,6 +231,10 @@ app.add_middleware(CandidateReadonlyMiddleware)
 
 @app.on_event("startup")
 async def startup():
+    # Owner-managed provider settings are encrypted in the platform database;
+    # hydrate them into this process before workers/providers begin.
+    from runtime_env import hydrate
+    await hydrate(client)
     environment = validate_environment()
     logger.info("Environment mode: %s", environment)
     logger.info("Candidate readonly: %s", "ENABLED" if is_candidate_readonly() else "disabled")

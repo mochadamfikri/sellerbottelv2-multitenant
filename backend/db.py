@@ -116,6 +116,16 @@ DEFAULT_SETTINGS = {
     "require_channel_join": False,
     "channel_url": "",
     "channel_name": "",
+    "promo_muse": {
+        "enabled": True, "button_label": "🎁 Claim Promo Muse", "product_title": "3B Muse Token",
+        "description": "🎁 3B Muse Token\n\nMasukkan kode referral Muse kamu untuk diproses.",
+        "base_price_idr": 15000, "percentage_fee": "0.7", "admin_fee_idr": 250,
+        "warning_text": "⚠️ Pastikan kode referral benar.",
+        "waiting_payment_message": "Silakan scan QRIS di atas.",
+        "processing_message": "⏳ Pembayaran berhasil. Claim sedang diproses admin.",
+        "success_message": "✅ Claim Promo Muse selesai diproses.",
+        "reject_message": "❌ Claim Promo Muse ditolak.\n\nAlasan:\nKode / akun ini sudah pernah claim promo.",
+    },
 }
 
 
@@ -237,6 +247,8 @@ async def ensure_indexes():
         unique=True,
     )
     await db.gopay_payments.create_index([("status", 1), ("expires_at", 1)])
+    from muse_promo import ensure_indexes as ensure_muse_indexes
+    await ensure_muse_indexes()
     await db.gopay_payments.create_index(
         "tx_id",
         unique=True,

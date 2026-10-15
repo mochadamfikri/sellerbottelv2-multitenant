@@ -1310,6 +1310,7 @@ class SettingsBody(BaseModel):
     require_channel_join: bool = False
     channel_url: str = ""
     channel_name: str = ""
+    promo_muse: dict = {}
 
 
 def _normalize_required_channel(channel: dict) -> dict:
@@ -1367,6 +1368,41 @@ async def update_settings(body: SettingsBody):
     s = await get_settings()
     s["current_rate"] = await get_rate()
     return s
+
+# ============ PROMO MUSE CLAIMS ============
+
+@router.get("/promo-muse/claims")
+async def list_promo_muse_claims(status: str = "all", limit: int = 200):
+    query = {} if status == "all" else {"status": status}
+    return await db.muse_claims.find(query).sort("created_at", -1).limit(max(1, min(limit, 500))).to_list(max(1, min(limit, 500)))
+
+@router.post("/promo-muse/claims/{claim_id}/done")
+async def complete_promo_muse_claim(claim_id: str, admin: dict = Depends(get_current_admin)):
+    from muse_promo import owner_action, finish_owner_action
+    settings = await get_settings()
+    try:
+        admin_tid = int(settings.get("admin_telegram_id") or 0)
+    except (TypeError, ValueError):
+        admin_tid = 0
+    claim = await owner_action(claim_id, admin_tid, "done")
+    if not claim:
+        raise HTTPException(409, "Claim sudah diproses atau konfigurasi admin Telegram belum valid.")
+    await finish_owner_action(claim)
+    return claim
+
+@router.post("/promo-muse/claims/{claim_id}/reject")
+async def reject_promo_muse_claim(claim_id: str, admin: dict = Depends(get_current_admin)):
+    from muse_promo import owner_action, finish_owner_action
+    settings = await get_settings()
+    try:
+        admin_tid = int(settings.get("admin_telegram_id") or 0)
+    except (TypeError, ValueError):
+        admin_tid = 0
+    claim = await owner_action(claim_id, admin_tid, "reject")
+    if not claim:
+        raise HTTPException(409, "Claim sudah diproses atau konfigurasi admin Telegram belum valid.")
+    await finish_owner_action(claim)
+    return claim
 
 
 @router.post("/settings/join-gate/test")

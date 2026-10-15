@@ -34,6 +34,8 @@ import Storefront from "./pages/Storefront";
 import Catalogs from "./pages/Catalogs";
 import Analytics from "./pages/Analytics";
 import PlatformControl from "./pages/PlatformControl";
+import MuseClaims from "./pages/MuseClaims";
+import EnvSettings from "./pages/EnvSettings";
 
 function Protected({ children, title }) {
   const { user } = useAuth();
@@ -153,8 +155,10 @@ function App() {
           <Route path="/reports" element={<Protected title="Rekap & Laporan"><Reports /></Protected>} />
           <Route path="/inventory" element={<Protected title="Inventory"><Inventory /></Protected>} />
           <Route path="/deposits" element={<Protected title="Kelola Deposit"><Deposits /></Protected>} />
+          <Route path="/promo-muse-claims" element={<Protected title="Promo Muse Claims"><MuseClaims /></Protected>} />
           <Route path="/users" element={<Protected title="Kelola Pengguna"><UsersPage /></Protected>} />
           <Route path="/settings" element={<Protected title="Pengaturan"><SettingsPage /></Protected>} />
+          <Route path="/settings/env" element={<Protected title="Konfigurasi Environment"><EnvSettings /></Protected>} />
           <Route path="/broadcasts" element={<Protected title="Broadcast"><Broadcasts /></Protected>} />
           <Route path="/central-broadcasts" element={<Protected title="Broadcast Terpusat"><CentralBroadcasts /></Protected>} />
           <Route path="/discounts" element={<Protected title="Discount"><Discounts /></Protected>} />

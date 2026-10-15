@@ -155,7 +155,7 @@ def _reseller_enabled() -> bool:
         return True
 
 
-def main_menu_kb(lang):
+def main_menu_kb(lang, promo_muse_enabled=False, promo_muse_label="🎁 Claim Promo Muse"):
     """Acceptance layout: one action per row."""
     rows = [
         [{"text": t(lang, "btn_products"), "callback_data": "menu:products",
@@ -176,6 +176,8 @@ def main_menu_kb(lang):
     if _reseller_enabled():
         rows.append([{"text": "🤖 Bikin Bot Sendiri", "callback_data": "reseller:entry",
                       "style": "danger"}])
+    if promo_muse_enabled:
+        rows.append([{"text": promo_muse_label, "callback_data": "muse:entry", "style": "success"}])
     return {"inline_keyboard": [[button] for row in rows for button in row]}
 
 
@@ -386,7 +388,9 @@ async def show_start_welcome(chat_id, user):
         f"Coupon tersedia:\n{coupon_text}\n\n"
         "Silahkan pilih menu di bawah ini"
     )
-    kb = main_menu_kb(user.get("lang", "id"))
+    from muse_promo import config as muse_config
+    muse = await muse_config()
+    kb = main_menu_kb(user.get("lang", "id"), muse["enabled"], muse["button_label"])
     # No-pile-up rule: when navigating from a button, replace the old message
     # (plus its flow-siblings, e.g. guide video + text) instead of stacking.
     old_id = _EDIT_TARGETS.pop(chat_id, None)
@@ -2753,6 +2757,90 @@ def frozen_text(user):
     r = user.get("frozen_reason", "")
     return t(lang, "frozen", reason=t(lang, "frozen_reason", r=r) if r else "")
 
+async def _show_muse_entry(chat_id, user):
+    from muse_promo import config
+    cfg = await config()
+    if not cfg["enabled"]:
+        await send_message(chat_id, "Promo Muse sedang tidak tersedia.")
+        return
+    await send_message(chat_id, f"{cfg['description']}\n\nHarga dasar: <b>Rp{cfg['base_price_idr']:,}</b>", kb={"inline_keyboard": [[{"text": "🎁 Claim Sekarang", "callback_data": "muse:claim"}], [{"text": "⬅️ Kembali", "callback_data": "menu:main"}]]})
+
+async def _show_muse_confirmation(chat_id, claim):
+    await send_message(chat_id, "🔎 <b>Cek kembali kode referral Muse kamu:</b>\n\n"
+                       f"<code>{escape(claim['referral_code'])}</code>\n\n⚠️ Pastikan kode di atas benar.\n\n"
+                       "Setelah dikonfirmasi, bot akan membuat QRIS pembayaran.",
+                       kb={"inline_keyboard": [[{"text": "✅ Benar, Lanjut Bayar", "callback_data": f"muse:c:{claim['claim_id']}"}],
+                                               [{"text": "✏️ Ubah Kode", "callback_data": f"muse:e:{claim['claim_id']}"}, {"text": "❌ Batal", "callback_data": f"muse:x:{claim['claim_id']}"}]]})
+
+async def _start_muse_claim(chat_id, user):
+    from muse_promo import create_claim
+    claim = await create_claim(user)
+    if not claim:
+        await send_message(chat_id, "⏳ Kamu masih memiliki Claim Promo Muse yang belum selesai.\n\nSelesaikan atau tunggu proses sebelumnya terlebih dahulu.")
+        return
+    await set_state(user["telegram_id"], "muse_referral_code", {"claim_id": claim["claim_id"]})
+    await send_message(chat_id, "🎁 <b>Masukkan kode referral Muse kamu.</b>\n\n⚠️ Pastikan kode ditulis dengan benar. Kesalahan penulisan kode referral dapat menyebabkan claim gagal/hangus.", kb=cancel_kb(user.get("lang", "id")))
+
+async def _create_muse_qris(chat_id, user, claim_id):
+    from muse_promo import create_payment, config
+    created = await create_payment(claim_id, user["telegram_id"])
+    if not created:
+        await send_message(chat_id, "Claim sudah tidak dapat dilanjutkan. Silakan mulai kembali.")
+        return
+    claim, payment = created
+    cfg = await config()
+    caption = ("💳 <b>Pembayaran Claim Promo Muse</b>\n\n"
+               f"Product: {escape(claim['product_title_snapshot'])}\n"
+               f"Harga: Rp{claim['base_price_idr']:,}\n"
+               f"Fee {claim['percentage_fee_rate']}%: Rp{claim['percentage_fee_idr']:,}\n"
+               f"Admin: Rp{claim['admin_fee_idr']:,}\n"
+               f"Kode unik: Rp{claim['unique_code_idr']:,}\n\n"
+               f"<b>Total bayar:</b>\n<b>Rp{claim['final_amount_idr']:,}</b>\n\n"
+               f"{escape(cfg['waiting_payment_message'])}\nBerlaku {payment['expires_in_minutes']} menit.")
+    result = await send_photo_bytes(chat_id, payment["image"], filename="muse-qris.png", caption=caption)
+    message_id = ((result or {}).get("result") or {}).get("message_id")
+    await db.gopay_payments.update_one({"_id": payment["payment_id"]}, {"$set": {"qr_message_id": message_id}})
+    await set_state(user["telegram_id"], None)
+
+async def _handle_muse_callback(cb, user, chat_id, data):
+    from muse_promo import config, cancel_claim, owner_action, finish_owner_action
+    cfg = await config()
+    if data == "muse:entry":
+        await _show_muse_entry(chat_id, user)
+        return True
+    if data == "muse:claim":
+        if not cfg["enabled"]:
+            await send_message(chat_id, "Promo Muse sedang tidak tersedia.")
+        else:
+            await _start_muse_claim(chat_id, user)
+        return True
+    parts = data.split(":", 2)
+    if len(parts) != 3 or parts[0] != "muse":
+        return False
+    action, claim_id = parts[1], parts[2]
+    if action in {"d", "r"}:
+        claim = await owner_action(claim_id, cb["from"]["id"], "done" if action == "d" else "reject")
+        if not claim:
+            await answer_callback(cb["id"], "Claim sudah diproses atau akses tidak diizinkan.")
+            return True
+        await finish_owner_action(claim)
+        await answer_callback(cb["id"], "Claim diperbarui.")
+        return True
+    if action == "x":
+        if await cancel_claim(claim_id, user["telegram_id"]):
+            await set_state(user["telegram_id"], None)
+            await send_message(chat_id, "Claim Promo Muse dibatalkan.")
+        return True
+    if action == "e":
+        await db.muse_claims.update_one({"claim_id": claim_id, "telegram_user_id": user["telegram_id"], "status": "AWAITING_CONFIRMATION"}, {"$set": {"status": "AWAITING_CODE", "updated_at": now_iso()}})
+        await set_state(user["telegram_id"], "muse_referral_code", {"claim_id": claim_id})
+        await send_message(chat_id, "Kirim ulang kode referral Muse kamu.")
+        return True
+    if action == "c":
+        await _create_muse_qris(chat_id, user, claim_id)
+        return True
+    return False
+
 
 async def handle_callback(cb):
     data = cb.get("data", "")
@@ -2787,6 +2875,9 @@ async def handle_callback(cb):
         })
     except Exception:
         logger.debug("Could not track Telegram interaction", exc_info=True)
+
+    if data.startswith("muse:") and await _handle_muse_callback(cb, user, chat_id, data):
+        return
 
     if data == "gate:check":
         clear_cache_for_user(user["telegram_id"])
@@ -3183,6 +3274,11 @@ async def handle_message(message):
         return
 
     if text in ("/batal", "/menu", "/cancel"):
+        if user.get("state") == "muse_referral_code":
+            from muse_promo import cancel_claim
+            claim_id = (user.get("state_data") or {}).get("claim_id")
+            if claim_id:
+                await cancel_claim(claim_id, user["telegram_id"])
         await set_state(user["telegram_id"], None)
         await show_main_menu(chat_id, user)
         return
@@ -3210,6 +3306,16 @@ async def handle_message(message):
         return
 
     state = user.get("state")
+    if state == "muse_referral_code":
+        from muse_promo import save_referral
+        claim_id = (user.get("state_data") or {}).get("claim_id")
+        claim = await save_referral(claim_id, user["telegram_id"], text) if claim_id else None
+        if not claim:
+            await send_message(chat_id, "Kode referral tidak valid. Gunakan huruf/angka saja, lalu coba lagi.")
+            return
+        await set_state(user["telegram_id"], None)
+        await _show_muse_confirmation(chat_id, claim)
+        return
     if state == "reseller_token":
         from reseller_signup import receive_token
         await receive_token(chat_id, message)

@@ -72,6 +72,7 @@ export default function SettingsPage() {
         require_channel_join: !!s.require_channel_join,
         channel_url: String(s.channel_url || ""),
         channel_name: String(s.channel_name || ""),
+        promo_muse: s.promo_muse || {},
       });
       setS(data);
       toast.success("Pengaturan disimpan.");
@@ -439,6 +440,50 @@ export default function SettingsPage() {
             <p className="text-xs text-slate-500 mt-1">OFF = akses ditolak sampai membership berhasil diverifikasi. Ini lebih aman untuk mode wajib join.</p>
           </div>
           <Switch checked={!!s.join_gate_fail_open} onCheckedChange={(v) => setS({ ...s, join_gate_fail_open: v })} />
+        </div>
+      </div>
+
+      <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-heading font-semibold">Promo Muse (GoPay QRIS Central)</h2>
+            <p className="text-xs text-slate-500 mt-1">Atur produk, harga, fee QRIS, dan pesan alur Claim Promo Muse.</p>
+          </div>
+          <Switch checked={!!s.promo_muse?.enabled} onCheckedChange={(v) => setS({ ...s, promo_muse: { ...s.promo_muse, enabled: v } })} />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block text-xs text-slate-400">Label Tombol Menu
+            <input className={cls} value={s.promo_muse?.button_label || ""} onChange={(e) => setS({ ...s, promo_muse: { ...s.promo_muse, button_label: e.target.value } })} />
+          </label>
+          <label className="block text-xs text-slate-400">Judul Produk
+            <input className={cls} value={s.promo_muse?.product_title || ""} onChange={(e) => setS({ ...s, promo_muse: { ...s.promo_muse, product_title: e.target.value } })} />
+          </label>
+          <label className="block text-xs text-slate-400">Harga Dasar (IDR)
+            <input className={cls} type="number" value={s.promo_muse?.base_price_idr || 0} onChange={(e) => setS({ ...s, promo_muse: { ...s.promo_muse, base_price_idr: Number(e.target.value) } })} />
+          </label>
+          <label className="block text-xs text-slate-400">Fee QRIS (%)
+            <input className={cls} value={s.promo_muse?.percentage_fee || "0.7"} onChange={(e) => setS({ ...s, promo_muse: { ...s.promo_muse, percentage_fee: e.target.value } })} />
+          </label>
+          <label className="block text-xs text-slate-400">Admin Fee (IDR)
+            <input className={cls} type="number" value={s.promo_muse?.admin_fee_idr || 0} onChange={(e) => setS({ ...s, promo_muse: { ...s.promo_muse, admin_fee_idr: Number(e.target.value) } })} />
+          </label>
+        </div>
+        <label className="block text-xs text-slate-400">Deskripsi / Penjelasan Promo
+          <textarea className={cls} rows={3} value={s.promo_muse?.description || ""} onChange={(e) => setS({ ...s, promo_muse: { ...s.promo_muse, description: e.target.value } })} />
+        </label>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block text-xs text-slate-400">Pesan Sedang Diproses
+            <textarea className={cls} rows={2} value={s.promo_muse?.processing_message || ""} onChange={(e) => setS({ ...s, promo_muse: { ...s.promo_muse, processing_message: e.target.value } })} />
+          </label>
+          <label className="block text-xs text-slate-400">Pesan Sukses / Selesai
+            <textarea className={cls} rows={2} value={s.promo_muse?.success_message || ""} onChange={(e) => setS({ ...s, promo_muse: { ...s.promo_muse, success_message: e.target.value } })} />
+          </label>
+          <label className="block text-xs text-slate-400">Pesan Ditolak
+            <textarea className={cls} rows={2} value={s.promo_muse?.reject_message || ""} onChange={(e) => setS({ ...s, promo_muse: { ...s.promo_muse, reject_message: e.target.value } })} />
+          </label>
+          <label className="block text-xs text-slate-400">Instruksi Pembayaran
+            <textarea className={cls} rows={2} value={s.promo_muse?.waiting_payment_message || ""} onChange={(e) => setS({ ...s, promo_muse: { ...s.promo_muse, waiting_payment_message: e.target.value } })} />
+          </label>
         </div>
       </div>
 

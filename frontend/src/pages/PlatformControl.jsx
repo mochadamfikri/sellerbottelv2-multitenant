@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, Database, LoaderCircle, Plus, RefreshCw, ServerCrash, Users } from "lucide-react";
+import { CheckCircle2, Cloud, Database, LoaderCircle, Plus, RefreshCw, ServerCrash, ShieldCheck, Users } from "lucide-react";
 import { toast } from "sonner";
 import api, { formatApiErrorDetail, fmtDate } from "../lib/api";
 import { createAndProvisionTenant } from "../lib/platformControl";
@@ -36,6 +36,15 @@ export default function PlatformControl() {
   const [domainForm, setDomainForm] = useState({ domain: "", purpose: "storefront" });
   const [savingDomain, setSavingDomain] = useState(false);
   const [activeTab, setActiveTab] = useState("tenants");
+  // Cloudflare config (platform-level)
+  const [cfConfig, setCfConfig] = useState({ api_email: "", api_token: "", zone_id: "" });
+  const [cfForm, setCfForm] = useState({ api_email: "", api_token: "", zone_id: "" });
+  const [cfLoading, setCfLoading] = useState(false);
+  const [cfSaving, setCfSaving] = useState(false);
+  const [cfVerifying, setCfVerifying] = useState(false);
+  const [cfVerifyResult, setCfVerifyResult] = useState(null);
+  const [cfConfigured, setCfConfigured] = useState(false);
+  const [cfUpdatedAt, setCfUpdatedAt] = useState(null);
 
   const loadDomains = useCallback(async (tenantId) => {
     try {
@@ -71,6 +80,7 @@ export default function PlatformControl() {
   };
 
   useEffect(() => { loadTenants(); }, [loadTenants]);
+  useEffect(() => { if (activeTab === "cloudflare") loadCloudflareConfig(); }, [activeTab, loadCloudflareConfig]);
 
   // Poll bot provisioning status while it is in-flight so "Kelola Bot"
   // shows the live state (provisioning -> running) without a page reload.
@@ -91,6 +101,67 @@ export default function PlatformControl() {
     }, 10000);
     return () => clearInterval(timer);
   }, [managing, provisioning?.status]);
+
+  const loadCloudflareConfig = useCallback(async () => {
+    setCfLoading(true);
+    try {
+      const response = await api.get("/v2/platform/cloudflare-config");
+      const data = response.data || {};
+      setCfConfigured(!!data.configured);
+      setCfConfig({ api_email: data.api_email || "", api_token: data.api_token || "", zone_id: data.zone_id || "" });
+      setCfForm({ api_email: data.api_email || "", api_token: data.api_token || "", zone_id: data.zone_id || "" });
+      setCfUpdatedAt(data.updated_at || null);
+      setCfVerifyResult(null);
+    } catch {
+      // 404 is fine — not configured yet
+      setCfConfigured(false);
+    } finally {
+      setCfLoading(false);
+    }
+  }, []);
+
+  const saveCloudflareConfig = async (event) => {
+    event.preventDefault();
+    setCfSaving(true);
+    setCfVerifyResult(null);
+    try {
+      await api.put("/v2/platform/cloudflare-config", {
+        api_email: cfForm.api_email.trim(),
+        api_token: cfForm.api_token.trim(),
+        zone_id: cfForm.zone_id.trim() || null,
+      });
+      toast.success("Cloudflare config saved.");
+      await loadCloudflareConfig();
+    } catch (error) {
+      toast.error(`Gagal: ${formatApiErrorDetail(error.response?.data?.detail)}`);
+    } finally {
+      setCfSaving(false);
+    }
+  };
+
+  const verifyCloudflareConfig = async () => {
+    setCfVerifying(true);
+    setCfVerifyResult(null);
+    try {
+      const response = await api.post("/v2/platform/cloudflare-config/verify");
+      setCfVerifyResult(response.data);
+    } catch (error) {
+      setCfVerifyResult({ valid: false, error: formatApiErrorDetail(error.response?.data?.detail) });
+    } finally {
+      setCfVerifying(false);
+    }
+  };
+
+  const deleteCloudflareConfig = async () => {
+    if (!window.confirm("Hapus konfigurasi Cloudflare? Token dan email akan dihapus permanen.")) return;
+    try {
+      await api.delete("/v2/platform/cloudflare-config");
+      toast.success("Cloudflare config removed.");
+      await loadCloudflareConfig();
+    } catch (error) {
+      toast.error(`Gagal: ${formatApiErrorDetail(error.response?.data?.detail)}`);
+    }
+  };
 
   const updateField = (field, value) => setForm((current) => ({ ...current, [field]: value }));
 
@@ -272,10 +343,77 @@ export default function PlatformControl() {
         >
           <Database size={16} /> Database
         </button>
+        <button
+          onClick={() => setActiveTab("cloudflare")}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
+            activeTab === "cloudflare" ? "border-b-2 border-cyan-400 text-white" : "text-slate-400 hover:text-white"
+          }`}
+        >
+          <Cloud size={16} /> Cloudflare
+        </button>
       </div>
 
       {activeTab === "database" ? (
         <DatabaseBrowser />
+      ) : activeTab === "cloudflare" ? (
+        <section className="rounded-xl border border-slate-800 bg-[#0D1220] p-5 shadow-xl">
+          <div className="mb-5 flex items-center gap-2"><Cloud size={18} className="text-cyan-400" /><h2 className="font-heading font-semibold">Cloudflare API Configuration</h2></div>
+
+          {cfLoading ? (
+            <div className="flex items-center gap-2 p-6 text-sm text-slate-400"><LoaderCircle size={18} className="animate-spin" /> Memuat konfigurasi...</div>
+          ) : (
+            <>
+              <div className="mb-6">
+                <div className={`flex items-center gap-2 rounded-lg border px-4 py-3 text-sm ${cfConfigured ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200" : "border-amber-500/30 bg-amber-500/10 text-amber-200"}`}>
+                  {cfConfigured ? <ShieldCheck size={18} /> : <Cloud size={18} />}
+                  <span>{cfConfigured ? "Cloudflare API token sudah dikonfigurasi." : "Belum ada Cloudflare API token yang dikonfigurasi."}</span>
+                  {cfConfigured && cfUpdatedAt && <span className="ml-auto text-xs text-slate-500">Updated: {fmtDate(cfUpdatedAt)}</span>}
+                </div>
+              </div>
+
+              <form onSubmit={saveCloudflareConfig} className="grid gap-4">
+                <label className="block text-sm text-slate-300">Cloudflare Account Email
+                  <input type="email" required value={cfForm.api_email} onChange={(event) => setCfForm((current) => ({ ...current, api_email: event.target.value }))} placeholder="admin@example.com" className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-white outline-none placeholder:text-slate-600 focus:border-cyan-500" />
+                </label>
+                <label className="block text-sm text-slate-300">API Token <span className="text-slate-500">(dari Cloudflare Dashboard → My Profile → API Tokens)</span>
+                  <input type="password" required value={cfForm.api_token} onChange={(event) => setCfForm((current) => ({ ...current, api_token: event.target.value }))} placeholder="v1.0-..." autoComplete="off" className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 font-mono text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-500" />
+                </label>
+                <label className="block text-sm text-slate-300">Zone ID <span className="text-slate-500">(opsional — biarkan kosong untuk auto-detect)</span>
+                  <input value={cfForm.zone_id} onChange={(event) => setCfForm((current) => ({ ...current, zone_id: event.target.value }))} placeholder="abc123def456..." className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 font-mono text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-500" />
+                </label>
+                <div className="flex flex-wrap gap-3">
+                  <button type="submit" disabled={cfSaving} className="inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-500 px-6 py-2.5 text-sm font-semibold text-slate-950 hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60">
+                    {cfSaving ? <LoaderCircle size={17} className="animate-spin" /> : <CheckCircle2 size={17} />} {cfSaving ? "Menyimpan..." : cfConfigured ? "Update Token" : "Simpan Konfigurasi"}
+                  </button>
+                  {cfConfigured && (
+                    <>
+                      <button type="button" onClick={verifyCloudflareConfig} disabled={cfVerifying} className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-700 px-5 py-2.5 text-sm font-semibold text-cyan-300 hover:border-cyan-500/50 disabled:opacity-60">
+                        {cfVerifying ? <LoaderCircle size={17} className="animate-spin" /> : <ShieldCheck size={17} />} {cfVerifying ? "Memverifikasi..." : "Verify Token"}
+                      </button>
+                      <button type="button" onClick={deleteCloudflareConfig} className="inline-flex items-center justify-center gap-2 rounded-lg border border-rose-700/50 px-5 py-2.5 text-sm font-semibold text-rose-400 hover:border-rose-500 hover:text-rose-300">
+                        Hapus Konfigurasi
+                      </button>
+                    </>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500">Token disimpan terenkripsi (Fernet) di platform database. Tidak pernah ditampilkan kembali setelah disimpan. Digunakan untuk DNS challenge wildcard certs & manajemen DNS otomatis.</p>
+              </form>
+
+              {cfVerifyResult && (
+                <div className={`mt-4 flex items-start gap-3 rounded-lg border px-4 py-3 text-sm ${cfVerifyResult.valid ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200" : "border-rose-500/30 bg-rose-500/10 text-rose-200"}`}>
+                  {cfVerifyResult.valid ? <CheckCircle2 size={18} className="mt-0.5 shrink-0" /> : <ServerCrash size={18} className="mt-0.5 shrink-0" />}
+                  <div>
+                    <p className="font-semibold">{cfVerifyResult.valid ? "Token valid!" : "Token tidak valid"}</p>
+                    {cfVerifyResult.email && <p className="mt-1 text-xs">Email: {cfVerifyResult.email}</p>}
+                    {cfVerifyResult.account_id && <p className="text-xs">Account ID: {cfVerifyResult.account_id}</p>}
+                    {cfVerifyResult.zones && <p className="text-xs">Zones: {cfVerifyResult.zones} zone(s)</p>}
+                    {cfVerifyResult.error && <p className="mt-1 text-xs">{cfVerifyResult.error}</p>}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </section>
       ) : (
       <>
 

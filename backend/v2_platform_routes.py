@@ -1100,6 +1100,115 @@ async def update_promo_config_admin(
 
 
 # ---------------------------------------------------------------------------
+# Cloudflare API credentials (platform-level, encrypted at rest)
+# ---------------------------------------------------------------------------
+
+class CloudflareConfigBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    api_email: str = Field(min_length=3, max_length=254)
+    api_token: str = Field(min_length=10, max_length=512)
+    zone_id: str | None = Field(default=None, max_length=64)
+
+
+@router.get("/cloudflare-config")
+async def get_cloudflare_config(
+    admin: dict = Depends(require_platform_admin),
+) -> dict[str, Any]:
+    """Return stored Cloudflare credentials (token masked)."""
+    from db import db
+    from tenant_db import resolve_platform_database_name
+
+    coll = db.client[resolve_platform_database_name(os.environ)]["platform_config"]
+    doc = await coll.find_one({"_id": "cloudflare_config"})
+    if not doc:
+        return {"configured": False, "api_email": "", "api_token": "", "zone_id": ""}
+    token_enc = doc.get("api_token_encrypted", "")
+    token_masked = ""
+    if token_enc:
+        try:
+            from inventory import _fernet
+            plain = _fernet().decrypt(token_enc.encode()).decode()
+            token_masked = plain[:8] + "•" * (len(plain) - 12) + plain[-4:] if len(plain) > 12 else "•" * len(plain)
+        except Exception:
+            token_masked = "••••••••"
+    return {
+        "configured": True,
+        "api_email": doc.get("api_email", ""),
+        "api_token": token_masked,
+        "zone_id": doc.get("zone_id", ""),
+        "updated_at": doc.get("updated_at"),
+    }
+
+
+@router.put("/cloudflare-config", status_code=status.HTTP_200_OK)
+async def update_cloudflare_config(
+    body: CloudflareConfigBody,
+    admin: dict = Depends(require_platform_admin),
+) -> dict[str, Any]:
+    """Store or update Cloudflare API credentials (token encrypted with Fernet)."""
+    from db import db
+    from tenant_db import resolve_platform_database_name
+    from inventory import _fernet
+
+    token_enc = _fernet().encrypt(body.api_token.encode()).decode()
+    coll = db.client[resolve_platform_database_name(os.environ)]["platform_config"]
+    now = datetime.utcnow()
+    await coll.update_one(
+        {"_id": "cloudflare_config"},
+        {"$set": {
+            "api_email": body.api_email,
+            "api_token_encrypted": token_enc,
+            "zone_id": body.zone_id or "",
+            "updated_at": now,
+            "updated_by": _actor_id(admin),
+        }},
+        upsert=True,
+    )
+    await _audit(admin, "platform.cloudflare_config_updated", "cloudflare", {"api_email": body.api_email})
+    return {"ok": True, "message": "Cloudflare configuration saved."}
+
+
+@router.delete("/cloudflare-config")
+async def delete_cloudflare_config(
+    admin: dict = Depends(require_platform_admin),
+) -> dict[str, Any]:
+    """Remove stored Cloudflare credentials."""
+    from db import db
+    from tenant_db import resolve_platform_database_name
+
+    coll = db.client[resolve_platform_database_name(os.environ)]["platform_config"]
+    result = await coll.delete_one({"_id": "cloudflare_config"})
+    await _audit(admin, "platform.cloudflare_config_removed", "cloudflare", {})
+    return {"ok": True, "deleted": result.deleted_count}
+
+
+@router.post("/cloudflare-config/verify")
+async def verify_cloudflare_config(
+    admin: dict = Depends(require_platform_admin),
+) -> dict[str, Any]:
+    """Verify the stored Cloudflare token by calling the /user/tokens/verify endpoint."""
+    from db import db
+    from tenant_db import resolve_platform_database_name
+    from inventory import _fernet
+
+    coll = db.client[resolve_platform_database_name(os.environ)]["platform_config"]
+    doc = await coll.find_one({"_id": "cloudflare_config"})
+    if not doc or not doc.get("api_token_encrypted"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cloudflare config not found. Save credentials first.")
+    token = _fernet().decrypt(doc["api_token_encrypted"].encode()).decode()
+    import httpx
+    async with httpx.AsyncClient(timeout=15) as client:
+        try:
+            resp = await client.get("https://api.cloudflare.com/client/v4/user/tokens/verify", headers={"Authorization": f"Bearer {token}"})
+            data = resp.json()
+            if resp.status_code == 200 and data.get("success"):
+                return {"valid": True, "status": data.get("result", {}).get("status", "unknown")}
+            return {"valid": False, "error": data.get("errors", [{}])}
+        except httpx.RequestError as exc:
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Failed to contact Cloudflare API: {exc}")
+
+
+# ---------------------------------------------------------------------------
 # Database browser (platform admin only)
 # ---------------------------------------------------------------------------
 

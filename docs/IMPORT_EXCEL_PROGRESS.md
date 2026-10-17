@@ -16,3 +16,6 @@ Next: confirm field precedence then parser/validator offline, SKU mapping read-o
 
 ## Document-specific status
 Audit RUNNING; conflicts BLOCKED. No COMPLETE claim.
+
+## Owner precedence decision — 2026-10-17 20:07 WIB
+Owner explicitly selected newer Summary for the conflicting fields. Effective types: 14 Product, 4 Jasa, 3 FRESH BY MADE. PRD002/PRD003 become Fresh; PRD009 price_idr=95000 and PRD010 price_idr=125000. Detail sheet blank prices must not override these approved Summary prices. This supersedes the master 16/4/1 and two-blank-price assumptions for this workbook only. No approval to apply to production. Fresh custom-message and activation status still require validation; absence must keep availability zero.

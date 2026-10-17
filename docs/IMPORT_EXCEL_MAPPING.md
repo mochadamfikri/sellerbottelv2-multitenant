@@ -16,3 +16,6 @@ Next: confirm field precedence then parser/validator offline, SKU mapping read-o
 
 ## Document-specific status
 Mappings discovered: P02=PRD002; P03=PRD003; P09=PRD009; P10=PRD010. Existing database IDs not yet reconciled. Never match by name alone.
+
+## Approved Summary precedence
+2026-10-17 20:07 WIB: Owner selected Summary. PRD002/PRD003=FRESH BY MADE; PRD009=95000 IDR; PRD010=125000 IDR. Effective count 14 Product/4 Jasa/3 Fresh. Existing detail sheets for PRD002/PRD003 retain inventory template, not Fresh configuration; never treat inventory rows as custom order instructions. F01 B9 custom message empty and B14 not AKTIF. All three Fresh remain unavailable until explicit valid custom instruction/status configuration. This is a validation finding, not permission to modify production.

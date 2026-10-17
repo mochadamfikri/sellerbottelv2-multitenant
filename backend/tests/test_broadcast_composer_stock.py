@@ -107,11 +107,12 @@ def test_bot_catalogs_group_products_and_show_variant_stock(monkeypatch):
 def test_stock_notice_sends_one_image_to_each_chat(monkeypatch):
     sent = []
 
-    async def fake_send(chat_id, image, filename, caption=None):
-        sent.append((chat_id, image, caption))
-        return {"ok": True}
+    async def fake_rich(method, **payload):
+        sent.append((payload.get("chat_id"), payload))
+        return {"ok": True, "result": {"message_id": 1}}
 
-    monkeypatch.setattr(stock_monitor, "send_photo_bytes", fake_send)
+    from rich_table_transport import tg
+    monkeypatch.setattr("rich_table_transport.tg", fake_rich)
 
     async def check():
         await db.products.delete_many({})
@@ -123,7 +124,13 @@ def test_stock_notice_sends_one_image_to_each_chat(monkeypatch):
                                           "delivered": [], "attempts": 0, "status": "pending", "created_at": "2026-01-01"})
         await stock_monitor.deliver_pending()
         assert len(sent) == 2
-        assert all(data.startswith(b"\xff\xd8") and "0 → 5" in caption for _, data, caption in sent)
+        for _, payload in sent:
+            html = payload.get("rich_message", {}).get("html", "")
+            assert "Katalog" in html
+            assert "Product" in html
+            assert "Penambahan/pengurangan" in html
+            assert "+5" in html
+            assert "Total Stock" in html
         assert (await db.stock_events.find_one({"_id": "event-1"}))["status"] == "sent"
         await stock_monitor.deliver_pending()
         assert len(sent) == 2

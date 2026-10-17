@@ -390,11 +390,12 @@ async def update_product(
         updates["catalog_name"] = " ".join(catalog_name.split())
     if inventory_fields and product_kind == "digital":
         schema = validate_schema(inventory_fields.split(","))
-        if product.get("inventory_schema"):
+        existing_items_count = await db.inventory_items.count_documents({"product_id": pid})
+        if existing_items_count > 0 and product.get("inventory_schema"):
+            # Hanya tolak jika produk SUDAH memiliki isi stok fisik di database
             align_records(schema, [], product["inventory_schema"])
-        elif await db.inventory_items.count_documents({"product_id": pid}):
-            raise HTTPException(409, "Produk sudah memiliki inventory. Schema tidak dapat diganti.")
         else:
+            # Jika stok kosong / belum ada isi inventory, admin bebas ubah kolom inventory (misal diganti Link, License, dll)
             updates["inventory_schema"] = schema
     if image and remove_image:
         raise HTTPException(400, "Unggah foto baru atau hapus foto yang ada, bukan keduanya.")

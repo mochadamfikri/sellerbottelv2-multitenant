@@ -61,3 +61,6 @@ Latest branch bf9f389 regression: 640 PASS, 20 warnings in 9.32s; command unchan
 Optional legacy admin metadata compatibility: 640 PASS, 20 warnings in 9.25s. Explicit HTTP tests for new optional field still needed; existing suite proves regression coverage only.
 
 Products.jsx syntax PASS via existing Babel parser (read-only dependency reuse). This is NOT a frontend build/E2E PASS.
+
+## Frontend build evidence
+Copied dependencies into isolated checkout (no symlink, no production writes). Strict `CI=true GENERATE_SOURCEMAP=false npm run build`: FAILED due to existing exhaustive-deps warnings in DnsVerify.jsx:37 and TenantPanel.jsx:41. Diagnostic `CI=false GENERATE_SOURCEMAP=false npm run build`: compiled with those warnings; assets main.828ce75c.js and main.29777b6f.css in isolated build only. This does NOT satisfy strict CI gate. Browser/Android not verified.

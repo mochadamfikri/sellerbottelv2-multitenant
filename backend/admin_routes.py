@@ -8,7 +8,8 @@ import zipfile
 import xml.etree.ElementTree as ET
 from typing import Optional, Literal
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Response, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
+from product_metadata import WarrantyMetadata
 from i18n import t, message_catalog, set_override, reset_override, STRINGS
 from db import db, get_settings, platform_db
 from auth import get_current_admin, verify_password
@@ -222,6 +223,7 @@ async def create_product(
     catalog_name: str = Form("", max_length=80),
     inventory_fields: str = Form("", max_length=4000),
     description: str = Form(""),
+    warranty_json: Optional[str] = Form(None, max_length=13000),
     price_usd: float = Form(...),
     price_idr: Optional[float] = Form(None),
     delivery_type: str = Form("link"),
@@ -238,6 +240,17 @@ async def create_product(
     remove_image: bool = Form(False),
     file: Optional[UploadFile] = File(None),
 ):
+    warranty_data = None
+    if isinstance(warranty_json, str):
+        try:
+            warranty_data = WarrantyMetadata.model_validate_json(warranty_json).model_dump()
+        except (ValidationError, ValueError):
+            raise HTTPException(400, "Metadata garansi tidak valid; periksa status, durasi dan ketentuan.")
+        if not name.strip() or len(name.strip()) > 300 or not description.strip():
+            raise HTTPException(400, "Nama dan deskripsi wajib untuk form metadata terstruktur.")
+        import math
+        if not math.isfinite(price_usd) or price_usd < 0 or (price_idr is not None and (not math.isfinite(price_idr) or price_idr < 0)):
+            raise HTTPException(400, "Harga harus angka non-negatif yang valid.")
     product_kind = _validate_product_kind(product_kind)
     if minimum_purchase_qty < 1 or minimum_purchase_qty > 1000:
         raise HTTPException(400, "Minimum pembelian harus antara 1 dan 1000 pcs.")
@@ -298,6 +311,8 @@ async def create_product(
         "stock_notice_count": 0,
         "created_at": now_iso(),
     }
+    if warranty_data is not None:
+        prod["warranty"] = warranty_data
     await db.products.insert_one(prod)
     try:
         await notify_product_created(prod)
@@ -313,6 +328,7 @@ async def update_product(
     catalog_name: Optional[str] = Form(None, max_length=80),
     inventory_fields: Optional[str] = Form(None, max_length=4000),
     description: str = Form(""),
+    warranty_json: Optional[str] = Form(None, max_length=13000),
     price_usd: float = Form(...),
     price_idr: Optional[float] = Form(None),
     delivery_type: str = Form("link"),
@@ -334,6 +350,17 @@ async def update_product(
     if not product:
         raise HTTPException(404, "Produk tidak ditemukan")
 
+    warranty_data = None
+    if isinstance(warranty_json, str):
+        try:
+            warranty_data = WarrantyMetadata.model_validate_json(warranty_json).model_dump()
+        except (ValidationError, ValueError):
+            raise HTTPException(400, "Metadata garansi tidak valid; periksa status, durasi dan ketentuan.")
+        if not name.strip() or len(name.strip()) > 300 or not description.strip():
+            raise HTTPException(400, "Nama dan deskripsi wajib untuk form metadata terstruktur.")
+        import math
+        if not math.isfinite(price_usd) or price_usd < 0 or (price_idr is not None and (not math.isfinite(price_idr) or price_idr < 0)):
+            raise HTTPException(400, "Harga harus angka non-negatif yang valid.")
     product_kind = _validate_product_kind(product_kind)
     if minimum_purchase_qty < 1 or minimum_purchase_qty > 1000:
         raise HTTPException(400, "Minimum pembelian harus antara 1 dan 1000 pcs.")
@@ -352,6 +379,8 @@ async def update_product(
         "minimum_purchase_qty": minimum_purchase_qty,
         "updated_at": now_iso(),
     }
+    if warranty_data is not None:
+        updates["warranty"] = warranty_data
     if (product_kind != _normalized_product_kind(product) or inventory_mode != product.get("inventory_mode", "table")) and await db.inventory_items.count_documents({"product_id": pid}):
         raise HTTPException(409, "Jenis/mode produk tidak dapat diganti saat masih memiliki inventory. Buat varian baru agar data pesanan tetap utuh.")
     if catalog_name is not None:

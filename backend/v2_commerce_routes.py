@@ -36,7 +36,10 @@ router = APIRouter(tags=["v2-commerce"])
 
 # Pydantic request/response models
 
+from product_metadata import WarrantyMetadata
+
 class CreateProductRequest(BaseModel):
+    warranty: WarrantyMetadata | None = None
     name: str
     price: str = Field(..., description="Decimal as string")
     currency: str = "USD"
@@ -46,6 +49,7 @@ class CreateProductRequest(BaseModel):
 
 
 class UpdateProductRequest(BaseModel):
+    warranty: WarrantyMetadata | None = None
     name: str | None = None
     price: str | None = None
     description: str | None = None

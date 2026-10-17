@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Store, Package, LogOut, Mail, Lock } from "lucide-react";
 import api from "../lib/api";
 import { toast } from "sonner";
@@ -19,7 +19,7 @@ export default function TenantPanel() {
   const authApi = (t) =>
     api.create({ headers: { Authorization: `Bearer ${t}` } });
 
-  const loadMe = async (t) => {
+  const loadMe = useCallback(async (t) => {
     try {
       const res = await api.get("/public/tenant/me", {
         headers: { Authorization: `Bearer ${t}` },
@@ -34,11 +34,11 @@ export default function TenantPanel() {
       localStorage.removeItem("tenant_token");
       setMe(null);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (token) loadMe(token);
-  }, []);
+  }, [token, loadMe]);
 
   const login = async (e) => {
     e.preventDefault();
@@ -49,7 +49,7 @@ export default function TenantPanel() {
       setToken(t);
       localStorage.setItem("tenant_token", t);
       toast.success(`Selamat datang, ${res.data.tenant_slug}!`);
-      loadMe(t);
+      // The token-dependent effect loads the authenticated profile.
     } catch (err) {
       toast.error(err.response?.data?.detail || "Login gagal.");
     } finally {

@@ -8,7 +8,8 @@ from db import DEFAULT_SETTINGS, db
 
 
 @pytest.fixture(autouse=True)
-def reset_database():
+def reset_database(monkeypatch):
+    monkeypatch.setattr(bot, "_send_welcome_flexible", lambda *a, **k: asyncio.sleep(0, result=False))
     async def reset():
         for name in ("bot_users", "purchases", "promo_coupons", "settings"):
             await db[name].delete_many({})
@@ -24,7 +25,7 @@ def test_start_welcome_renders_dynamic_profile_and_delivered_order_pcs(monkeypat
     async def capture(chat_id, text, kb=None):
         sent.append((chat_id, text, kb))
 
-    monkeypatch.setattr(bot, "send_message", capture)
+    monkeypatch.setattr(bot, "tg_send_message", capture)
 
     async def run():
         user = {
@@ -55,7 +56,7 @@ def test_start_welcome_lists_only_usable_active_coupon_codes(monkeypatch):
     async def capture(chat_id, text, kb=None):
         sent.append((chat_id, text, kb))
 
-    monkeypatch.setattr(bot, "send_message", capture)
+    monkeypatch.setattr(bot, "tg_send_message", capture)
 
     async def run():
         await db.promo_coupons.insert_many([
@@ -78,9 +79,12 @@ def test_start_welcome_lists_only_usable_active_coupon_codes(monkeypatch):
     assert "<b>-</b>" in text
 
 
-def test_main_menu_is_vertical_and_has_no_balance_button():
+def test_main_menu_grouping_and_no_balance_button():
     rows = bot.main_menu_kb("id")["inline_keyboard"]
-    assert all(len(row) == 1 for row in rows)
+    assert [[b["callback_data"] for b in row] for row in rows[:4]] == [
+        ["menu:products"], ["menu:deposit", "menu:stock"],
+        ["menu:settings"], ["menu:history", "menu:help", "menu:cart"]
+    ]
     assert all(button["callback_data"] != "menu:balance" for row in rows for button in row)
 
 
@@ -93,7 +97,7 @@ def test_start_records_first_start_and_sends_welcome_after_join_gate(monkeypatch
     async def allow_join(chat_id, user):
         return True
 
-    monkeypatch.setattr(bot, "send_message", capture)
+    monkeypatch.setattr(bot, "tg_send_message", capture)
     monkeypatch.setattr(bot, "ensure_join_gate", allow_join)
 
     async def run():
@@ -116,7 +120,7 @@ def test_return_to_main_uses_dynamic_start_welcome(monkeypatch):
     async def capture(chat_id, text, kb=None):
         sent.append((chat_id, text, kb))
 
-    monkeypatch.setattr(bot, "send_message", capture)
+    monkeypatch.setattr(bot, "tg_send_message", capture)
 
     async def run():
         await bot.show_main_menu(222, {
@@ -126,5 +130,5 @@ def test_return_to_main_uses_dynamic_start_welcome(monkeypatch):
         })
 
     asyncio.run(run())
-    assert "Selamat Datang di Bot Store" in sent[0][1]
+    assert "Selamat Datang di Test Store Market" in sent[0][1]
     assert "<b>@returnuser</b>" in sent[0][1]

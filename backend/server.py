@@ -188,6 +188,8 @@ app.include_router(v2_tenant_router, prefix="/api/v2/tenant")
 # Import and mount v2_commerce_routes
 from v2_commerce_routes import router as v2_commerce_router
 app.include_router(v2_commerce_router, prefix="/api/v2/tenant")
+from idse_import_routes import router as idse_import_router
+app.include_router(idse_import_router)
 
 if os.environ.get("PROMOTION_ENABLED", "").lower() in {"1", "true", "yes"}:
     app.include_router(promo_router)

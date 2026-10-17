@@ -1,3 +1,4 @@
+import IdseExcelPreview from "../components/IdseExcelPreview";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -309,6 +310,7 @@ export default function Products() {
 
   return (
     <div className="space-y-4">
+      <IdseExcelPreview />
       <div className="flex justify-between items-center gap-3 flex-wrap">
         <div>
           <p className="text-sm text-slate-400">{products.length} produk</p>

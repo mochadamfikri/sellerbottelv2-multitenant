@@ -31,3 +31,5 @@ Tenant-operator protected /api/v2/import-excel/preview and /template added to is
 Semantic no-write preview implemented: explicit mapping sheet + detail B3 SKU check; Summary precedence opt-in; future conflicts require approval. Actual workbook maps all 21 SKUs to 14 Product/4 Jasa/3 Fresh, prices 95000/125000; all Fresh availability zero until configured. Stock validation, metadata content join, DB diff and apply remain pending.
 
 Preview API now invokes semantic metadata preview with explicit summary_precedence form input (default false). Eight tests still PASS; no database apply endpoint exists yet.
+
+Permanent admin preview UI added (IdseExcelPreview.jsx in Products.jsx): upload XLSX, explicit Summary precedence checkbox, tenant input validated server-side via role dependency, metadata/error table. Clearly states no apply and no DB comparison yet. Strict frontend build PASS. Not deployed; semantic stock validation/DB diff/confirmation/apply still pending.

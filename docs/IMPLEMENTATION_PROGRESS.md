@@ -111,3 +111,6 @@ Secondary history opt-in now reuses shared contextual tables via tg2; existing t
 
 ## Inventory receipt foundation
 Inventory receipt foundation: new imports and reserve/release/sold transitions now carry additive movement_audit receipts in same unit write, without old history backfill. quantity means change in sellable units: sold after reservation has delta 0 and units 1. Scope excludes marketing/deletion/tenant_inventory alternate paths; cannot claim complete ledger or cumulative totals. Need bounded retention/projection design before rollout.
+
+## Owner scope correction
+Bot2/reseller excluded by Owner. Removed both feature additions in backend/bot2.py, restoring baseline source. Shared main-bot modules remain. Deployment requested; not yet executed.

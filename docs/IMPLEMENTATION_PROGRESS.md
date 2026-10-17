@@ -87,3 +87,6 @@ Public Stock opt-in integrated into existing show_stock_view, preserving stockpa
 
 ## History implementation
 Opt-in main-bot order/deposit history and owned detail views wired; transaction projections exclude delivery secrets and use historical amounts. Existing user ownership queries preserved. New backend/history_rich_views.py and tests/test_history_rich_views.py. Snapshot presentation supported but snapshot creation/form metadata pending. Status RUNNING; NOT DEPLOYED.
+
+## Warranty snapshot checkpoint
+Purchase-time warranty snapshots added to balance checkout and direct QRIS order creation (additive fields only, old orders untouched). Pure WarrantyMetadata validator added but NOT wired to admin forms yet. Other commerce creation paths require audit. Status PARTIAL; no deployment.

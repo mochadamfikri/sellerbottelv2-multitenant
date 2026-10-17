@@ -263,6 +263,8 @@ async def storefront_config(request: Request):
         "require_channel_join": bool(settings.get("require_channel_join")),
         "channel_url": (settings.get("channel_url") or "").strip(),
         "channel_name": (settings.get("channel_name") or "").strip(),
+        "telegram_order_success_enabled": bool(settings.get("telegram_order_success_enabled")),
+        "telegram_order_success_message": (settings.get("telegram_order_success_message") or "").strip(),
     }
 
 
@@ -967,6 +969,8 @@ async def tenant_storefront_config(slug: str):
         "require_channel_join": bool(settings.get("require_channel_join")),
         "channel_url": (settings.get("channel_url") or "").strip(),
         "channel_name": (settings.get("channel_name") or "").strip(),
+        "telegram_order_success_enabled": bool(settings.get("telegram_order_success_enabled")),
+        "telegram_order_success_message": (settings.get("telegram_order_success_message") or "").strip(),
     }
 
 

@@ -47,3 +47,5 @@ Protected nonempty upload previews now persist encrypted plans bound to tenant/a
 
 ## Metadata apply engine development
 Metadata apply engine implemented against injected DB: deterministic SKU IDs, prepared receipts, idempotent replay, stale-record rejection, inactive new products, no inventory writes, and catalog_details separated from legacy fulfillment content. Not wired to public apply endpoint until rollback/partial failure verification complete. Production unchanged.
+
+Metadata update receipts now require encrypted BSON-safe before-images and store after_version for future conditional rollback. Existing create/replay tests 2 PASS; rollback executor still pending, apply HTTP not enabled.

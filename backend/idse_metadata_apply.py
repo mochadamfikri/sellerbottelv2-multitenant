@@ -19,7 +19,7 @@ def product_patch(proposal):
     return patch
 
 
-async def apply_metadata(database, tenant_id, job_id, proposals, diff):
+async def apply_metadata(database, tenant_id, job_id, proposals, diff, *, cipher=None):
     """Caller must validate approval/plan and hold durable per-job claim.
 
     Receipts precede writes. CAS guards whole previewed documents; retries can
@@ -49,9 +49,15 @@ async def apply_metadata(database, tenant_id, job_id, proposals, diff):
         if current and current.get('source_kind') not in (None,proposal['kind']):
             raise StalePreview('Product type change requires reviewed migration')
         if receipt is None:
+            before_encrypted = None
+            if current is not None:
+                if cipher is None:
+                    raise ValueError('Encryption required for recoverable metadata updates')
+                from bson import json_util
+                before_encrypted = cipher.encrypt(json_util.dumps(current).encode()).decode()
             await database.excel_import_receipts.insert_one({'_id':rid,'tenant_id':tenant_id,
                 'job_id':job_id,'sku':sku,'product_id':pid,'status':'PREPARED',
-                'before_version':record_version(current),'changed_fields':list(patch)})
+                'before_version':record_version(current),'before_encrypted':before_encrypted,'changed_fields':list(patch)})
         patch['last_import_receipt']=rid
         if current is None:
             kind=proposal['kind']
@@ -72,6 +78,6 @@ async def apply_metadata(database, tenant_id, job_id, proposals, diff):
                 if value is None:clauses.append({key:{'$exists':True}})
             result=await database.products.update_one({'$and':clauses},{'$set':patch})
             if not result.matched_count:raise StalePreview('Concurrent product update')
-        await database.excel_import_receipts.update_one({'_id':rid},{'$set':{'status':'APPLIED'}})
+        await database.excel_import_receipts.update_one({'_id':rid},{'$set':{'status':'APPLIED','after_version':record_version(await database.products.find_one({'_id':pid}))}})
         results.append({'sku':sku,'action':row['action']})
     return results

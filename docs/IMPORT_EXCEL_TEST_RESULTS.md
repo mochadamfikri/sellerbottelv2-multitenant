@@ -30,3 +30,6 @@ Combined preflight/API/semantic suite: 8 PASS, 4 warnings in 1.57s. Includes exp
 Admin preview strict build PASS (CI=true GENERATE_SOURCEMAP=false npm run build). Browser user-flow not yet verified. Backend importer subset 8 PASS.
 
 Full offline regression after preview UI/API: 650 PASS, 20 warnings in 9.55s; excludes legacy live-server tests/backend_test.py. No production imports performed.
+
+## Inventory validation implementation
+Combined importer suite 10 PASS, 4 warnings in 1.53s. Covers supported payload variants, duplicates, SOLD/RESERVED exclusion, incomplete pair, formula rejection. Actual workbook 0 available units. No production changes.

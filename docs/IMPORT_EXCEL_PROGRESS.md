@@ -33,3 +33,6 @@ Semantic no-write preview implemented: explicit mapping sheet + detail B3 SKU ch
 Preview API now invokes semantic metadata preview with explicit summary_precedence form input (default false). Eight tests still PASS; no database apply endpoint exists yet.
 
 Permanent admin preview UI added (IdseExcelPreview.jsx in Products.jsx): upload XLSX, explicit Summary precedence checkbox, tenant input validated server-side via role dependency, metadata/error table. Clearly states no apply and no DB comparison yet. Strict frontend build PASS. Not deployed; semantic stock validation/DB diff/confirmation/apply still pending.
+
+## Inventory validation implementation
+Inventory reader implemented: valid AVAILABLE only, credential pairs/link/license/custom, payload/Stock ID duplicate suppression, formula rejection, no raw payload in repr/preview. Wired into preview. Actual approved workbook: 21 metadata products, 0 valid available units, 0 inventory errors. This does not compare against database yet; no data apply.

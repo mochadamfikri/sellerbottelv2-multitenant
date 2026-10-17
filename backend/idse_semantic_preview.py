@@ -60,9 +60,13 @@ def semantic_preview(data, *, summary_precedence=False):
                 # Inventory-template rows are never interpreted as Fresh messages.
                 fresh_ready = detail['A8'].value != 'Stock ID' and detail['B14'].value == 'AKTIF' and isinstance(detail['B9'].value,str) and bool(detail['B9'].value.strip()) and detail['B9'].data_type != 'f'
                 if not fresh_ready:issues.append('FRESH_CONFIG_REQUIRED')
+            inventory = {'valid_available':0,'skipped':0,'issues':[]}
+            if kind == 'Product':
+                from idse_inventory_reader import read_inventory
+                inventory = read_inventory(detail).public()
             report['products'].append({'sku':sku,'source_sheet':target,'summary_row':number,
                 'kind':kind,'price_idr':amount,'availability':int(fresh_ready) if kind=='FRESH BY MADE' else None,
-                'action':'REVIEW','issues':issues,'stock_validation':'PENDING','publication':'REVIEW_REQUIRED'})
+                'action':'REVIEW','issues':issues,'inventory':inventory, 'stock_validation':'FAILED' if inventory['issues'] else 'PASS','publication':'REVIEW_REQUIRED'})
         report['apply_allowed'] = False
         return report
     finally:

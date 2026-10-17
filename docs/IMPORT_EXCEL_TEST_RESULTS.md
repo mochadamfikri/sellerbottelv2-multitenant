@@ -35,3 +35,5 @@ Full offline regression after preview UI/API: 650 PASS, 20 warnings in 9.55s; ex
 Combined importer suite 10 PASS, 4 warnings in 1.53s. Covers supported payload variants, duplicates, SOLD/RESERVED exclusion, incomplete pair, formula rejection. Actual workbook 0 available units. No production changes.
 
 12 importer tests PASS, 4 warnings in 1.49s including no-write SKU comparison and version change detection.
+
+Inventory/description/database comparison checkpoint: full offline suite 654 PASS, 20 warnings in 9.47s (legacy live-server tests excluded). Actual workbook 21/21 description joins, 20457 description characters, 0 available inventory units. Production unchanged.

@@ -28,3 +28,8 @@ This is a pre-existing test/code contract disagreement. Do not silently change r
 ## Renderer checkpoint
 New pure renderer and opt-in transport: 12 tests PASS in 0.96s (escaping, pagination, empty state, limits, money validation, default-off, success, explicit rejection fallback, timeout ambiguity, rate limit and server error no-resend). No live Telegram calls.
 Full unmodified baseline: 601 PASS, 13 FAILED, 17 ERROR, 20 warnings in 98.79s. Legacy backend_test.py requires live network and is correctly blocked by offline harness; other failures include tenant DB naming, bot2, welcome/menu, reseller notifications and platform routes. Full log local /tmp/sellerbottel-rich-baseline.log. This is baseline evidence, not a regression introduced by renderer (not integrated).
+
+## Baseline repair verification
+624 PASS, 20 warnings in 9.37s: `ENVIRONMENT=test python3 -m pytest -q --disable-warnings --ignore=tests/backend_test.py`. Legacy live-server suite explicitly excluded, NOT claimed passing; its offline network failures remain documented above.
+Fixes: scoped QR transport mocks (real-shaped responses), correct welcome transport alias, grouped-menu/current brand assertions, notification feature flags + actual composer boundary mock, isolated platform registry fixture, reject explicitly blank configured database name while preserving fallback when absent. Original production configuration unchanged.
+Earlier shared renderer/commerce subset: 53 PASS, 4 warnings in 1.87s.

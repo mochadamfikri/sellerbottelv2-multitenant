@@ -68,3 +68,6 @@ Next: resolve baseline contract decision, complete audit and backup strategy, th
 
 ## Shared renderer implementation checkpoint
 Implemented isolated files backend/rich_tables.py, backend/rich_table_transport.py, backend/tests/test_rich_tables.py. Shared renderer preserves rows, escapes HTML, enforces conservative budgets, returns labelled plain fallback. Transport reuses tenant-aware tgapi; feature flag defaults off; ambiguous timeout never retries/falls back; explicit 400/404 rejection may fall back. No existing handler imports these modules yet. Unit tests PASS; integration, staging deployment and Android verification PENDING/BLOCKED. No production deployment. Baseline full suite fails independently; do not promote.
+
+## Baseline repair checkpoint
+Offline suite PASS 624 tests excluding legacy live-server suite. Changed backend/tenant_db.py (fail closed on explicitly blank configured DB name); tests/test_bot2_flow.py, test_bot_start_welcome.py, test_reseller_flow.py, test_v2_platform_routes.py (stale expectations and isolation mocks). No live database/config changes. Deployment remains BLOCKED pending backup/rehearsal/staging/Android.

@@ -80,3 +80,5 @@ Latest 3cf89fb checkpoint: 641 PASS, 20 warnings in 9.50s (offline suite, legacy
 
 ## Inventory receipt foundation
 Movement receipt idempotency test PASS (1, 1.10s); inventory upload/direct checkout/purchase subset 45 PASS. Duplicate release/commit create no duplicate receipts; secrets absent from receipt payload.
+
+Receipt foundation full regression: 642 PASS, 20 warnings in 9.18s; offline suite excludes live-server backend_test.py.

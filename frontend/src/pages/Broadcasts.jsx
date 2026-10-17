@@ -8,9 +8,9 @@ import MarketingCampaigns from "../components/MarketingCampaigns";
 const cls = "w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-cyan-500/60";
 const initial = { kind: "message", period: "30d", message: "", product_ids: [], summaries: {}, target: "chats" };
 const broadcastTypes = [
-  { value: "message", title: "Pesan & Produk", detail: "Tulis pesan dan pilih hingga 10 produk dalam satu gambar." },
-  { value: "best_sellers", title: "Produk Terlaris", detail: "Kirim peringkat produk, total unit terjual, dan total penjualan." },
-  { value: "daily_recap", title: "Rekap Harian", detail: "Kirim total penjualan, unit terjual, dan produk terlaris kemarin." },
+  { value: "message", title: "📢 Pengumuman & Produk", detail: "Kirim pesan kustom & tabel produk pilihan langsung ke chat." },
+  { value: "best_sellers", title: "🏆 Produk Terlaris", detail: "Kirim tabel produk terlaris beserta total omzet penjualan." },
+  { value: "daily_recap", title: "📊 Rekap Harian", detail: "Kirim ringkasan omzet dan tabel produk terjual kemarin." },
 ];
 
 export default function Broadcasts() {

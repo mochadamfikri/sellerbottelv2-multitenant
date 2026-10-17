@@ -289,8 +289,8 @@ export default function Products() {
   };
 
   const kindLabel = (p) => p.product_kind === "service"
-    ? "B. Produk Jasa"
-    : "A. Produk Digital / Data";
+    ? "🛠️ Jasa / Fresh by Made"
+    : "📦 Produk Digital";
 
   const renderStock = (p) => {
     if (p.product_kind === "service") return <span className="text-cyan-400">Unlimited</span>;
@@ -486,7 +486,7 @@ export default function Products() {
           <DialogHeader><DialogTitle>{editId ? "Edit Produk" : "Tambah Produk"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div>
-              <label className="text-xs text-slate-400">Jenis Product</label>
+              <label className="text-xs text-slate-400">Jenis Produk</label>
               <select
                 className={cls}
                 value={form.product_kind}
@@ -497,13 +497,13 @@ export default function Products() {
                     product_kind: kind,
                     delivery_type: kind === "digital" ? "inventory" : "service",
                     content: kind === "service"
-                      ? (form.content || "Jasa {product_name} sedang dalam antrean, harap tunggu {wait_minutes} untuk dapat menghubungi admin.")
+                      ? (form.content || "Halo! Pesanan {product_name} sedang diproses manual oleh admin.")
                       : "",
                   });
                 }}
               >
-                <option value="digital">A. Produk Digital / sudah ada datanya</option>
-                <option value="service">B. Produk Jasa</option>
+                <option value="digital">📦 Produk Digital / Stok Akun (Otomatis)</option>
+                <option value="service">🛠️ Jasa / FRESH BY MADE (Proses Manual / Custom)</option>
               </select>
             </div>
 

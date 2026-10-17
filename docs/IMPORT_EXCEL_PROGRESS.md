@@ -36,3 +36,5 @@ Permanent admin preview UI added (IdseExcelPreview.jsx in Products.jsx): upload 
 
 ## Inventory validation implementation
 Inventory reader implemented: valid AVAILABLE only, credential pairs/link/license/custom, payload/Stock ID duplicate suppression, formula rejection, no raw payload in repr/preview. Wired into preview. Actual approved workbook: 21 metadata products, 0 valid available units, 0 inventory errors. This does not compare against database yet; no data apply.
+
+SKU-only DB comparison helper added with CREATE/UPDATE/SKIP/ERROR, changed field names, existing stock counts and record version. Ambiguous SKU/cross-tenant rejected; name-only matching forbidden. Mock tests PASS; not yet wired to upload plan persistence/apply.

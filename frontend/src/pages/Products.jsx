@@ -110,7 +110,7 @@ export default function Products() {
       catalog_name: p.catalog_name || "",
       inventory_fields: (p.inventory_schema || []).join(","),
       delivery_type: p.delivery_type || "link",
-      content: p.service_message_template || p.content || "",
+      content: p.custom_order_template || p.service_message_template || p.content || "",
       wait_minutes: p.service_wait_minutes || 5,
       active: p.active !== false,
     });
@@ -150,6 +150,7 @@ export default function Products() {
       fd.append("content", "");
       fd.append("service_wait_minutes", form.product_kind === "service" ? String(form.wait_minutes || 5) : "");
       fd.append("service_message_template", form.product_kind === "service" ? form.content : "");
+      fd.append("custom_order_template", form.product_kind === "service" ? form.content : "");
       fd.append("active", form.active);
       fd.append("minimum_purchase_qty", String(form.minimum_purchase_qty || 1));
       fd.append("catalog_name", form.catalog_name.trim());
@@ -603,14 +604,15 @@ export default function Products() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-slate-400">Pesan antrean jasa</label>
+                  <label className="text-xs text-slate-400">Pesan Order / Instruksi Jasa & Fresh By Made</label>
                   <textarea
                     rows={4}
                     className={cls}
+                    placeholder="Contoh: Pesanan {product_name} sedang diproses. Silakan kirimkan email Anda..."
                     value={form.content}
                     onChange={(e) => setForm({ ...form, content: e.target.value })}
                   />
-                  <p className="text-[11px] text-slate-500 mt-1">Placeholder: {"{product_name}"} dan {"{wait_minutes}"}.</p>
+                  <p className="text-[11px] text-slate-500 mt-1">Placeholder: {"{product_name}"} dan {"{wait_minutes}"}. Teks ini dikirim saat pembeli memesan produk Jasa / Fresh By Made.</p>
                 </div>
               </div>
             )}

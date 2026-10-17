@@ -68,21 +68,39 @@ def amounts(values: dict) -> str:
 def format_report(kind: str, summary: dict) -> str:
     if kind == "daily_recap":
         top = summary["products"][0] if summary["products"] else None
-        return (f"📊 <b>Rekap Penjualan Harian</b>\n🗓️ {escape(summary['label'])} WIB\n\n"
-                "<blockquote>"
-                f"💰 Total penjualan: <b>{escape(amounts(summary['totals']))}</b>\n"
-                f"📦 Produk terjual: <b>{summary['units']} unit</b>\n"
-                f"🏆 Produk terlaris: <b>{escape(top['name']) if top else 'Belum ada'}</b>"
-                + (f" ({top['qty']} unit)" if top else "")
-                + "</blockquote>\n\n✅ Berdasarkan pesanan yang selesai dikirim.")
+        res = [
+            f"📊 <b>Rekap Penjualan Harian</b>\n🗓️ {escape(summary['label'])} WIB\n",
+            "<blockquote>",
+            f"💰 Total penjualan: <b>{escape(amounts(summary['totals']))}</b>\n",
+            f"📦 Produk terjual: <b>{summary['units']} unit</b>\n",
+            f"🏆 Produk terlaris: <b>{escape(top['name']) if top else 'Belum ada'}</b>" + (f" ({top['qty']} unit)" if top else ""),
+            "</blockquote>",
+        ]
+        # Jika ada data penjualan produk, sertakan tabel rapi
+        if summary.get("products"):
+            res.append("\n<table bordered striped compact>")
+            res.append("<tr><th>Produk</th><th>Terjual</th><th>Total</th></tr>")
+            for row in summary["products"][:5]:
+                res.append(f"<tr><td>{escape(row['name'])}</td><td>{row['qty']} pcs</td><td><code>{escape(amounts(row['sales']))}</code></td></tr>")
+            res.append("</table>\n")
+
+        res.append("\n✅ Berdasarkan pesanan yang selesai dikirim.")
+        return "".join(res)
+
     lines = [f"🏆 <b>Produk Terlaris</b>\n🗓️ {escape(summary['label'])}"]
     if not summary["products"]:
         lines.append("\n<blockquote>📭 Belum ada produk terjual pada periode ini.</blockquote>")
-    for index, row in enumerate(summary["products"][:5], 1):
-        lines.extend(["", f"{index}. <b>{escape(row['name'])}</b>",
-                      "<blockquote>"
-                      f"📦 Terjual: <b>{row['qty']} unit</b>\n"
-                      f"💰 Penjualan: <b>{escape(amounts(row['sales']))}</b>"
-                      "</blockquote>"])
+    else:
+        lines.append("\n<table bordered striped compact>")
+        lines.append("<tr><th>Rank</th><th>Produk</th><th>Terjual</th><th>Omzet</th></tr>")
+        for index, row in enumerate(summary["products"][:5], 1):
+            lines.append(f"<tr><td>{index}</td><td>{escape(row['name'])}</td><td>{row['qty']} pcs</td><td><code>{escape(amounts(row['sales']))}</code></td></tr>")
+        lines.append("</table>")
+        for index, row in enumerate(summary["products"][:5], 1):
+            lines.extend(["", f"{index}. <b>{escape(row['name'])}</b>",
+                          "<blockquote>"
+                          f"📦 Terjual: <b>{row['qty']} unit</b>\n"
+                          f"💰 Penjualan: <b>{escape(amounts(row['sales']))}</b>"
+                          "</blockquote>"])
     lines.append("\n✅ Berdasarkan pesanan yang selesai dikirim.")
     return "\n".join(lines)

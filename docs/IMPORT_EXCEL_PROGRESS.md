@@ -23,3 +23,6 @@ Owner explicitly selected newer Summary for the conflicting fields. Effective ty
 Permanent importer requirement incorporated. Existing admin Products.jsx already has import dialog; existing backend import_workbook route is immediate legacy import and must not be reused as approved dry-run/apply without changes. Next implement reusable reader with dynamic SKU count and safe errors before persistent job/UI integration.
 
 Implemented backend/idse_workbook_schema.py and tests/test_idse_workbook_schema.py: bounded XLSX container, macro/external-link rejection, standard header errors, dynamic row counts ignoring Summary J:K. Five tests PASS; actual structural preflight PASS. Admin upload/diff/confirm/apply/template and semantic reader still PENDING. No production writes.
+
+## Permanent preview API staging implementation
+Tenant-operator protected /api/v2/import-excel/preview and /template added to isolated server source. Template explicitly DRAFT structural template, not complete official template. Mandatory structural preview never applies data. 7 tests PASS; UI/semantic SKU diff/confirmed transactional apply remain pending. No production update or data import.

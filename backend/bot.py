@@ -2617,6 +2617,32 @@ async def show_deposit_history_detail(chat_id, user, dep_id):
     ]})
 
 
+async def show_admin_inventory_tables(chat_id, user, page=1):
+    if not await is_bot_admin(user):
+        return await send_message(chat_id, "Akses ditolak.", kb=back_kb(user.get("lang", "id")))
+    from rich_tables import table_pages
+    page = max(1, min(int(page), 100000))
+    count = await db.products.count_documents({})
+    pages = max(1, (count + 4) // 5)
+    page = min(page, pages)
+    products = await db.products.find({}).sort("_id", 1).skip((page-1)*5).limit(5).to_list(5)
+    records = []
+    for product in products:
+        counts = [await db.inventory_items.count_documents({"product_id":product['_id'], "status":status})
+                  for status in ('available', 'reserved', 'sold')]
+        records.append([str(product.get('name') or '')[:100], *counts, 'Belum terverifikasi'])
+    # Cumulative receipts cannot be reconstructed from currently retained units.
+    rendered = table_pages(f"Inventory admin · {page}/{pages}",
+        ['Product','Available','Reserved','Sold','Total Masuk'], records, page_size=5)
+    buttons = []
+    if page > 1:
+        buttons.append({'text':'Sebelumnya','callback_data':f'richadmin:stock:{page-1}'})
+    if page < pages:
+        buttons.append({'text':'Berikutnya','callback_data':f'richadmin:stock:{page+1}'})
+    kb = {'inline_keyboard': ([buttons] if buttons else []) + [[{'text':'Menu','callback_data':'menu:main'}]]}
+    return await _deliver_rich_pages(chat_id, rendered, kb)
+
+
 async def show_settings(chat_id, user):
     lang = user.get("lang", "id")
     other = "IDR" if user["currency"] == "USD" else "USD"
@@ -2626,6 +2652,8 @@ async def show_settings(chat_id, user):
     ]
     if await is_bot_admin(user):
         rows.append([{"text": "🎨 Custom Welcome Picture", "callback_data": "wmedia:menu"}])
+        if os.environ.get("TELEGRAM_RICH_TABLES_ENABLED", "").strip().lower() in {"1", "true", "yes"}:
+            rows.append([{"text": "Inventory admin", "callback_data": "richadmin:stock:1"}])
     rows.append([{"text": t(lang, "btn_main"), "callback_data": "menu:main"}])
     kb = {"inline_keyboard": rows}
     await send_message(chat_id, t(lang, "settings_title", cur=user["currency"], lang=LANG_NAMES.get(lang, lang)), kb=kb)
@@ -2969,6 +2997,15 @@ async def handle_callback(cb):
         else:
             await reseller_callback(chat_id, data, user)
         return
+
+    if data.startswith("richadmin:stock:"):
+        if os.environ.get("TELEGRAM_RICH_TABLES_ENABLED", "").strip().lower() not in {"1", "true", "yes"}:
+            return
+        try:
+            page = int(data.rsplit(":", 1)[1])
+        except ValueError:
+            return
+        return await show_admin_inventory_tables(chat_id, user, page)
 
     if data.startswith("service:wait:"):
         return

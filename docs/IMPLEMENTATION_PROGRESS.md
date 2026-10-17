@@ -103,3 +103,6 @@ Legacy admin create/update now accept optional warranty_json with strict Warrant
 Admin Products.jsx now includes warranty choice/conditional fields, required name/description for edited/new products and five-field preview before existing Save. Inventory upload path untouched. JSX parser PASS; full frontend build/browser validation pending because isolated checkout has no node_modules. No deployed frontend assets changed.
 
 Frontend baseline lint repaired without suppressions: DNS callback dependencies explicit; tenant profile load follows token changes and avoids duplicate login load. Strict build PASS, not deployed.
+
+## Admin inventory pilot
+Admin inventory summary pilot added behind flag in settings with is_bot_admin authorization. Counts available/reserved/sold from tenant inventory; Total Masuk explicitly unverified because no complete ledger. NOT acceptance PASS. Detail inventory/movement and remaining bot2/reseller flows pending.

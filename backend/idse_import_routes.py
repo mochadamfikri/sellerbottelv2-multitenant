@@ -1,5 +1,5 @@
 """Permanent tenant-admin workbook preflight; apply intentionally unavailable."""
-from fastapi import APIRouter, Depends, File, UploadFile, HTTPException
+from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, Form
 from fastapi.responses import Response
 from tenant_context import get_tenant_context
 from v2_commerce_routes import require_tenant_operator
@@ -12,18 +12,19 @@ router = APIRouter(prefix='/api/v2/import-excel', tags=['idse-import'],
 
 
 @router.post('/preview')
-async def preview(file: UploadFile = File(...), context=Depends(get_tenant_context)):
+async def preview(file: UploadFile = File(...), summary_precedence: bool = Form(False), context=Depends(get_tenant_context)):
     if not (file.filename or '').lower().endswith('.xlsx'):
         raise HTTPException(400, 'Unggah file .xlsx')
     data = await file.read(10 * 1024 * 1024 + 1)
     try:
-        result = inspect_workbook(data)
+        from idse_semantic_preview import semantic_preview
+        result = semantic_preview(data, summary_precedence=summary_precedence)
     except Exception:
         # Parser exceptions may include XML/cell contents; never echo payload.
         raise HTTPException(400, 'XLSX tidak valid atau melewati batas keamanan.') from None
     return {**result, 'tenant_id': context.tenant_id,
-            'phase': 'structural_preview', 'apply_allowed': False,
-            'message': 'Validasi struktur saja; belum ada perubahan database.'}
+            'phase': 'metadata_preview', 'apply_allowed': False,
+            'message': 'Preview metadata; validasi inventory dan apply belum tersedia. Tidak ada perubahan database.'}
 
 
 @router.get('/template')

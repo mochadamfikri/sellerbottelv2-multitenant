@@ -24,3 +24,7 @@ No claim of full baseline pass is made. Detailed test results will be appended p
 Command: `ENVIRONMENT=test python3 -m pytest tests/test_tenant_db.py -q --disable-warnings` in isolated backend.
 Result: FAILED, 22 passed / 2 failed (empty and whitespace PLATFORM_DB_NAME). Offline conftest installs Mongo mocks and disables outbound socket connections before application collection. No production .env exists in isolated worktree.
 This is a pre-existing test/code contract disagreement. Do not silently change runtime fallback behavior on production.
+
+## Renderer checkpoint
+New pure renderer and opt-in transport: 12 tests PASS in 0.96s (escaping, pagination, empty state, limits, money validation, default-off, success, explicit rejection fallback, timeout ambiguity, rate limit and server error no-resend). No live Telegram calls.
+Full unmodified baseline: 601 PASS, 13 FAILED, 17 ERROR, 20 warnings in 98.79s. Legacy backend_test.py requires live network and is correctly blocked by offline harness; other failures include tenant DB naming, bot2, welcome/menu, reseller notifications and platform routes. Full log local /tmp/sellerbottel-rich-baseline.log. This is baseline evidence, not a regression introduced by renderer (not integrated).

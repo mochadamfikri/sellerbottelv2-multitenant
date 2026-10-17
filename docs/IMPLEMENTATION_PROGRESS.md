@@ -65,3 +65,6 @@ Handler map (partial, not full audit):
 
 Backup tooling: mongodump and mongorestore not found on PATH. No database backup or restore rehearsal performed; database topology/consistent snapshot strategy remains unverified. Do not deploy.
 Next: resolve baseline contract decision, complete audit and backup strategy, then shared renderer with default-off flag and timeout-ambiguous no-resend behavior. Android/live Telegram acceptance remains BLOCKED without authorized test chat/device.
+
+## Shared renderer implementation checkpoint
+Implemented isolated files backend/rich_tables.py, backend/rich_table_transport.py, backend/tests/test_rich_tables.py. Shared renderer preserves rows, escapes HTML, enforces conservative budgets, returns labelled plain fallback. Transport reuses tenant-aware tgapi; feature flag defaults off; ambiguous timeout never retries/falls back; explicit 400/404 rejection may fall back. No existing handler imports these modules yet. Unit tests PASS; integration, staging deployment and Android verification PENDING/BLOCKED. No production deployment. Baseline full suite fails independently; do not promote.

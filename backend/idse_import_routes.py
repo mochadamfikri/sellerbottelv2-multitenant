@@ -22,6 +22,9 @@ async def preview(file: UploadFile = File(...), summary_precedence: bool = Form(
     except Exception:
         # Parser exceptions may include XML/cell contents; never echo payload.
         raise HTTPException(400, 'XLSX tidak valid atau melewati batas keamanan.') from None
+    if result.get('products'):
+        from idse_import_plan import compare_products
+        result['database_diff'] = await compare_products(context.database, context.tenant_id, result['products'])
     return {**result, 'tenant_id': context.tenant_id,
             'phase': 'metadata_preview', 'apply_allowed': False,
             'message': 'Preview metadata; validasi inventory dan apply belum tersedia. Tidak ada perubahan database.'}

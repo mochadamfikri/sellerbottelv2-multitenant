@@ -38,3 +38,5 @@ Permanent admin preview UI added (IdseExcelPreview.jsx in Products.jsx): upload 
 Inventory reader implemented: valid AVAILABLE only, credential pairs/link/license/custom, payload/Stock ID duplicate suppression, formula rejection, no raw payload in repr/preview. Wired into preview. Actual approved workbook: 21 metadata products, 0 valid available units, 0 inventory errors. This does not compare against database yet; no data apply.
 
 SKU-only DB comparison helper added with CREATE/UPDATE/SKIP/ERROR, changed field names, existing stock counts and record version. Ambiguous SKU/cross-tenant rejected; name-only matching forbidden. Mock tests PASS; not yet wired to upload plan persistence/apply.
+
+Semantic preview now joins full description plus features/benefits/activation/seller warranty/references/bot summary by SKU. Internal risk and verification columns excluded. Actual workbook 21/21 content joins, 20457 full-description characters, zero join errors. Protected preview now calls SKU DB comparison on context.database. Confirmation/apply still pending.

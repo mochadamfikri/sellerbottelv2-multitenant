@@ -25,6 +25,26 @@ def semantic_preview(data, *, summary_precedence=False):
             sku, category, name, kind, target = row
             if isinstance(target,str) and target in w.sheetnames and isinstance(sku,str) and w[target]['B3'].value == sku:
                 mappings.append((sku,category,name,kind,target))
+        descriptions = {}
+        description_sheet = w['Deskripsi & Aktivasi']
+        if description_sheet.max_row > 10000:
+            report['errors'].append({'code':'DESCRIPTION_LIMIT'})
+            return report
+        for cells in description_sheet.iter_rows(min_row=2, max_col=10):
+            vals = [c.value for c in cells]
+            if not vals[0]:
+                continue
+            sku_key = str(vals[0]).strip()
+            if sku_key in descriptions:
+                report['errors'].append({'code':'DUPLICATE_DESCRIPTION_SKU','row':cells[0].row})
+                continue
+            if any(c.data_type == 'f' for c in cells):
+                report['errors'].append({'code':'DESCRIPTION_FORMULA_FORBIDDEN','row':cells[0].row})
+                continue
+            # Only approved field names; internal risk column deliberately excluded.
+            descriptions[sku_key] = dict(zip(
+                ('features','benefits','activation','seller_warranty','official_sources','bot_summary'),
+                [vals[3],vals[4],vals[5],vals[6],vals[8],vals[9]]))
         seen = set()
         for number, row in enumerate(w['Summary'].iter_rows(min_row=2,max_col=8,values_only=True),2):
             if not any(v is not None for v in row): continue
@@ -41,6 +61,11 @@ def semantic_preview(data, *, summary_precedence=False):
                 continue
             sku, _, _, mapped_kind, target = candidates[0]
             issues = []
+            content = descriptions.get(sku)
+            if content is None:
+                issues.append('DESCRIPTION_SKU_MISSING')
+            if not isinstance(description, str) or not description.strip() or description.startswith('='):
+                issues.append('FULL_DESCRIPTION_REQUIRED')
             if sku in seen: issues.append('DUPLICATE_SKU')
             seen.add(sku)
             if kind not in ('Product','Jasa','FRESH BY MADE'):issues.append('INVALID_KIND')
@@ -65,7 +90,8 @@ def semantic_preview(data, *, summary_precedence=False):
                 from idse_inventory_reader import read_inventory
                 inventory = read_inventory(detail).public()
             report['products'].append({'sku':sku,'source_sheet':target,'summary_row':number,
-                'kind':kind,'price_idr':amount,'availability':int(fresh_ready) if kind=='FRESH BY MADE' else None,
+                'name':name,'catalog_name':category,'description':description,'content':content,
+                'source_kind':kind,'kind':kind,'price_idr':amount,'availability':int(fresh_ready) if kind=='FRESH BY MADE' else None,
                 'action':'REVIEW','issues':issues,'inventory':inventory, 'stock_validation':'FAILED' if inventory['issues'] else 'PASS','publication':'REVIEW_REQUIRED'})
         report['apply_allowed'] = False
         return report

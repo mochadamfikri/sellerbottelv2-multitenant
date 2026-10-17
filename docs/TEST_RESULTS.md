@@ -33,3 +33,6 @@ Full unmodified baseline: 601 PASS, 13 FAILED, 17 ERROR, 20 warnings in 98.79s. 
 624 PASS, 20 warnings in 9.37s: `ENVIRONMENT=test python3 -m pytest -q --disable-warnings --ignore=tests/backend_test.py`. Legacy live-server suite explicitly excluded, NOT claimed passing; its offline network failures remain documented above.
 Fixes: scoped QR transport mocks (real-shaped responses), correct welcome transport alias, grouped-menu/current brand assertions, notification feature flags + actual composer boundary mock, isolated platform registry fixture, reject explicitly blank configured database name while preserving fallback when absent. Original production configuration unchanged.
 Earlier shared renderer/commerce subset: 53 PASS, 4 warnings in 1.87s.
+
+## Catalog pilot regression
+626 PASS, 20 warnings in 9.47s using offline suite excluding tests/backend_test.py. New flag-on integration tests prove five headers, tenant-isolated database selection, hidden product exclusion, no secret projection, stable product callback, and old-message retention when send fails. No Telegram device/API send performed.

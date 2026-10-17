@@ -440,7 +440,68 @@ def stock_button_style(stock) -> str:
     return "primary"
 
 
+async def _send_rich_catalog(chat_id, user, page=1, catalog=None):
+    from rich_tables import table_pages
+    from rich_table_transport import send_table
+    products = await db.products.find({"active": True}).to_list(None)
+    # Stable tie-breaker without changing legacy catalog order when flag is off.
+    products.sort(key=lambda p: str(p["_id"]))
+    group, entries, page, pages = catalog_slice(products, catalog, page, size=5)
+    title = (group["name"] if group else "Katalog tidak tersedia") if catalog else "Katalog produk"
+    title = str(title)[:150] + f" · Halaman {page}/{pages}"
+    buttons, records = [], []
+    def brief(value, limit):
+        value = str(value or "")
+        return value if len(value) <= limit else value[:limit-1] + "…"
+    if catalog:
+        headers = ["Product", "Stock", "Harga", "Garansi", "Deskripsi"]
+        for product in entries:
+            stock = await stock_for(product)
+            pricing = await price_for_product(product, user["currency"], 1)
+            # Legacy warranty metadata absent: never invent a warranty promise.
+            records.append([brief(product.get("name"), 80),
+                "Unlimited" if stock is None else str(int(stock)),
+                fmt_amount(pricing["unit_price"], user["currency"]),
+                "Belum diinformasikan", brief(product.get("description") or "Belum dilengkapi", 120)])
+            buttons.append([{"text": brief(product.get("name"), 60), "callback_data": f"prod:{product['_id']}"}])
+        prefix = f"catalog:{catalog}:"
+    else:
+        headers = ["Kategori", "Produk aktif"]
+        for entry in entries:
+            records.append([brief(entry["name"], 80), len(entry["products"])])
+            buttons.append([{"text": brief(entry["name"], 60), "callback_data": f"catalog:{entry['token']}:1"}])
+        prefix = "products:"
+    nav = []
+    if page > 1:
+        nav.append({"text": "⬅️ Sebelumnya", "callback_data": f"{prefix}{page-1}"})
+    if page < pages:
+        nav.append({"text": "Berikutnya ➡️", "callback_data": f"{prefix}{page+1}"})
+    if nav:
+        buttons.append(nav)
+    if catalog:
+        buttons.append([{"text": "Semua katalog", "callback_data": "products:1"}])
+    buttons.append([{"text": "Menu", "callback_data": "menu:main"}])
+    for row in buttons:
+        for button in row:
+            if len(button["callback_data"].encode()) > 64:
+                raise ValueError("Callback exceeds Telegram limit")
+    rendered = table_pages(title, headers, records, page_size=5)
+    if len(rendered) != 1:
+        raise ValueError("Catalog page exceeds budget")
+    # Retain old message until confirmed successful send. Never delete after
+    # timeout or retry automatically; caller may explicitly refresh later.
+    old_id = _EDIT_TARGETS.pop(chat_id, None)
+    result = await send_table(chat_id, rendered[0], {"inline_keyboard": buttons})
+    if result.get("ok"):
+        await _remember_bot_message(chat_id, result)
+        if old_id is not None:
+            await _delete_flow_messages(chat_id, old_id)
+    return result
+
+
 async def show_products(chat_id, user, page=1, catalog=None):
+    if os.environ.get("TELEGRAM_RICH_TABLES_ENABLED", "").strip().lower() in {"1", "true", "yes"}:
+        return await _send_rich_catalog(chat_id, user, page, catalog)
     products = await db.products.find({"active": True}).to_list(None)
     group, entries, page, pages = catalog_slice(products, catalog, page)
     rows = []

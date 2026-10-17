@@ -71,3 +71,6 @@ Implemented isolated files backend/rich_tables.py, backend/rich_table_transport.
 
 ## Baseline repair checkpoint
 Offline suite PASS 624 tests excluding legacy live-server suite. Changed backend/tenant_db.py (fail closed on explicitly blank configured DB name); tests/test_bot2_flow.py, test_bot_start_welcome.py, test_reseller_flow.py, test_v2_platform_routes.py (stale expectations and isolation mocks). No live database/config changes. Deployment remains BLOCKED pending backup/rehearsal/staging/Android.
+
+## Catalog pilot (development only)
+backend/bot.py adds default-off native catalog/category list pilot. Existing legacy path remains unchanged with flag off. Uses real stock_for/pricing services and ambient tenant database; five rows per page, short list descriptions, ID callbacks; deletes previous message only after confirmed send. Warranty remains explicitly unknown pending metadata phase. Not yet complete: bot2/reseller integration, rich details, stock/history/admin forms/snapshots, live staging/Android, backup restore rehearsal. No phase deployment passed.

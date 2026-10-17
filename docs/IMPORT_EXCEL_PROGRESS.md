@@ -44,3 +44,6 @@ Semantic preview now joins full description plus features/benefits/activation/se
 Encrypted durable plan helper implemented and tested: workbook/preview encrypted at rest, tenant+actor-bound opaque confirmation, digest and expiry. Mock test PASS; helper not yet wired to HTTP confirmation/apply. Production unchanged.
 
 Protected nonempty upload previews now persist encrypted plans bound to tenant/admin; missing encryption config fails 503 rather than writing plaintext. No product/inventory apply endpoint yet. Existing preview tests and plan guards PASS (3 tests); full HTTP nonempty plan test pending.
+
+## Metadata apply engine development
+Metadata apply engine implemented against injected DB: deterministic SKU IDs, prepared receipts, idempotent replay, stale-record rejection, inactive new products, no inventory writes, and catalog_details separated from legacy fulfillment content. Not wired to public apply endpoint until rollback/partial failure verification complete. Production unchanged.

@@ -16,3 +16,7 @@ No implementation deployment has occurred. The active production process on `127
 ## Production gate
 
 Production rollback steps will be completed with an environment-specific backup/restore rehearsal before any release. No production migration or restart is authorized by this document. If a release would require downtime or a risky restart, stop and request Owner approval first.
+
+## Verified infrastructure gate
+No mongodump/mongorestore/mongod/mongosh found on agent PATH. Docker CLI exists but daemon access returns permission denied; `sudo -n docker ps` requires a password. Only observed Mongo listener is localhost:27017 (treat as production; never use for tests). Backup/restore rehearsal and real DB staging are BLOCKED pending provisioned isolated MongoDB and backup tooling or authorized operator execution. No credentials requested through plain chat. Active app PID 18067 still listening at 8002.
+Latest application pilot commit: e557a69; baseline repair be2bb1c; renderer d4825b7. No production rollout authorized or attempted.

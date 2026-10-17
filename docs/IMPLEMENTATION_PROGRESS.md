@@ -74,3 +74,7 @@ Offline suite PASS 624 tests excluding legacy live-server suite. Changed backend
 
 ## Catalog pilot (development only)
 backend/bot.py adds default-off native catalog/category list pilot. Existing legacy path remains unchanged with flag off. Uses real stock_for/pricing services and ambient tenant database; five rows per page, short list descriptions, ID callbacks; deletes previous message only after confirmed send. Warranty remains explicitly unknown pending metadata phase. Not yet complete: bot2/reseller integration, rich details, stock/history/admin forms/snapshots, live staging/Android, backup restore rehearsal. No phase deployment passed.
+
+## Verified infrastructure gate
+No mongodump/mongorestore/mongod/mongosh found on agent PATH. Docker CLI exists but daemon access returns permission denied; `sudo -n docker ps` requires a password. Only observed Mongo listener is localhost:27017 (treat as production; never use for tests). Backup/restore rehearsal and real DB staging are BLOCKED pending provisioned isolated MongoDB and backup tooling or authorized operator execution. No credentials requested through plain chat. Active app PID 18067 still listening at 8002.
+Latest application pilot commit: e557a69; baseline repair be2bb1c; renderer d4825b7. No production rollout authorized or attempted.

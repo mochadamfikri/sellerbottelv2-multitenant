@@ -69,3 +69,5 @@ Strict frontend build now PASS after explicit useCallback/effect dependency fixe
 
 ## Admin inventory pilot
 Latest full offline suite: 640 PASS, 20 warnings in 9.20s. Admin summary needs explicit privilege/count acceptance tests; existing suite is regression proof only.
+
+Explicit admin inventory role/count test PASS (1 test, 0.94s): customer denied; tenant-local status counts only; secrets excluded; cumulative count explicitly unknown.

@@ -19,3 +19,7 @@ Audit RUNNING; conflicts BLOCKED. No COMPLETE claim.
 
 ## Owner precedence decision — 2026-10-17 20:07 WIB
 Owner explicitly selected newer Summary for the conflicting fields. Effective types: 14 Product, 4 Jasa, 3 FRESH BY MADE. PRD002/PRD003 become Fresh; PRD009 price_idr=95000 and PRD010 price_idr=125000. Detail sheet blank prices must not override these approved Summary prices. This supersedes the master 16/4/1 and two-blank-price assumptions for this workbook only. No approval to apply to production. Fresh custom-message and activation status still require validation; absence must keep availability zero.
+
+Permanent importer requirement incorporated. Existing admin Products.jsx already has import dialog; existing backend import_workbook route is immediate legacy import and must not be reused as approved dry-run/apply without changes. Next implement reusable reader with dynamic SKU count and safe errors before persistent job/UI integration.
+
+Implemented backend/idse_workbook_schema.py and tests/test_idse_workbook_schema.py: bounded XLSX container, macro/external-link rejection, standard header errors, dynamic row counts ignoring Summary J:K. Five tests PASS; actual structural preflight PASS. Admin upload/diff/confirm/apply/template and semantic reader still PENDING. No production writes.

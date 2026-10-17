@@ -16,3 +16,6 @@ Next: confirm field precedence then parser/validator offline, SKU mapping read-o
 
 ## Document-specific status
 Structural audit only: 25 sheets/header/21 unique detail SKUs PASS. Semantic validation BLOCKED by four conflicts. No importer automated tests run yet.
+
+## Reusable schema preflight
+5 tests PASS in 1.00s: variable 1/21/35 product workbooks, invalid container, safe header error without raw values. Actual uploaded workbook: 25 sheets, 21 Summary rows, no structural errors, apply_allowed=false. This validates structure only, not stock/metadata/apply semantics.

@@ -16,3 +16,8 @@ Next: confirm field precedence then parser/validator offline, SKU mapping read-o
 
 ## Document-specific status
 Phases: reader -> validator -> mapping -> metadata -> Product stock -> Jasa -> Fresh -> UI -> history -> regression. Production apply is not authorized.
+
+## Permanent reusable importer — Owner requirement 2026-10-17 20:08 WIB
+Importer is a durable admin feature, not a one-off script. Future valid workbooks may contain different sheet/SKU counts; 25/21 is only the initial fixture. Required UI flow: download official template -> upload -> schema validation/mapping errors -> tenant-scoped SKU diff -> mandatory dry-run -> explicit confirmation -> idempotent batched apply -> result/audit/rollback. No name-only matching, missing-record deletion, silent precedence, or credential exposure. Preserve checkout/inventory business logic.
+Template version and SKU linkage must be explicit. Unrecognized columns return actionable sheet/cell errors; do not infer ambiguous fields. Approval bound to workbook digest, tenant, actor and database version; reject stale preview. Stage uploads privately/encrypted; publish no raw inventory. Retry resumes confirmed batch, never resets sold/reserved units. Rollback compare-and-set only unchanged metadata/new unsold units; never reverse later sales.
+Acceptance: first upload, replay, price update, new inventory, malformed schema, partial failure/recovery, cross-tenant denial, template round-trip; production remains blocked pending tests and fresh Owner approval. UI must operate without AI/terminal.

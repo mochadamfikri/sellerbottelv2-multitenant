@@ -349,6 +349,17 @@ async def show_product(chat_id, pid=None, message_id=None, product_index=None):
             [{"text": "◀️ Varian katalog", "callback_data": f"b2:catalog:{catalog_token(product)}:1"}],
             [{"text": "🔔 Notif Restok", "callback_data": f"b2:restock:{product['_id']}"}],
         ]}
+    if os.environ.get("TELEGRAM_RICH_TABLES_ENABLED", "").strip().lower() in {"1", "true", "yes"}:
+        from product_rich_views import product_detail_pages
+        from rich_table_transport import send_table
+        pages = product_detail_pages(product, stock, fmt_amount(price['unit_price'], 'IDR'))
+        for index, page in enumerate(pages):
+            result = await send_table(chat_id, page, kb if index == len(pages)-1 else None, transport=tg2)
+            if not result.get("ok"):
+                return result
+        if message_id is not None:
+            await delete2(chat_id, message_id)
+        return result
     return await edit2(chat_id, message_id, text, kb=kb) if message_id else await send2(chat_id, text, kb=kb)
 
 

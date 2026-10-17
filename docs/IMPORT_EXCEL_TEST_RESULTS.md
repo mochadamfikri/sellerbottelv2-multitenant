@@ -24,3 +24,5 @@ Structural audit only: 25 sheets/header/21 unique detail SKUs PASS. Semantic val
 
 ## Semantic preview checkpoint
 Actual workbook semantic dry-run with approved precedence: 21 mapped, zero mapping errors; count 14/4/3; PRD009=95000, PRD010=125000; PRD002/003/FBM001 report FRESH_CONFIG_REQUIRED and availability 0. This is metadata preview only; no inventory/apply acceptance claim.
+
+Combined preflight/API/semantic suite: 8 PASS, 4 warnings in 1.57s. Includes explicit conflict approval and Fresh unavailable guard.

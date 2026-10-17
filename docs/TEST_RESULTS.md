@@ -64,3 +64,5 @@ Products.jsx syntax PASS via existing Babel parser (read-only dependency reuse).
 
 ## Frontend build evidence
 Copied dependencies into isolated checkout (no symlink, no production writes). Strict `CI=true GENERATE_SOURCEMAP=false npm run build`: FAILED due to existing exhaustive-deps warnings in DnsVerify.jsx:37 and TenantPanel.jsx:41. Diagnostic `CI=false GENERATE_SOURCEMAP=false npm run build`: compiled with those warnings; assets main.828ce75c.js and main.29777b6f.css in isolated build only. This does NOT satisfy strict CI gate. Browser/Android not verified.
+
+Strict frontend build now PASS after explicit useCallback/effect dependency fixes in DnsVerify.jsx and TenantPanel.jsx. CI=true GENERATE_SOURCEMAP=false npm run build compiled successfully; main.625a8f88.js. Browser lifecycle regression still requires verification.

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Globe, RefreshCw, X, CheckCircle, AlertCircle, Copy, ChevronDown } from "lucide-react";
 import api from "../lib/api";
@@ -22,20 +22,6 @@ export default function DnsVerify() {
   const intervalRef = useRef(null);
   const cooldownRef = useRef(null);
 
-  useEffect(() => {
-    if (!domain) {
-      navigate("/daftar", { replace: true });
-      return;
-    }
-    // Auto-check tiap 5 detik
-    checkDns();
-    intervalRef.current = setInterval(checkDns, 5000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      if (cooldownRef.current) clearInterval(cooldownRef.current);
-    };
-  }, [domain]);
-
   // Cooldown timer
   useEffect(() => {
     if (cooldown > 0) {
@@ -44,7 +30,7 @@ export default function DnsVerify() {
     }
   }, [cooldown]);
 
-  const checkDns = async () => {
+  const checkDns = useCallback(async () => {
     try {
       const res = await api.get("/public/register/check-dns", { params: { domain } });
       if (res.data.connected) {
@@ -78,7 +64,21 @@ export default function DnsVerify() {
     } catch {
       setStatus("failed");
     }
-  };
+  }, [domain, formData, verifyToken, pkg, navigate]);
+
+  useEffect(() => {
+    if (!domain) {
+      navigate("/daftar", { replace: true });
+      return;
+    }
+    // Auto-check tiap 5 detik
+    checkDns();
+    intervalRef.current = setInterval(checkDns, 5000);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (cooldownRef.current) clearInterval(cooldownRef.current);
+    };
+  }, [domain, navigate, checkDns]);
 
   const handleRefresh = () => {
     if (cooldown > 0) return;

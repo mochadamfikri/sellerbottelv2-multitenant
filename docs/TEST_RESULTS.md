@@ -59,3 +59,5 @@ Latest branch bf9f389 regression: 640 PASS, 20 warnings in 9.32s; command unchan
 
 ## Admin metadata compatibility checkpoint
 Optional legacy admin metadata compatibility: 640 PASS, 20 warnings in 9.25s. Explicit HTTP tests for new optional field still needed; existing suite proves regression coverage only.
+
+Products.jsx syntax PASS via existing Babel parser (read-only dependency reuse). This is NOT a frontend build/E2E PASS.

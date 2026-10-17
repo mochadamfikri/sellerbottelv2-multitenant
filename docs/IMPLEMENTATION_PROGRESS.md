@@ -99,3 +99,5 @@ Secondary bot detail pilot now uses shared renderer with explicitly injected tg2
 
 ## Admin metadata compatibility checkpoint
 Legacy admin create/update now accept optional warranty_json with strict WarrantyMetadata validation. Explicit structured metadata submissions require name/description and finite nonnegative prices. Old forms remain compatible; frontend form controls and preview still pending. File backend/admin_routes.py. No production changes.
+
+Admin Products.jsx now includes warranty choice/conditional fields, required name/description for edited/new products and five-field preview before existing Save. Inventory upload path untouched. JSX parser PASS; full frontend build/browser validation pending because isolated checkout has no node_modules. No deployed frontend assets changed.

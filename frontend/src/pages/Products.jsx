@@ -7,6 +7,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/
 import { Switch } from "../components/ui/switch";
 
 const empty = {
+  warranty_status: "unknown",
+  warranty_duration: "",
+  warranty_coverage: "",
+  warranty_terms: "",
+  warranty_claim_process: "",
   name: "",
   description: "",
   price_usd: "",
@@ -85,6 +90,11 @@ export default function Products() {
   const openEdit = (p) => {
     const kind = p.product_kind || (p.delivery_type === "inventory" ? "digital" : "service");
     setForm({
+      warranty_status: p.warranty?.enabled === true ? "yes" : p.warranty?.enabled === false ? "no" : "unknown",
+      warranty_duration: p.warranty?.duration || "",
+      warranty_coverage: p.warranty?.coverage || "",
+      warranty_terms: p.warranty?.terms || "",
+      warranty_claim_process: p.warranty?.claim_process || "",
       name: p.name || "",
       description: p.description || "",
       price_usd: p.price_usd ?? "",
@@ -111,9 +121,22 @@ export default function Products() {
   };
 
   const save = async () => {
+    if (!form.name.trim() || !form.description.trim()) {
+      toast.error("Nama dan deskripsi wajib diisi."); return;
+    }
+    if (form.warranty_status === "unknown") {
+      toast.error("Pilih Ada atau Tidak Ada untuk garansi."); return;
+    }
+    if (form.warranty_status === "yes" && !form.warranty_duration.trim()) {
+      toast.error("Durasi garansi wajib diisi."); return;
+    }
     setSaving(true);
     try {
       const fd = new FormData();
+      fd.append("warranty_json", JSON.stringify(form.warranty_status === "yes" ? {
+        enabled: true, duration: form.warranty_duration, coverage: form.warranty_coverage,
+        terms: form.warranty_terms, claim_process: form.warranty_claim_process,
+      } : { enabled: false }));
       fd.append("name", form.name);
       fd.append("description", form.description);
       fd.append("price_usd", form.price_usd);
@@ -505,6 +528,14 @@ export default function Products() {
             </div>
 
             <div>
+              <label className="text-xs text-slate-400">Garansi</label>
+              <select className={cls} value={form.warranty_status} onChange={(e) => setForm({ ...form, warranty_status: e.target.value })}>
+                <option value="unknown">Perlu dilengkapi</option><option value="yes">Ada</option><option value="no">Tidak Ada</option>
+              </select>
+              {form.warranty_status === "yes" && [["duration", "Durasi (mis. 7 hari)"], ["coverage", "Cakupan"], ["terms", "Syarat"], ["claim_process", "Cara klaim"]].map(([key, label]) => <label key={key} className="block text-xs text-slate-400 mt-2">{label}<textarea className={cls} maxLength={key === "duration" ? 120 : 4000} value={form[`warranty_${key}`]} onChange={(e) => setForm({ ...form, [`warranty_${key}`]: e.target.value })} /></label>)}
+              <table className="w-full text-sm mt-3"><caption>Preview sebelum simpan</caption><tbody>
+                {[["Product", form.name], ["Stock", form.product_kind === "service" ? "Unlimited" : "Terhitung dari inventory tersedia"], ["Harga", form.price_idr ? fmtIDR(form.price_idr) : "Mengikuti konversi harga existing"], ["Garansi", form.warranty_status === "yes" ? form.warranty_duration : form.warranty_status === "no" ? "Tidak Ada" : "Perlu dilengkapi"], ["Deskripsi", form.description]].map(([label, value]) => <tr key={label}><th className="text-left align-top pr-3">{label}</th><td className="whitespace-pre-wrap break-words">{value}</td></tr>)}
+              </tbody></table>
               <label className="text-xs text-slate-400">Deskripsi</label>
               <textarea rows={3} className={cls} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
             </div>

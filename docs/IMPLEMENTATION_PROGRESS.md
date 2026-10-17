@@ -81,3 +81,6 @@ Latest application pilot commit: e557a69; baseline repair be2bb1c; renderer d482
 
 ## Product detail checkpoint
 Detail produk native opt-in di bot utama ditambahkan; warranty enabled false dibedakan dari unknown; hanya ketentuan nyata dirender. Deskripsi panjang dipecah tanpa kehilangan data. Form metadata dan order snapshots belum diimplementasikan. User mengizinkan melewati gate infrastruktur untuk melanjutkan; tidak ada klaim backup PASS atau deployment. File: backend/product_rich_views.py, backend/bot.py, backend/tests/test_product_rich_views.py. Status implementation PARTIAL; deployment NOT DEPLOYED.
+
+## Public stock checkpoint
+Public Stock opt-in integrated into existing show_stock_view, preserving stockpage/stockadd/cart actions and stock service. Tables exclude unit secrets. Admin inventory and ledger not implemented. Flag remains off; no production deployment.

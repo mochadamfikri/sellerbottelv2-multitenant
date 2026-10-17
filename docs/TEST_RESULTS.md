@@ -39,3 +39,6 @@ Earlier shared renderer/commerce subset: 53 PASS, 4 warnings in 1.87s.
 
 ## Product detail checkpoint
 Detail checkpoint: 629 PASS, 20 warnings in 9.62s. Command ENVIRONMENT=test python3 -m pytest -q --disable-warnings --ignore=tests/backend_test.py. Long unicode description, conditional warranty, escaping validated; live Android and production deployment unverified.
+
+## Public stock checkpoint
+633 PASS, 20 warnings in 9.57s; offline suite excluding legacy live-server backend_test.py. Flag-on catalog/detail/stock tests verify tenant isolation, hidden products, secret exclusion and no delete after failed send. Android/live API remain unverified.

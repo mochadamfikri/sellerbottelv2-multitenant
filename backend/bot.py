@@ -857,6 +857,31 @@ async def show_stock_view(chat_id, user, page=1, *, loading=False, edit_id=None)
         {"text": t(lang, "btn_main"), "callback_data": "menu:main"},
         {"text": f"🛒 Keranjang ({count})", "callback_data": "menu:cart"},
     ])
+    if os.environ.get("TELEGRAM_RICH_TABLES_ENABLED", "").strip().lower() in {"1", "true", "yes"}:
+        from rich_tables import table_pages
+        from product_rich_views import warranty_label
+        from rich_table_transport import send_table
+        records = []
+        for _, product, number in items:
+            stock = await stock_for(product)
+            pricing = await price_for_product(product, user.get("currency") or "IDR", 1)
+            records.append([f"{number}. {str(product.get('name') or '')[:80]}",
+                "Unlimited" if stock is None else str(int(stock)),
+                fmt_amount(pricing["unit_price"], user.get("currency") or "IDR"),
+                warranty_label(product)[:80], str(product.get("description") or "Belum dilengkapi")[:120]])
+        rendered = table_pages(f"Stock · Halaman {page}/{total_pages}",
+            ["Product", "Stock", "Harga", "Garansi", "Deskripsi"], records, page_size=5)
+        previous = _EDIT_TARGETS.pop(chat_id, None)
+        old_id = edit_id if edit_id is not None else previous
+        flow = str(uuid.uuid4())
+        for index, table in enumerate(rendered):
+            result = await send_table(chat_id, table, {"inline_keyboard": rows} if index == len(rendered)-1 else None)
+            if not result.get("ok"):
+                return result
+            await _remember_bot_message(chat_id, result, flow=flow)
+        if old_id is not None:
+            await _delete_flow_messages(chat_id, old_id)
+        return
     if loading:
         # The loading helper owns the message lifecycle (reuse or replace),
         # so don't let send_message touch the callback message afterwards.

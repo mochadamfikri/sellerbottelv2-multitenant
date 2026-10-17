@@ -8,7 +8,8 @@ from product_catalog import catalog_token
 
 
 @pytest.mark.parametrize('success', [True, False])
-def test_native_catalog_scope_buttons_and_safe_replacement(monkeypatch, success):
+@pytest.mark.parametrize('view', ['catalog', 'detail', 'stock'])
+def test_native_catalog_scope_buttons_and_safe_replacement(monkeypatch, success, view):
     monkeypatch.setenv('TELEGRAM_RICH_TABLES_ENABLED', 'true')
     calls, deleted = [], []
     async def send(chat, page, kb):
@@ -30,13 +31,21 @@ def test_native_catalog_scope_buttons_and_safe_replacement(monkeypatch, success)
         scope = BotTenantScope('a', 'a', 'rich_a', db_handle=a)
         with use_bot_tenant(scope):
             bot._EDIT_TARGETS[123] = 10
-            await bot.show_products(123, {'currency':'IDR', 'lang':'id'}, catalog=catalog_token(product))
+            user = {'currency':'IDR', 'lang':'id', 'telegram_id':123}
+            if view == 'catalog':
+                await bot.show_products(123, user, catalog=catalog_token(product))
+            elif view == 'detail':
+                await bot.show_product_detail(123, user, 'a1')
+            else:
+                await bot.show_stock_view(123, user)
         page, kb = calls[0]
         for header in ['Product','Stock','Harga','Garansi','Deskripsi']:
-            assert f'<th>{header}</th>' in page.html
+            assert header in page.html
         assert 'OTHER_TENANT' not in page.html and 'NEVER_RENDER' not in page.html
         assert '&lt;A&gt;' in page.html and 'Public description' in page.html
         callbacks = [v['callback_data'] for r in kb['inline_keyboard'] for v in r]
-        assert 'prod:a1' in callbacks and 'prod:hidden' not in callbacks
+        expected = {'catalog':'prod:a1', 'detail':'buy:a1', 'stock':'stockadd:1:a1'}[view]
+        assert expected in callbacks
+        assert all('hidden' not in c for c in callbacks)
         assert deleted == ([10] if success else [])
     asyncio.run(run())

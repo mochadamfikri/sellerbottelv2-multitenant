@@ -42,3 +42,5 @@ Persistent preview checkpoint: 655 PASS, 20 warnings in 9.39s, offline suite exc
 
 ## Metadata apply engine development
 Metadata apply mock test PASS: first create + replay yields one product; inactive default; actual catalog_details isolated from fulfillment content; concurrent price update rejects stale plan and remains unchanged.
+
+Metadata engine full regression: 656 PASS, 20 warnings in 9.12s. Offline mock tests; not production apply proof.

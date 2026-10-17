@@ -268,7 +268,7 @@ async def _resolve_bot_display_name(settings: dict) -> str:
 
 
 async def _send_welcome_photo(chat_id, photo_ref: str, caption: str, kb,
-                            animated: bool = False):
+                            animated: bool = False, video: bool = False):
     """Send the /start banner photo (or GIF animation), falling back gracefully.
 
     photo_ref may be a Telegram file_id, an http(s) URL, or a local path.
@@ -282,7 +282,9 @@ async def _send_welcome_photo(chat_id, photo_ref: str, caption: str, kb,
         short_caption = None
         follow_up = caption
     try:
-        if animated:
+        if video:
+            send_id, send_url, send_bytes = (tg_send_video_by_id, tg_send_video_by_url, tg_send_video_bytes)
+        elif animated:
             send_id, send_url, send_bytes = (
                 tg_send_animation_by_id, tg_send_animation_by_url,
                 tg_send_animation_bytes)
@@ -319,10 +321,22 @@ async def _send_welcome_flexible(chat_id, text: str, kb, store_name: str) -> boo
     """
     try:
         scope = get_current_scope()
-        media = dict(getattr(scope, "welcome_media", None) or {})
+        media = dict(getattr(scope, "welcome_media", None) or {}) if scope else {}
         slug = getattr(scope, "slug", "bot") or "bot"
         display = (getattr(scope, "bot_display_name", "") or store_name)
+        # Webhook/legacy mode does not install a BotTenantScope. Load the
+        # central bot's persisted welcome media so /start still honors the
+        # setting saved by the admin menu.
+        if not media:
+            from db import client as _client
+            from tenant_db import resolve_platform_database_name
+            platform_db = _client[resolve_platform_database_name(os.environ)]
+            central = await platform_db["platform_config"].find_one({"_id": "central_bot"}) or {}
+            media = dict(central.get("welcome_media") or {})
+            display = display or central.get("brand_name") or store_name
+            slug = "central"
     except Exception:
+        logger.exception("Could not load welcome media configuration")
         return False
     if not media.get("enabled"):
         return False
@@ -338,8 +352,9 @@ async def _send_welcome_flexible(chat_id, text: str, kb, store_name: str) -> boo
         if not ref:
             return False
         kind = (media.get("kind") or "").lower()
-        animated = kind == "animation" or (kind != "photo" and _looks_animated(ref))
-        await _send_welcome_photo(chat_id, ref, text, kb, animated=animated)
+        video = kind == "video" or (kind not in ("photo", "animation") and ref.lower().split("?")[0].endswith((".mp4", ".mov", ".m4v")))
+        animated = not video and (kind == "animation" or (kind != "photo" and _looks_animated(ref)))
+        await _send_welcome_photo(chat_id, ref, text, kb, animated=animated, video=video)
         return True
     except Exception:
         logger.exception("Flexible welcome failed; falling back to text")
@@ -2608,7 +2623,10 @@ async def handle_welcome_photo_upload(chat_id, user, message) -> bool:
         await set_state(user["telegram_id"], None)
         return False
     file_id, kind = None, "photo"
-    if message.get("animation"):
+    if message.get("video"):
+        file_id = (message.get("video") or {}).get("file_id")
+        kind = "video"
+    elif message.get("animation"):
         file_id = (message.get("animation") or {}).get("file_id")
         kind = "animation"
     elif message.get("photo"):
@@ -2617,27 +2635,30 @@ async def handle_welcome_photo_upload(chat_id, user, message) -> bool:
     elif (message.get("document") or {}).get("mime_type") == "image/gif":
         file_id = (message.get("document") or {}).get("file_id")
         kind = "animation"
+    elif (message.get("document") or {}).get("mime_type", "").lower().startswith("video/"):
+        file_id = (message.get("document") or {}).get("file_id")
+        kind = "video"
     if not file_id:
-        await send_message(chat_id, "Kirim foto atau GIF ya. /batal untuk membatalkan.",
+        await send_message(chat_id, "Kirim foto, GIF, atau video ya. /batal untuk membatalkan.",
                            kb=cancel_kb(lang))
         return True
     await _save_welcome_media({"enabled": True, "mode": "upload",
                                "file": file_id, "kind": kind})
     await set_state(user["telegram_id"], None)
-    label = "GIF 🎞️" if kind == "animation" else "Foto 🖼️"
+    label = "Video 🎬" if kind == "video" else ("GIF 🎞️" if kind == "animation" else "Foto 🖼️")
     await send_message(chat_id,
                        f"✅ {label} tersimpan! Coba /start untuk melihat hasilnya.",
                        kb=back_kb(lang))
     return True
 
 
-async def show_welcome_media_menu(chat_id, user):
+async def show_welcome_media_menu(chat_id, user, media_override=None):
     """Admin-only panel to customize the /start welcome picture."""
     if not await is_bot_admin(user):
         await send_message(chat_id, "⛔ Khusus admin bot.", kb=back_kb(user.get("lang", "id")))
         return
     scope = get_current_scope()
-    media = dict(getattr(scope, "welcome_media", None) or {})
+    media = dict(media_override if media_override is not None else (getattr(scope, "welcome_media", None) or {}))
     enabled = bool(media.get("enabled"))
     mode = media.get("mode") or "auto"
     status = "Aktif ✅" if enabled else "Nonaktif ❌"
@@ -2651,7 +2672,7 @@ async def show_welcome_media_menu(chat_id, user):
         f"Status: <b>{status}</b>\n"
         f"Mode: <b>{mode_label}</b>{current}\n\n"
         "Mode otomatis bikin banner dari nama bot. "
-        "Mode upload: kirim foto/GIF langsung ke chat ini."
+        "Mode upload: kirim foto, GIF, atau video langsung ke chat ini."
     )
     toggle_label = "❌ Nonaktifkan" if enabled else "✅ Aktifkan"
     kb = {"inline_keyboard": [
@@ -2999,13 +3020,13 @@ async def handle_callback(cb):
             scope = get_current_scope()
             media = dict(getattr(scope, "welcome_media", None) or {})
             new_state = not bool(media.get("enabled"))
-            await _save_welcome_media({"enabled": new_state})
-            await show_welcome_media_menu(chat_id, user)
+            saved = await _save_welcome_media({"enabled": new_state})
+            await show_welcome_media_menu(chat_id, user, saved)
     elif data == "wmedia:mode:auto":
         if not await is_bot_admin(user):
             await answer_callback(cb["id"], "⛔ Khusus admin bot.")
         else:
-            await _save_welcome_media({"enabled": True, "mode": "auto"})
+            saved = await _save_welcome_media({"enabled": True, "mode": "auto"})
             # Force banner regeneration on next /start.
             try:
                 from welcome_banner import _slug_dir
@@ -3016,16 +3037,16 @@ async def handle_callback(cb):
                         pass
             except Exception:
                 pass
-            await show_welcome_media_menu(chat_id, user)
+            await show_welcome_media_menu(chat_id, user, saved)
     elif data == "wmedia:mode:upload":
         if not await is_bot_admin(user):
             await answer_callback(cb["id"], "⛔ Khusus admin bot.")
         else:
-            await _save_welcome_media({"enabled": True, "mode": "upload"})
+            saved = await _save_welcome_media({"enabled": True, "mode": "upload"})
             await set_state(user["telegram_id"], "welcome_photo_upload")
             await send_message(
                 chat_id,
-                "📤 <b>Mode upload aktif.</b>\n\nKirim foto atau GIF ke chat ini "
+                "📤 <b>Mode upload aktif.</b>\n\nKirim foto, GIF, atau video ke chat ini "
                 "untuk dijadikan welcome picture. Kirim /batal untuk membatalkan.",
                 kb=cancel_kb(lang),
             )
@@ -3198,7 +3219,7 @@ async def handle_message(message):
         await send_message(chat_id, t(lang, "help"), kb=back_kb(lang))
         return
 
-    # Admin welcome-picture upload: a photo/GIF sent while the bot awaits one.
+    # Admin welcome-media upload: a photo/GIF/video sent while the bot awaits one.
     if user.get("state") == "welcome_photo_upload":
         if await handle_welcome_photo_upload(chat_id, user, message):
             return

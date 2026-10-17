@@ -92,3 +92,5 @@ Opt-in main-bot order/deposit history and owned detail views wired; transaction 
 Purchase-time warranty snapshots added to balance checkout and direct QRIS order creation (additive fields only, old orders untouched). Pure WarrantyMetadata validator added but NOT wired to admin forms yet. Other commerce creation paths require audit. Status PARTIAL; no deployment.
 
 Validated optional warranty metadata wired to authorized V2 product create/update request models; existing role/tenant dependencies unchanged. Legacy multipart/frontend forms remain pending.
+
+Stock ledger audit: stock_monitor.py records zero-crossing notification events, not complete inventory movement ledger; marketing_campaigns.py adds allocation/restore receipts. Cannot label these as complete In/Reserve/Sold/Release history or derive cumulative Total Masuk from available+reserved+sold. Additive ledger design and inventory admin UI remain required; do not fabricate historical movements.

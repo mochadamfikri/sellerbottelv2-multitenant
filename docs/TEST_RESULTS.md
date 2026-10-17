@@ -50,3 +50,5 @@ Detail checkpoint: 629 PASS, 20 warnings in 9.62s. Command ENVIRONMENT=test pyth
 638 PASS, 20 warnings in 9.20s using offline suite excluding backend_test.py. Metadata validation and independent allowlisted snapshots tested. No claim of full acceptance or Android verification.
 
 V2 commerce/authorization/metadata subset: 17 PASS, 4 warnings in 1.30s after optional warranty API field addition.
+
+History authorization regression: 640 PASS, 20 warnings in 9.35s, same offline command. Explicit flag-on tests deny another user and another tenant order/deposit IDs before rendering; secrets excluded.

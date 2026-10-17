@@ -140,8 +140,8 @@ export default function Products() {
       } : { enabled: false }));
       fd.append("name", form.name);
       fd.append("description", form.description);
-      fd.append("price_usd", form.price_usd);
-      if (form.price_idr !== "") fd.append("price_idr", form.price_idr);
+      fd.append("price_usd", form.price_usd !== "" && form.price_usd != null ? String(form.price_usd) : "0");
+      if (form.price_idr !== "" && form.price_idr != null) fd.append("price_idr", String(form.price_idr));
       fd.append("product_kind", form.product_kind);
       fd.append("stock_mode", form.product_kind === "digital" ? form.stock_mode : "auto");
       fd.append("inventory_mode", form.product_kind === "digital" ? form.inventory_mode : "table");
@@ -545,12 +545,25 @@ export default function Products() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-slate-400">Harga USD</label>
-                <input type="number" step="0.01" className={cls} value={form.price_usd} onChange={(e) => setForm({ ...form, price_usd: e.target.value })} />
+                <label className="text-xs text-slate-400">Harga IDR</label>
+                <input
+                  type="number"
+                  className={cls}
+                  placeholder="Contoh: 25000"
+                  value={form.price_idr}
+                  onChange={(e) => setForm({ ...form, price_idr: e.target.value })}
+                />
               </div>
               <div>
-                <label className="text-xs text-slate-400">Harga IDR (opsional)</label>
-                <input type="number" className={cls} value={form.price_idr} onChange={(e) => setForm({ ...form, price_idr: e.target.value })} />
+                <label className="text-xs text-slate-400">Harga USD (opsional)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  className={cls}
+                  placeholder="0.00"
+                  value={form.price_usd}
+                  onChange={(e) => setForm({ ...form, price_usd: e.target.value })}
+                />
               </div>
             </div>
 
@@ -617,7 +630,12 @@ export default function Products() {
               </div>
             )}
 
-            <button onClick={save} disabled={saving || !form.name || !form.price_usd} className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold rounded-lg py-2.5">
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving || !form.name.trim() || (!form.price_usd && form.price_usd !== 0 && !form.price_idr && form.price_idr !== 0)}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold rounded-lg py-2.5 transition"
+            >
               {saving ? "Menyimpan..." : "Simpan Produk"}
             </button>
           </div>

@@ -54,3 +54,5 @@ V2 commerce/authorization/metadata subset: 17 PASS, 4 warnings in 1.30s after op
 History authorization regression: 640 PASS, 20 warnings in 9.35s, same offline command. Explicit flag-on tests deny another user and another tenant order/deposit IDs before rendering; secrets excluded.
 
 Secondary bot legacy + shared transport regression subset: 18 PASS, 1 warning in 1.18s. New secondary detail path still requires flag-on integration acceptance.
+
+Latest branch bf9f389 regression: 640 PASS, 20 warnings in 9.32s; command unchanged, live-server suite excluded.

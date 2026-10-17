@@ -73,3 +73,5 @@ Latest full offline suite: 640 PASS, 20 warnings in 9.20s. Admin summary needs e
 Explicit admin inventory role/count test PASS (1 test, 0.94s): customer denied; tenant-local status counts only; secrets excluded; cumulative count explicitly unknown.
 
 Current checkpoint: 641 PASS, 20 warnings in 9.48s, full offline suite excluding tests/backend_test.py; strict frontend build PASS documented above. Not full acceptance.
+
+Secondary history/renderer subset 21 PASS, 1 warning in 1.04s; flag-on end-to-end not yet verified.

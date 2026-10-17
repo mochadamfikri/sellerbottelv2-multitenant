@@ -106,3 +106,5 @@ Frontend baseline lint repaired without suppressions: DNS callback dependencies 
 
 ## Admin inventory pilot
 Admin inventory summary pilot added behind flag in settings with is_bot_admin authorization. Counts available/reserved/sold from tenant inventory; Total Masuk explicitly unverified because no complete ledger. NOT acceptance PASS. Detail inventory/movement and remaining bot2/reseller flows pending.
+
+Secondary history opt-in now reuses shared contextual tables via tg2; existing ten-event limit preserved (full pagination still pending).

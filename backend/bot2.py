@@ -402,6 +402,15 @@ async def show_history(chat_id, user):
     events = [(d.get("created_at", ""), "deposit", d) for d in deps]
     events += [(o.get("created_at", ""), "order", o) for o in orders]
     events.sort(reverse=True)
+    if os.environ.get("TELEGRAM_RICH_TABLES_ENABLED", "").strip().lower() in {"1", "true", "yes"}:
+        from history_rich_views import history_pages
+        from rich_table_transport import send_table
+        pages = history_pages([(kind, date, item) for date, kind, item in events[:10]], fmt_amount)
+        for index, page in enumerate(pages):
+            result = await send_table(chat_id, page, menu_keyboard() if index == len(pages)-1 else None, transport=tg2)
+            if not result.get("ok"):
+                return result
+        return result
     if not events:
         text = "──── 「 RIWAYAT MUTASI 」 ────\n\nBelum ada riwayat transaksi.\n\n📄 Halaman 1 / 1"
         await send2(chat_id, text, kb=menu_keyboard())

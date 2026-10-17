@@ -28,3 +28,5 @@ Actual workbook semantic dry-run with approved precedence: 21 mapped, zero mappi
 Combined preflight/API/semantic suite: 8 PASS, 4 warnings in 1.57s. Includes explicit conflict approval and Fresh unavailable guard.
 
 Admin preview strict build PASS (CI=true GENERATE_SOURCEMAP=false npm run build). Browser user-flow not yet verified. Backend importer subset 8 PASS.
+
+Full offline regression after preview UI/API: 650 PASS, 20 warnings in 9.55s; excludes legacy live-server tests/backend_test.py. No production imports performed.

@@ -90,3 +90,5 @@ Opt-in main-bot order/deposit history and owned detail views wired; transaction 
 
 ## Warranty snapshot checkpoint
 Purchase-time warranty snapshots added to balance checkout and direct QRIS order creation (additive fields only, old orders untouched). Pure WarrantyMetadata validator added but NOT wired to admin forms yet. Other commerce creation paths require audit. Status PARTIAL; no deployment.
+
+Validated optional warranty metadata wired to authorized V2 product create/update request models; existing role/tenant dependencies unchanged. Legacy multipart/frontend forms remain pending.

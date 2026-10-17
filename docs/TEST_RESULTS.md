@@ -48,3 +48,5 @@ Detail checkpoint: 629 PASS, 20 warnings in 9.62s. Command ENVIRONMENT=test pyth
 
 ## Warranty snapshot checkpoint
 638 PASS, 20 warnings in 9.20s using offline suite excluding backend_test.py. Metadata validation and independent allowlisted snapshots tested. No claim of full acceptance or Android verification.
+
+V2 commerce/authorization/metadata subset: 17 PASS, 4 warnings in 1.30s after optional warranty API field addition.

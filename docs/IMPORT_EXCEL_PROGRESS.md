@@ -26,3 +26,6 @@ Implemented backend/idse_workbook_schema.py and tests/test_idse_workbook_schema.
 
 ## Permanent preview API staging implementation
 Tenant-operator protected /api/v2/import-excel/preview and /template added to isolated server source. Template explicitly DRAFT structural template, not complete official template. Mandatory structural preview never applies data. 7 tests PASS; UI/semantic SKU diff/confirmed transactional apply remain pending. No production update or data import.
+
+## Semantic preview checkpoint
+Semantic no-write preview implemented: explicit mapping sheet + detail B3 SKU check; Summary precedence opt-in; future conflicts require approval. Actual workbook maps all 21 SKUs to 14 Product/4 Jasa/3 Fresh, prices 95000/125000; all Fresh availability zero until configured. Stock validation, metadata content join, DB diff and apply remain pending.

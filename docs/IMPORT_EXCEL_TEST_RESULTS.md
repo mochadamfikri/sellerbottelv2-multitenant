@@ -21,3 +21,6 @@ Structural audit only: 25 sheets/header/21 unique detail SKUs PASS. Semantic val
 5 tests PASS in 1.00s: variable 1/21/35 product workbooks, invalid container, safe header error without raw values. Actual uploaded workbook: 25 sheets, 21 Summary rows, no structural errors, apply_allowed=false. This validates structure only, not stock/metadata/apply semantics.
 
 7 tests PASS, 4 warnings in 1.52s: preflight and tenant-authorized preview API; draft template roundtrip, unauthenticated rejection, invalid-file sanitization. Not full importer acceptance.
+
+## Semantic preview checkpoint
+Actual workbook semantic dry-run with approved precedence: 21 mapped, zero mapping errors; count 14/4/3; PRD009=95000, PRD010=125000; PRD002/003/FBM001 report FRESH_CONFIG_REQUIRED and availability 0. This is metadata preview only; no inventory/apply acceptance claim.

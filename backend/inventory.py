@@ -209,6 +209,7 @@ async def add_records(product_id: str, records: list[dict], schema: list[str]):
             "order_id": None,
             "user_tid": None,
             "created_at": created_at,
+            "movement_audit": [{"event_id": str(uuid.uuid4()), "action": "in", "quantity": 1, "at": created_at, "reference": "inventory_import"}],
             "reserved_at": None,
             "sold_at": None,
         })
@@ -305,7 +306,9 @@ async def reserve_items(product_id: str, quantity: int, reservation_id: str):
                     "status": "reserved",
                     "reservation_id": reservation_id,
                     "reserved_at": now_iso(),
-                }
+                },
+                "$push": {"movement_audit": {"event_id": str(uuid.uuid4()), "action": "reserved",
+                    "quantity": -1, "at": now_iso(), "reference": reservation_id}},
             },
             sort=[("_id", 1)],
         )
@@ -328,7 +331,9 @@ async def release_items(reservation_id: str):
                 "status": "available",
                 "reservation_id": None,
                 "reserved_at": None,
-            }
+            },
+            "$push": {"movement_audit": {"event_id": str(uuid.uuid4()), "action": "release",
+                "quantity": 1, "at": now_iso(), "reference": reservation_id}},
         },
     )
     if product_ids:
@@ -356,7 +361,9 @@ async def commit_items(
                 "user_tid": user_tid,
                 "customer_id": customer_id,
                 "sold_at": now_iso(),
-            }
+            },
+            "$push": {"movement_audit": {"event_id": str(uuid.uuid4()), "action": "sold",
+                "quantity": 0, "units": 1, "at": now_iso(), "reference": order_id}},
         },
     )
     if product_ids:

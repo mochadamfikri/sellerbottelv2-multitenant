@@ -77,3 +77,6 @@ Current checkpoint: 641 PASS, 20 warnings in 9.48s, full offline suite excluding
 Secondary history/renderer subset 21 PASS, 1 warning in 1.04s; flag-on end-to-end not yet verified.
 
 Latest 3cf89fb checkpoint: 641 PASS, 20 warnings in 9.50s (offline suite, legacy live-server tests excluded).
+
+## Inventory receipt foundation
+Movement receipt idempotency test PASS (1, 1.10s); inventory upload/direct checkout/purchase subset 45 PASS. Duplicate release/commit create no duplicate receipts; secrets absent from receipt payload.

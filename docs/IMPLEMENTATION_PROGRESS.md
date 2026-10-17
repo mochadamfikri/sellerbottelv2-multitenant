@@ -108,3 +108,6 @@ Frontend baseline lint repaired without suppressions: DNS callback dependencies 
 Admin inventory summary pilot added behind flag in settings with is_bot_admin authorization. Counts available/reserved/sold from tenant inventory; Total Masuk explicitly unverified because no complete ledger. NOT acceptance PASS. Detail inventory/movement and remaining bot2/reseller flows pending.
 
 Secondary history opt-in now reuses shared contextual tables via tg2; existing ten-event limit preserved (full pagination still pending).
+
+## Inventory receipt foundation
+Inventory receipt foundation: new imports and reserve/release/sold transitions now carry additive movement_audit receipts in same unit write, without old history backfill. quantity means change in sellable units: sold after reservation has delta 0 and units 1. Scope excludes marketing/deletion/tenant_inventory alternate paths; cannot claim complete ledger or cumulative totals. Need bounded retention/projection design before rollout.

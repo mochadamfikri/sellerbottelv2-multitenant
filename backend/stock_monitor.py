@@ -1,6 +1,7 @@
 """Watch effective inventory availability and announce zero crossings."""
 import asyncio
 import logging
+import os
 import uuid
 from html import escape
 
@@ -87,8 +88,10 @@ async def deliver_pending():
         p_name = escape(str(product.get("name") or "Produk"))
         cat_name = escape(str(product.get("catalog_name") or "Produk"))
         price_val = fmt_amount(await base_price(product, "IDR"), "IDR")
-        desc_raw = clean_description(product.get("description") or "", 150)
-        desc_escaped = escape(desc_raw)
+        desc_full = str(product.get("description") or "").strip()
+        if len(desc_full) > 800:
+            desc_full = desc_full[:797] + "..."
+        desc_escaped = escape(desc_full)
 
         # Tabel format resmi sesuai instruksi Owner:
         # Katalog | Product | Penambahan/pengurangan | Total Stock | Harga | Deskripsi
@@ -98,19 +101,27 @@ async def deliver_pending():
             "<tr><th>Katalog</th><th>Product</th><th>Penambahan/pengurangan</th><th>Total Stock</th><th>Harga</th><th>Deskripsi</th></tr>\n"
             f"<tr><td>{cat_name}</td><td><b>{p_name}</b></td><td><b>{diff_str}</b></td><td>{stock}</td><td><code>{price_val}</code></td><td>{desc_escaped}</td></tr>\n"
             "</table>\n"
-            "<p>🛒 <i>Pemesanan cepat di bot: @Idse_MarketBot</i></p>"
+            "<p>🛒 <i>Klik tombol di bawah untuk pesan langsung via bot:</i></p>"
         )
 
+        settings = await get_settings()
+        bot_username = (settings.get("bot_username") or os.environ.get("TELEGRAM_BOT_USERNAME") or "Idse_MarketBot").strip().lstrip("@")
+        buy_url = f"https://t.me/{bot_username}?start=buy_{product['_id']}"
+        kb = {
+            "inline_keyboard": [
+                [{"text": "🛍️ Beli Sekarang", "url": buy_url}]
+            ]
+        }
+
         delivered = set(event.get("delivered") or [])
-        rich_enabled = True
 
         for chat in event.get("targets") or []:
             if chat in delivered:
                 continue
             try:
-                # Kirim langsung tabel Telegram Rich Message
+                # Kirim langsung tabel Telegram Rich Message beserta tombol Beli Sekarang
                 from rich_table_transport import tg
-                result = await tg("sendRichMessage", chat_id=chat, rich_message={"html": table_html, "skip_entity_detection": True})
+                result = await tg("sendRichMessage", chat_id=chat, rich_message={"html": table_html, "skip_entity_detection": True}, reply_markup=kb)
                 if not result.get("ok"):
                     # Fallback plain text jika channel/client tidak support rich table
                     plain_fallback = (
@@ -121,10 +132,10 @@ async def deliver_pending():
                         f"• Total Stok: <b>{stock}</b>\n"
                         f"• Harga: <code>{price_val}</code>\n"
                         f"• Deskripsi: {desc_escaped}\n\n"
-                        f"🛒 Order: @Idse_MarketBot"
+                        f"🛒 Order: @{bot_username}"
                     )
                     from tgapi import send_message
-                    result = await send_message(chat, plain_fallback)
+                    result = await send_message(chat, plain_fallback, kb=kb)
 
                 if result.get("ok"):
                     delivered.add(chat)

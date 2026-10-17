@@ -3301,7 +3301,8 @@ async def handle_message(message):
     text = (message.get("text") or "").strip()
 
     if text.startswith("/start"):
-        payload = text.split(" ", 1)[1].strip().lower() if " " in text else ""
+        raw_payload = text.split(" ", 1)[1].strip() if " " in text else ""
+        payload = raw_payload.lower()
         if payload:
             source = await db.traffic_sources.find_one({"code": payload})
             if source:
@@ -3327,8 +3328,25 @@ async def handle_message(message):
         await set_state(user["telegram_id"], None)
         if user.get("frozen"):
             await send_message(chat_id, frozen_text(user))
-        else:
-            await show_start_welcome(chat_id, user)
+            return
+
+        # Deep-link direct action: buy_<product_id>
+        if raw_payload.startswith("buy_"):
+            target_pid = raw_payload[4:].strip()
+            p = await db.products.find_one({"$or": [{"_id": target_pid}, {"sku": target_pid}], "active": True})
+            if p:
+                cart = norm_cart(user.get("cart"))
+                existing = next((i for i in cart if i["pid"] == p["_id"]), None)
+                if existing:
+                    existing["qty"] = existing.get("qty", 1) + 1
+                else:
+                    cart.append({"pid": p["_id"], "qty": 1})
+                await save_cart(user["telegram_id"], cart)
+                user["cart"] = cart
+                await show_cart(chat_id, user)
+                return
+
+        await show_start_welcome(chat_id, user)
         return
 
     if text.lower().startswith("/link"):

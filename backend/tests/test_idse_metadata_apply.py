@@ -23,3 +23,17 @@ def test_create_retry_update_and_stale_preview():
         with pytest.raises(StalePreview):await apply_metadata(db,'t','job2',[proposal],plan)
         assert (await db.products.find_one({'_id':p['_id']}))['price_idr']==300
     asyncio.run(run())
+
+
+def test_partial_batch_can_resume_without_recreating_products():
+    async def run():
+        db=AsyncMongoMockClient()['partial']
+        proposals=[{'sku':sku,'name':sku,'kind':'Product','price_idr':10} for sku in ['A','B']]
+        plan=await compare_products(db,'t',proposals)
+        await apply_metadata(db,'t','job',proposals[:1],plan[:1])
+        # Simulate process interruption after first durable row commit.
+        result=await apply_metadata(db,'t','job',proposals,plan)
+        assert result[0]['action']=='ALREADY_APPLIED'
+        assert await db.products.count_documents({})==2
+        assert await db.excel_import_receipts.count_documents({'status':'APPLIED'})==2
+    asyncio.run(run())

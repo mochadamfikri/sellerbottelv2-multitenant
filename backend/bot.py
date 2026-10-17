@@ -442,6 +442,7 @@ def stock_button_style(stock) -> str:
 
 async def _send_rich_catalog(chat_id, user, page=1, catalog=None):
     from rich_tables import table_pages
+    from product_rich_views import warranty_label
     from rich_table_transport import send_table
     products = await db.products.find({"active": True}).to_list(None)
     # Stable tie-breaker without changing legacy catalog order when flag is off.
@@ -462,7 +463,7 @@ async def _send_rich_catalog(chat_id, user, page=1, catalog=None):
             records.append([brief(product.get("name"), 80),
                 "Unlimited" if stock is None else str(int(stock)),
                 fmt_amount(pricing["unit_price"], user["currency"]),
-                "Belum diinformasikan", brief(product.get("description") or "Belum dilengkapi", 120)])
+                brief(warranty_label(product), 80), brief(product.get("description") or "Belum dilengkapi", 120)])
             buttons.append([{"text": brief(product.get("name"), 60), "callback_data": f"prod:{product['_id']}"}])
         prefix = f"catalog:{catalog}:"
     else:
@@ -923,6 +924,20 @@ async def show_product_detail(chat_id, user, pid):
     else:
         text += "\n\n" + t(lang, "out_of_stock")
     rows.append([{"text": "← Varian katalog", "callback_data": f"catalog:{catalog_token(p)}:1"}, {"text": t(lang, "btn_menu_short"), "callback_data": "menu:main"}])
+    if os.environ.get("TELEGRAM_RICH_TABLES_ENABLED", "").strip().lower() in {"1", "true", "yes"}:
+        from product_rich_views import product_detail_pages
+        from rich_table_transport import send_table
+        pages = product_detail_pages(p, await stock_for(p), fmt_amount(price, user["currency"]))
+        old_id = _EDIT_TARGETS.pop(chat_id, None)
+        flow = str(uuid.uuid4())
+        for index, page in enumerate(pages):
+            result = await send_table(chat_id, page, {"inline_keyboard": rows} if index == len(pages)-1 else None)
+            if not result.get("ok"):
+                return result
+            await _remember_bot_message(chat_id, result, flow=flow)
+        if old_id is not None:
+            await _delete_flow_messages(chat_id, old_id)
+        return
     await send_message(chat_id, text, kb={"inline_keyboard": rows})
 
 

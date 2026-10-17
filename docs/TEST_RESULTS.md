@@ -36,3 +36,6 @@ Earlier shared renderer/commerce subset: 53 PASS, 4 warnings in 1.87s.
 
 ## Catalog pilot regression
 626 PASS, 20 warnings in 9.47s using offline suite excluding tests/backend_test.py. New flag-on integration tests prove five headers, tenant-isolated database selection, hidden product exclusion, no secret projection, stable product callback, and old-message retention when send fails. No Telegram device/API send performed.
+
+## Product detail checkpoint
+Detail checkpoint: 629 PASS, 20 warnings in 9.62s. Command ENVIRONMENT=test python3 -m pytest -q --disable-warnings --ignore=tests/backend_test.py. Long unicode description, conditional warranty, escaping validated; live Android and production deployment unverified.

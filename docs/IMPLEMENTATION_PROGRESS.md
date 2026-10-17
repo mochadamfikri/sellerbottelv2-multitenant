@@ -78,3 +78,6 @@ backend/bot.py adds default-off native catalog/category list pilot. Existing leg
 ## Verified infrastructure gate
 No mongodump/mongorestore/mongod/mongosh found on agent PATH. Docker CLI exists but daemon access returns permission denied; `sudo -n docker ps` requires a password. Only observed Mongo listener is localhost:27017 (treat as production; never use for tests). Backup/restore rehearsal and real DB staging are BLOCKED pending provisioned isolated MongoDB and backup tooling or authorized operator execution. No credentials requested through plain chat. Active app PID 18067 still listening at 8002.
 Latest application pilot commit: e557a69; baseline repair be2bb1c; renderer d4825b7. No production rollout authorized or attempted.
+
+## Product detail checkpoint
+Detail produk native opt-in di bot utama ditambahkan; warranty enabled false dibedakan dari unknown; hanya ketentuan nyata dirender. Deskripsi panjang dipecah tanpa kehilangan data. Form metadata dan order snapshots belum diimplementasikan. User mengizinkan melewati gate infrastruktur untuk melanjutkan; tidak ada klaim backup PASS atau deployment. File: backend/product_rich_views.py, backend/bot.py, backend/tests/test_product_rich_views.py. Status implementation PARTIAL; deployment NOT DEPLOYED.

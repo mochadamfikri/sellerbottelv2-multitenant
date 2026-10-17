@@ -12,7 +12,7 @@ router = APIRouter(prefix='/api/v2/import-excel', tags=['idse-import'],
 
 
 @router.post('/preview')
-async def preview(file: UploadFile = File(...), summary_precedence: bool = Form(False), context=Depends(get_tenant_context)):
+async def preview(file: UploadFile = File(...), summary_precedence: bool = Form(False), context=Depends(get_tenant_context), actor=Depends(require_tenant_operator)):
     if not (file.filename or '').lower().endswith('.xlsx'):
         raise HTTPException(400, 'Unggah file .xlsx')
     data = await file.read(10 * 1024 * 1024 + 1)
@@ -25,6 +25,17 @@ async def preview(file: UploadFile = File(...), summary_precedence: bool = Form(
     if result.get('products'):
         from idse_import_plan import compare_products
         result['database_diff'] = await compare_products(context.database, context.tenant_id, result['products'])
+        from idse_import_jobs import stage_plan
+        from inventory import _fernet, InventoryConfigError
+        try:
+            cipher = _fernet()
+        except InventoryConfigError:
+            raise HTTPException(503, 'Penyimpanan preview terenkripsi belum dikonfigurasi.') from None
+        actor_id = actor.get('_id') or actor.get('user_id')
+        if not actor_id:
+            raise HTTPException(403, 'Identitas admin tidak tersedia.')
+        result['plan'] = await stage_plan(context.database, context.tenant_id,
+            actor_id, data, result, cipher)
     return {**result, 'tenant_id': context.tenant_id,
             'phase': 'metadata_preview', 'apply_allowed': False,
             'message': 'Preview metadata; validasi inventory dan apply belum tersedia. Tidak ada perubahan database.'}

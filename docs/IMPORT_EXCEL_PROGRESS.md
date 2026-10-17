@@ -42,3 +42,5 @@ SKU-only DB comparison helper added with CREATE/UPDATE/SKIP/ERROR, changed field
 Semantic preview now joins full description plus features/benefits/activation/seller warranty/references/bot summary by SKU. Internal risk and verification columns excluded. Actual workbook 21/21 content joins, 20457 full-description characters, zero join errors. Protected preview now calls SKU DB comparison on context.database. Confirmation/apply still pending.
 
 Encrypted durable plan helper implemented and tested: workbook/preview encrypted at rest, tenant+actor-bound opaque confirmation, digest and expiry. Mock test PASS; helper not yet wired to HTTP confirmation/apply. Production unchanged.
+
+Protected nonempty upload previews now persist encrypted plans bound to tenant/admin; missing encryption config fails 503 rather than writing plaintext. No product/inventory apply endpoint yet. Existing preview tests and plan guards PASS (3 tests); full HTTP nonempty plan test pending.

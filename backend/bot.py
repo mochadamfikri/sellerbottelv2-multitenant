@@ -2405,9 +2405,25 @@ def history_button_style(status) -> str:
     return "primary"
 
 
+async def _deliver_rich_pages(chat_id, pages, kb, edit_id=None):
+    from rich_table_transport import send_table
+    previous = _EDIT_TARGETS.pop(chat_id, None)
+    old_id = edit_id if edit_id is not None else previous
+    flow = str(uuid.uuid4())
+    for index, page in enumerate(pages):
+        result = await send_table(chat_id, page, kb if index == len(pages)-1 else None)
+        if not result.get("ok"):
+            return result
+        await _remember_bot_message(chat_id, result, flow=flow)
+    if old_id is not None:
+        await _delete_flow_messages(chat_id, old_id)
+    return result
+
+
 async def show_history(chat_id, user, page=1, *, loading=False, edit_id=None):
     lang = user.get("lang", "id")
-    if loading:
+    rich_enabled = os.environ.get("TELEGRAM_RICH_TABLES_ENABLED", "").strip().lower() in {"1", "true", "yes"}
+    if loading and not rich_enabled:
         # The loading helper owns the message lifecycle (reuse or replace),
         # so don't let send_message touch the callback message afterwards.
         _EDIT_TARGETS.pop(chat_id, None)
@@ -2444,6 +2460,9 @@ async def show_history(chat_id, user, page=1, *, loading=False, edit_id=None):
     page = max(1, min(page, total_pages))
     page_events = events[(page - 1) * per_page:page * per_page]
 
+    if not page_events and rich_enabled:
+        from history_rich_views import history_pages
+        return await _deliver_rich_pages(chat_id, history_pages([], fmt_amount), back_kb(lang), edit_id)
     if not page_events:
         await _deliver(t(lang, "hist_header") + "\n\nBelum ada transaksi.", back_kb(lang))
         return
@@ -2489,6 +2508,9 @@ async def show_history(chat_id, user, page=1, *, loading=False, edit_id=None):
         rows.append(nav)
 
     rows.append([{"text": t(lang, "btn_main"), "callback_data": "menu:main"}])
+    if rich_enabled:
+        from history_rich_views import history_pages
+        return await _deliver_rich_pages(chat_id, history_pages(page_events, fmt_amount), {"inline_keyboard": rows}, edit_id)
     await _deliver("\n".join(lines), {"inline_keyboard": rows})
 
 
@@ -2498,6 +2520,12 @@ async def show_order_history_detail(chat_id, user, order_id):
     if not order:
         await send_message(chat_id, "Transaksi tidak ditemukan.", kb=back_kb(lang))
         return
+
+    if os.environ.get("TELEGRAM_RICH_TABLES_ENABLED", "").strip().lower() in {"1", "true", "yes"}:
+        from history_rich_views import transaction_detail_pages
+        return await _deliver_rich_pages(chat_id, transaction_detail_pages(order, "order", fmt_amount),
+            {"inline_keyboard": [[{"text": "Riwayat", "callback_data": "menu:history"}],
+                                  [{"text": "Menu", "callback_data": "menu:main"}]]})
 
     status_labels = {
         "pending": "⏳ Pending", "pending_payment": "📱 Menunggu QRIS", "expired": "⌛ Kedaluwarsa", "paid": "💳 Dibayar", "processing": "⚙️ Diproses",
@@ -2548,6 +2576,12 @@ async def show_deposit_history_detail(chat_id, user, dep_id):
     if not dep:
         await send_message(chat_id, "Deposit tidak ditemukan.", kb=back_kb(lang))
         return
+
+    if os.environ.get("TELEGRAM_RICH_TABLES_ENABLED", "").strip().lower() in {"1", "true", "yes"}:
+        from history_rich_views import transaction_detail_pages
+        return await _deliver_rich_pages(chat_id, transaction_detail_pages(dep, "deposit", fmt_amount),
+            {"inline_keyboard": [[{"text": "Riwayat", "callback_data": "menu:history"}],
+                                  [{"text": "Menu", "callback_data": "menu:main"}]]})
 
     status_labels = {
         "pending": "⏳ Pending", "approved": "✅ Disetujui", "rejected": "❌ Ditolak",

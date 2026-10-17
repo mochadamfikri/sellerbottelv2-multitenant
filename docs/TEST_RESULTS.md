@@ -42,3 +42,6 @@ Detail checkpoint: 629 PASS, 20 warnings in 9.62s. Command ENVIRONMENT=test pyth
 
 ## Public stock checkpoint
 633 PASS, 20 warnings in 9.57s; offline suite excluding legacy live-server backend_test.py. Flag-on catalog/detail/stock tests verify tenant isolation, hidden products, secret exclusion and no delete after failed send. Android/live API remain unverified.
+
+## History checkpoint
+636 PASS, 20 warnings in 9.36s: offline suite excluding live-server backend_test.py. Pure tests verify historical amounts, WIB conversion, deposit fees, unknown historical warranty and explicit snapshots. Flag-on handler authorization tests still required.

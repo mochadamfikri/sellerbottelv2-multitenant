@@ -84,3 +84,6 @@ Detail produk native opt-in di bot utama ditambahkan; warranty enabled false dib
 
 ## Public stock checkpoint
 Public Stock opt-in integrated into existing show_stock_view, preserving stockpage/stockadd/cart actions and stock service. Tables exclude unit secrets. Admin inventory and ledger not implemented. Flag remains off; no production deployment.
+
+## History implementation
+Opt-in main-bot order/deposit history and owned detail views wired; transaction projections exclude delivery secrets and use historical amounts. Existing user ownership queries preserved. New backend/history_rich_views.py and tests/test_history_rich_views.py. Snapshot presentation supported but snapshot creation/form metadata pending. Status RUNNING; NOT DEPLOYED.

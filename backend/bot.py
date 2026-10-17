@@ -3030,7 +3030,8 @@ async def handle_callback(cb):
             # Force banner regeneration on next /start.
             try:
                 from welcome_banner import _slug_dir
-                for old in _slug_dir(get_current_scope().slug).glob("banner-auto-*.png"):
+                scope = get_current_scope()
+                for old in _slug_dir(getattr(scope, "slug", "central") or "central").glob("banner-auto-*.png"): 
                     try:
                         old.unlink()
                     except OSError:

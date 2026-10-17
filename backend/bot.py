@@ -423,9 +423,9 @@ async def show_currency_selection(chat_id, lang="id"):
 def stock_button_style(stock) -> str:
     """Inline button color by stock availability (Bot API 9.4 `style` field).
 
-    🔴 danger  = stock 0–4 (almost out)
-    🟢 success = stock 5–9
-    🔵 primary = stock 10+ or unlimited
+    🔴 danger  = under 3 (stok < 3)
+    🔵 primary = up 2 (stok 3–6)
+    🟢 success = mulai 7 dst (stok >= 7)
     """
     if stock is None:
         return "primary"
@@ -433,11 +433,11 @@ def stock_button_style(stock) -> str:
         n = int(stock)
     except (TypeError, ValueError):
         return "primary"
-    if n <= 4:
+    if n < 3:
         return "danger"
-    if n <= 9:
-        return "success"
-    return "primary"
+    if n < 7:
+        return "primary"
+    return "success"
 
 
 async def _send_rich_catalog(chat_id, user, page=1, catalog=None):
@@ -700,7 +700,7 @@ async def handle_coupon_guide(chat_id, user, edit_id=None):
     await _remember_bot_message(chat_id, gres, flow=flow)
 
 
-STOCK_PAGE_SIZE = 10
+STOCK_PAGE_SIZE = 12
 
 
 def _stock_pages(groups):
@@ -833,7 +833,7 @@ async def show_stock_view(chat_id, user, page=1, *, loading=False, edit_id=None)
         lines.append(f"Total stock: {stock_total_text}")
         lines.append("")
         lines.append("<b>KETERANGAN STOK</b>")
-        lines.append("🎨 🔴 1–4 · 🟢 5–9 · 🔵 10+")
+        lines.append("🎨 🔴 < 3 · 🔵 3–6 · 🟢 7+")
 
     lines.append(f"\nHalaman {page}/{total_pages}")
 
@@ -865,12 +865,27 @@ async def show_stock_view(chat_id, user, page=1, *, loading=False, edit_id=None)
         for _, product, number in items:
             stock = await stock_for(product)
             pricing = await price_for_product(product, user.get("currency") or "IDR", 1)
-            records.append([f"{number}. {str(product.get('name') or '')[:80]}",
-                "Unlimited" if stock is None else str(int(stock)),
+            if stock is None:
+                stock_cell = "🟣 Unlimited"
+            elif int(stock) < 3:
+                stock_cell = f"🔴 {int(stock)}"
+            elif int(stock) < 7:
+                stock_cell = f"🔵 {int(stock)}"
+            else:
+                stock_cell = f"🟢 {int(stock)}"
+            records.append([
+                f"{number}. {str(product.get('name') or '')[:80]}",
+                stock_cell,
                 fmt_amount(pricing["unit_price"], user.get("currency") or "IDR"),
-                warranty_label(product)[:80], str(product.get("description") or "Belum dilengkapi")[:120]])
-        rendered = table_pages(f"Stock · Halaman {page}/{total_pages}",
-            ["Product", "Stock", "Harga", "Garansi", "Deskripsi"], records, page_size=5)
+                warranty_label(product)[:80],
+                str(product.get("description") or "Belum dilengkapi")[:120]
+            ])
+        rendered = table_pages(
+            f"Stock · Halaman {page}/{total_pages}",
+            ["📦 Product", "📊 Stock", "🏷️ Harga", "🛡️ Garansi", "📝 Deskripsi"],
+            records,
+            page_size=10
+        )
         previous = _EDIT_TARGETS.pop(chat_id, None)
         old_id = edit_id if edit_id is not None else previous
         flow = str(uuid.uuid4())
@@ -3058,9 +3073,9 @@ async def handle_callback(cb):
         await show_stock(chat_id, user, edit_id=message_id)
     elif data.startswith("stockpage:"):
         try:
-            await show_stock_view(chat_id, user, int(data.split(":", 1)[1]))
+            await show_stock_view(chat_id, user, int(data.split(":", 1)[1]), edit_id=message_id)
         except (ValueError, IndexError):
-            await show_stock_view(chat_id, user, 1)
+            await show_stock_view(chat_id, user, 1, edit_id=message_id)
     elif data.startswith("stockadd:"):
         try:
             _, page_s, pid = data.split(":", 2)

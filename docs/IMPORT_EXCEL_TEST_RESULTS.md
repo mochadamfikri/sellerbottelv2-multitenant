@@ -37,3 +37,5 @@ Combined importer suite 10 PASS, 4 warnings in 1.53s. Covers supported payload v
 12 importer tests PASS, 4 warnings in 1.49s including no-write SKU comparison and version change detection.
 
 Inventory/description/database comparison checkpoint: full offline suite 654 PASS, 20 warnings in 9.47s (legacy live-server tests excluded). Actual workbook 21/21 description joins, 20457 description characters, 0 available inventory units. Production unchanged.
+
+Persistent preview checkpoint: 655 PASS, 20 warnings in 9.39s, offline suite excluding legacy live-server tests. No production database changes.

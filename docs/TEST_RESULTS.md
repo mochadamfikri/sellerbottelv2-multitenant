@@ -56,3 +56,6 @@ History authorization regression: 640 PASS, 20 warnings in 9.35s, same offline c
 Secondary bot legacy + shared transport regression subset: 18 PASS, 1 warning in 1.18s. New secondary detail path still requires flag-on integration acceptance.
 
 Latest branch bf9f389 regression: 640 PASS, 20 warnings in 9.32s; command unchanged, live-server suite excluded.
+
+## Admin metadata compatibility checkpoint
+Optional legacy admin metadata compatibility: 640 PASS, 20 warnings in 9.25s. Explicit HTTP tests for new optional field still needed; existing suite proves regression coverage only.

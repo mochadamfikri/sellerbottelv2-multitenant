@@ -96,3 +96,6 @@ Validated optional warranty metadata wired to authorized V2 product create/updat
 Stock ledger audit: stock_monitor.py records zero-crossing notification events, not complete inventory movement ledger; marketing_campaigns.py adds allocation/restore receipts. Cannot label these as complete In/Reserve/Sold/Release history or derive cumulative Total Masuk from available+reserved+sold. Additive ledger design and inventory admin UI remain required; do not fabricate historical movements.
 
 Secondary bot detail pilot now uses shared renderer with explicitly injected tg2 transport (never ambient main-bot token). Default OFF. Catalog/history coverage and flag-on tests for secondary bot pending.
+
+## Admin metadata compatibility checkpoint
+Legacy admin create/update now accept optional warranty_json with strict WarrantyMetadata validation. Explicit structured metadata submissions require name/description and finite nonnegative prices. Old forms remain compatible; frontend form controls and preview still pending. File backend/admin_routes.py. No production changes.

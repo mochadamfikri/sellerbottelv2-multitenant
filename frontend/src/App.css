@@ -6,7 +6,7 @@
 
 body {
   font-family: "IBM Plex Sans", sans-serif;
-  background-color: #0b0f17;
+  background-color: transparent;
 }
 
 .font-heading {
@@ -27,7 +27,7 @@ code {
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #0b0f17;
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
   background: #334155;

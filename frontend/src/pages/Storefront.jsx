@@ -133,7 +133,7 @@ export default function Storefront({ view = "home", tenantView = false }) {
   const [botName, setBotName] = useState("");
   const [storeName, setStoreName] = useState("IDSE Marketplace");
   const [storeTagline, setStoreTagline] = useState("");
-  const [contactConfig, setContactConfig] = useState({ whatsapp_contact_number: "", telegram_contact_target: "" });
+  const [contactConfig, setContactConfig] = useState({ whatsapp_contact_number: "", telegram_contact_target: "", telegram_order_success_enabled: false, telegram_order_success_message: "" });
   const [broadcast, setBroadcast] = useState("");
   const [channelGate, setChannelGate] = useState(null);
   const [gateDismissed, setGateDismissed] = useState(() => sessionStorage.getItem("channel_gate_ok") === "1");
@@ -286,9 +286,12 @@ export default function Storefront({ view = "home", tenantView = false }) {
         setOrders(data);
         const current = data.find((row) => row._id === checkoutPayment._id);
         if (current && current.status !== checkoutPayment.status) {
-          if (["delivered", "completed", "delivery_failed"].includes(current.status)) {
+          if (["delivered", "completed", "service_waiting", "delivery_failed"].includes(current.status)) {
             setQrisDialogOpen(false);
-            setCheckoutFeedback({ status: current.status === "delivery_failed" ? "error" : "success", orderId: current._id, products: feedbackProducts.current, message: `Invoice ${current.invoice_id} · ${statusLabel(current.status)}` });
+            const isFail = current.status === "delivery_failed";
+            const isServiceWaiting = current.status === "service_waiting";
+            const customMsg = (!isFail && contactConfig.telegram_order_success_enabled && contactConfig.telegram_order_success_message) ? contactConfig.telegram_order_success_message : null;
+            setCheckoutFeedback({ status: isFail ? "error" : "success", orderId: current._id, products: feedbackProducts.current, message: customMsg || (isServiceWaiting ? `Pembayaran dikonfirmasi. Pesanan ${current.invoice_id} sedang diproses.` : `Invoice ${current.invoice_id} · ${statusLabel(current.status)}`) });
           }
           setCheckoutPayment((value) => value ? { ...value, status: current.status } : value);
           if (current.status === "delivered") setNotice("Pembayaran QRIS terverifikasi. Pesanan selesai; periksa email Anda.");
@@ -388,7 +391,7 @@ export default function Storefront({ view = "home", tenantView = false }) {
       const {data} = await api.post("/store/checkout", {items: cart, currency: "IDR", payment_method: paymentMethod, coupon_code: couponCode.trim() || null, idempotency_key: key});
       setCartAndResetKey([]); setCouponCode(""); setCheckoutKey(""); setQuote(null);
       if (data.status === "pending_payment" && data.qr_image) { setCheckoutFeedback(null); setCheckoutPayment(data); setQrisDialogOpen(true); }
-      else { if (["paid", "processing", "service_waiting"].includes(data.status)) setCheckoutPayment(data); setCheckoutFeedback({ status: ["delivered", "completed"].includes(data.status) ? "success" : data.status === "delivery_failed" ? "error" : "pending", orderId: data._id, products: feedbackProducts.current, message: `Invoice ${data.invoice_id} · ${statusLabel(data.status)}` }); setNotice(`Pesanan ${data.invoice_id} berstatus ${statusLabel(data.status)}.`); navigate("/store/orders"); }
+      else { if (["paid", "processing"].includes(data.status)) setCheckoutPayment(data); const directSuccess = ["delivered", "completed", "service_waiting"].includes(data.status); const directMsg = (directSuccess && contactConfig.telegram_order_success_enabled && contactConfig.telegram_order_success_message) ? contactConfig.telegram_order_success_message : (data.status === "service_waiting" ? `Pembayaran dikonfirmasi. Pesanan ${data.invoice_id} sedang diproses.` : `Invoice ${data.invoice_id} · ${statusLabel(data.status)}`); setCheckoutFeedback({ status: directSuccess ? "success" : data.status === "delivery_failed" ? "error" : "pending", orderId: data._id, products: feedbackProducts.current, message: directMsg }); setNotice(`Pesanan ${data.invoice_id} berstatus ${statusLabel(data.status)}.`); navigate("/store/orders"); }
     } catch (e) { if (e.response?.status === 409 || (paymentMethod === "balance" && e.response?.status === 400)) setCheckoutKey(""); const message = formatApiErrorDetail(e.response?.data?.detail) || "Checkout gagal. Periksa saldo, stok, atau kupon lalu coba lagi."; setError(message); setCheckoutFeedback({ status: "error", products: feedbackProducts.current, message }); }
     finally { setBusy(false); }
   };
@@ -570,7 +573,7 @@ export default function Storefront({ view = "home", tenantView = false }) {
     <StoreProductDialog open={view === "detail"} product={products.find((p) => p._id === productId)} products={products} loading={productLoading} theme={resolvedTheme} adding={addingIds.includes(productId) || busy} onSelect={openProduct} onAdd={add} onClose={closeProduct} error={error}/>
     <CartToast item={cartToast} onClose={closeCartToast}/>
     <CheckoutFeedback feedback={checkoutFeedback} onClose={() => setCheckoutFeedback(null)}/>
-    <ContactBubbles whatsappNumber={contactConfig.whatsapp_contact_number} telegramTarget={contactConfig.telegram_contact_target} message={whatsappMessage} />
+    <ContactBubbles whatsappNumber={contactConfig.whatsapp_contact_number} telegramTarget={contactConfig.telegram_contact_target} message={whatsappMessage} storeName={storeName} />
   </div>;
 }
 
@@ -579,7 +582,7 @@ function CatalogFilter({ value, setValue }) {
   return <div className="mt-5 flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Filter produk"><div className="flex min-w-max gap-2">{options.map(([key, label, Icon]) => <button key={key} onClick={() => setValue(key)} aria-pressed={value === key} className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition ${value === key ? "border-emerald-800 bg-emerald-800 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-emerald-300 hover:text-emerald-900"}`}><Icon size={15}/>{label}</button>)}</div></div>;
 }
 
-function ContactBubbles({ whatsappNumber, telegramTarget, message }) {
+function ContactBubbles({ whatsappNumber, telegramTarget, message, storeName }) {
   const [visible, setVisible] = useState(true);
   useEffect(() => {
     if (!whatsappNumber && !telegramTarget) return undefined;

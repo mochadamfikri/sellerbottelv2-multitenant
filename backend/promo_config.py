@@ -8,6 +8,7 @@ recolor, or hide any section.
 from __future__ import annotations
 
 from typing import Any
+import os
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field

@@ -1,6 +1,7 @@
 """The simple product broadcast composer used by the admin panel."""
 import asyncio
 import base64
+import os
 import re
 import uuid
 from html import escape, unescape

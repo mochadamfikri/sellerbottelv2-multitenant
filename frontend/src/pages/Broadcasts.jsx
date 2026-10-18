@@ -71,22 +71,21 @@ export default function Broadcasts() {
 
   const toggleProduct = (product) => {
     const selected = promoForm.product_ids.includes(product._id);
-    if (!selected && promoForm.product_ids.length >= 10) {
-      toast.error("Maksimal 10 produk per broadcast.");
-      return;
-    }
     const next = selected
       ? promoForm.product_ids.filter((id) => id !== product._id)
       : [...promoForm.product_ids, product._id];
-    const summaries = { ...promoForm.summaries };
-    if (!selected && !summaries[product._id]) {
-      summaries[product._id] = String(product.description || "")
-        .replace(/<[^>]*>/g, " ")
-        .replace(/\s+/g, " ")
-        .trim()
-        .slice(0, 180);
-    }
-    setPromoForm({ ...promoForm, product_ids: next, summaries });
+    setPromoForm({ ...promoForm, product_ids: next });
+    setPreview(null);
+  };
+
+  const selectAllProducts = () => {
+    const allIds = filteredProducts.map((p) => p._id);
+    setPromoForm({ ...promoForm, product_ids: allIds });
+    setPreview(null);
+  };
+
+  const deselectAllProducts = () => {
+    setPromoForm({ ...promoForm, product_ids: [] });
     setPreview(null);
   };
 
@@ -228,9 +227,27 @@ export default function Broadcasts() {
 
           <div>
             <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-              <label className="text-xs font-semibold text-slate-300">
-                Pilih Produk untuk Disertakan ({promoForm.product_ids.length}/10 produk terpilih)
-              </label>
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-semibold text-slate-300">
+                  Pilih Produk ({promoForm.product_ids.length} produk terpilih)
+                </label>
+                <button
+                  type="button"
+                  onClick={selectAllProducts}
+                  className="text-[11px] text-cyan-400 hover:underline font-semibold"
+                >
+                  Pilih Semua ({filteredProducts.length})
+                </button>
+                {promoForm.product_ids.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={deselectAllProducts}
+                    className="text-[11px] text-rose-400 hover:underline"
+                  >
+                    Batal Pilih
+                  </button>
+                )}
+              </div>
               <input
                 className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-200 w-48"
                 placeholder="Cari nama produk..."

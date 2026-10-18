@@ -97,8 +97,8 @@ async def _build_content(body: ComposeBody):
             raise HTTPException(400, str(exc)) from exc
         return format_report(body.kind, summary), render_sales_report(body.kind, summary), []
     ids = body.product_ids
-    if len(ids) != len(set(ids)) or len(ids) > 10:
-        raise HTTPException(400, "Pilih maksimal 10 produk tanpa duplikat.")
+    if len(ids) != len(set(ids)):
+        raise HTTPException(400, "Terdapat produk duplikat dalam pilihan.")
     message = body.message.strip()
     if len(message) > 1000:
         raise HTTPException(400, "Pesan utama maksimal 1000 karakter.")
@@ -113,31 +113,36 @@ async def _build_content(body: ComposeBody):
         stock = await stock_for(product)
         if stock is not None and stock < max(1, int(product.get("minimum_purchase_qty") or 1)):
             raise HTTPException(400, f"Stok {product.get('name') or 'produk'} habis.")
-        summary = clean_description(body.summaries.get(pid) or product.get("description") or "")
-        price = fmt_amount((await price_for_product(product, "IDR", 1))["unit_price"], "IDR")
-        products.append({"id": pid, "name": str(product.get("name") or "Produk"),
-                         "summary": summary, "price": price, "stock": stock, "catalog": catalog_name(product)})
+        pricing = await price_for_product(product, "IDR", 1)
+        price = fmt_amount(pricing["unit_price"], "IDR")
+        discount_val = pricing.get("discount_per_unit") or 0
+        discount_str = fmt_amount(discount_val, "IDR") if discount_val > 0 else "—"
+
+        products.append({
+            "id": pid,
+            "name": str(product.get("name") or "Produk"),
+            "price": price,
+            "discount": discount_str,
+            "stock": stock,
+            "catalog": catalog_name(product),
+        })
 
     lines = ["📣 <b>Pengumuman</b>", f"<blockquote>{escape(message)}</blockquote>"] if message else []
     if products:
         if not lines:
-            lines.append("🛍️ <b>Pilihan Produk Promo</b>")
+            lines.append("🛍️ <b>Daftar Produk Promo</b>")
         if lines:
             lines.append("")
 
-        # Tambahkan tabel rapi produk yang terstruktur dengan kolom Keterangan langsung di header
+        # Header: No | 📦 Produk | 🏷️ Harga | 🏷️ Potongan/Diskon | 📊 Stok
         lines.append("<table bordered striped compact>")
-        lines.append("<tr><th>No</th><th>📦 Produk</th><th>🏷️ Harga</th><th>📊 Stok</th><th>📝 Keterangan</th></tr>")
+        lines.append("<tr><th>No</th><th>📦 Produk</th><th>🏷️ Harga</th><th>🏷️ Potongan/Diskon</th><th>📊 Stok</th></tr>")
         for index, product in enumerate(products, 1):
             stk = "∞" if product.get("stock") is None else str(int(product["stock"]))
             p_name = escape(str(product.get("name") or "Produk"))
             p_price = escape(str(product.get("price") or ""))
-            summary_raw = str(product.get("summary") or "").strip()
-            # Bersihkan prefix redundant 'Ringkasan Bot:' bila ada agar rapi di tabel
-            if summary_raw.lower().startswith("ringkasan bot:"):
-                summary_raw = summary_raw[14:].strip()
-            p_desc = escape(summary_raw) if summary_raw else "—"
-            lines.append(f"<tr><td>{index}</td><td><b>{p_name}</b></td><td><code>{p_price}</code></td><td>{stk}</td><td>{p_desc}</td></tr>")
+            p_disc = escape(str(product.get("discount") or "—"))
+            lines.append(f"<tr><td>{index}</td><td><b>{p_name}</b></td><td><code>{p_price}</code></td><td>{p_disc}</td><td>{stk}</td></tr>")
         lines.append("</table>")
         lines.append("")
 

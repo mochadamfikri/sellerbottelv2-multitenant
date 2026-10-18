@@ -18,8 +18,9 @@ from channel_automation_protection import is_product_protected, assert_not_prote
 from channel_inventory_engine import (
     reserve_channel_inventory,
     restore_channel_inventory,
-    get_reserved_inventory_summary,
+    get_prom_inventory_summary as get_reserved_inventory_summary,
 )
+
 from channel_automation_scheduler import select_eligible_product, execute_campaign_job
 from services import now_iso
 
@@ -68,8 +69,9 @@ async def test_inventory_reservation_and_restore_all():
     avail_after = await db.inventory_items.count_documents({"product_id": prod_id, "status": "available"})
     assert avail_after == 6
 
-    reserved_count = await db.inventory_items.count_documents({"product_id": prod_id, "status": "reserved_channel"})
+    reserved_count = await db.inventory_items.count_documents({"product_id": prod_id, "status": "PROM"})
     assert reserved_count == 4
+
 
     # Test 10: Verify not counted as sold
     sold_count = await db.inventory_items.count_documents({"product_id": prod_id, "status": "sold"})
@@ -112,9 +114,10 @@ async def test_inventory_restore_partial_and_isolation():
     assert restore_partial["restored_count"] == 2
     assert restore_partial["remaining_reserved"] == 4
 
-    # Test 13: Prod B should be untouched (still 4 reserved, 2 available)
-    b_reserved = await db.inventory_items.count_documents({"product_id": prod_b, "status": "reserved_channel"})
+    # Test 13: Prod B should be untouched (still 4 PROM, 2 available)
+    b_reserved = await db.inventory_items.count_documents({"product_id": prod_b, "status": "PROM"})
     assert b_reserved == 4
+
 
 
 @pytest.mark.asyncio

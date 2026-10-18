@@ -441,11 +441,12 @@ export default function ChannelAutomation() {
       <div className="border-b border-slate-800 flex overflow-x-auto gap-1">
         {[
           { id: "campaigns", label: "Campaign Manager" },
-          { id: "restore", label: "Reserved Inventory" },
+          { id: "restore", label: "Inventory PROM (Restore)" },
           { id: "channel", label: "Channel Connection" },
           { id: "preview", label: "Live Table Preview" },
           { id: "protected", label: "Protected Products" },
           { id: "logs", label: "Audit Trail" },
+
         ].map((tab) => {
           const isActive = activeTab === tab.id;
           return (
@@ -586,14 +587,14 @@ export default function ChannelAutomation() {
         </div>
       )}
 
-      {/* TAB 2: RESERVED INVENTORY (RESTORE) */}
+      {/* TAB 2: INVENTORY PROM (RESTORE) */}
       {activeTab === "restore" && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
             <div>
-              <h2 className="text-base font-semibold text-white">Reserved Inventory Management</h2>
+              <h2 className="text-base font-semibold text-white">Inventory PROM Management</h2>
               <p className="text-xs text-slate-400">
-                Unit inventory yang berstatus <code>RESERVED_CHANNEL</code> tidak dapat dibeli pelanggan sampai dipulihkan ke <code>AVAILABLE</code>.
+                Stok yang berstatus <code>PROM</code> dikeluarkan dari ketersediaan toko tanpa dihitung sebagai penjualan. Admin dapat mengembalikan stok ke <code>AVAILABLE</code> per produk.
               </p>
             </div>
           </div>
@@ -604,7 +605,7 @@ export default function ChannelAutomation() {
                 <tr>
                   <th className="p-3.5 font-semibold">Produk</th>
                   <th className="p-3.5 font-semibold">SKU</th>
-                  <th className="p-3.5 font-semibold">Stok Reserved</th>
+                  <th className="p-3.5 font-semibold">Stok PROM</th>
                   <th className="p-3.5 font-semibold text-right">Tindakan</th>
                 </tr>
               </thead>
@@ -613,7 +614,7 @@ export default function ChannelAutomation() {
                   <tr>
                     <td colSpan={4} className="p-10 text-center text-slate-500">
                       <CheckCircle2 className="w-8 h-8 mx-auto mb-2 opacity-30 text-emerald-400" />
-                      Tidak ada inventory yang berstatus RESERVED_CHANNEL saat ini. Semua stok normal.
+                      Tidak ada inventory yang berstatus PROM saat ini. Semua stok normal.
                     </td>
                   </tr>
                 ) : (
@@ -623,7 +624,7 @@ export default function ChannelAutomation() {
                       <td className="p-3.5 font-mono text-slate-400">{item.sku}</td>
                       <td className="p-3.5">
                         <span className="px-2 py-0.5 rounded font-mono font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                          {item.reserved_count} Unit
+                          {item.prom_count || item.reserved_count} Unit PROM
                         </span>
                       </td>
                       <td className="p-3.5 text-right">
@@ -643,6 +644,7 @@ export default function ChannelAutomation() {
           </div>
         </div>
       )}
+
 
       {/* TAB 3: CHANNEL CONNECTION */}
       {activeTab === "channel" && (
@@ -1117,9 +1119,10 @@ export default function ChannelAutomation() {
             <div className="p-3.5 bg-slate-950 rounded-xl border border-slate-800 text-xs space-y-1 text-slate-300">
               <div>Produk: <b className="text-white">{selectedProductForRestore.product_name}</b></div>
               <div>
-                Total Reserved: <b className="text-amber-400 font-mono">{selectedProductForRestore.reserved_count} Unit</b>
+                Total PROM: <b className="text-amber-400 font-mono">{selectedProductForRestore.prom_count || selectedProductForRestore.reserved_count} Unit</b>
               </div>
             </div>
+
 
             <form onSubmit={handleExecuteRestore} className="space-y-4 text-xs">
               <div className="space-y-2">

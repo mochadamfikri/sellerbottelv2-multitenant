@@ -181,9 +181,10 @@ async def test_09_reservation_decreases_available_stock():
     assert res["success"] is True
 
     avail = await db.inventory_items.count_documents({"product_id": pid, "status": "available"})
-    reserved = await db.inventory_items.count_documents({"product_id": pid, "status": "reserved_channel"})
+    reserved = await db.inventory_items.count_documents({"product_id": pid, "status": "PROM"})
     assert avail == 3
     assert reserved == 2
+
 
 
 # Test 10: Reservation Not Counted as Sale / Revenue
@@ -261,9 +262,10 @@ async def test_13_restore_does_not_affect_other_products():
     # Restore P1
     await restore_channel_inventory(p1, mode="all")
 
-    # P2 must remain 4 reserved
-    p2_reserved = await db.inventory_items.count_documents({"product_id": p2, "status": "reserved_channel"})
+    # P2 must remain 4 in PROM
+    p2_reserved = await db.inventory_items.count_documents({"product_id": p2, "status": "PROM"})
     assert p2_reserved == 4
+
 
 
 # Test 14: Sold Inventory Cannot be Restored

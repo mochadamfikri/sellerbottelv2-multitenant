@@ -1,16 +1,13 @@
-"""Channel Automation Inventory Reservation & Restoration Engine.
+"""Channel Automation Inventory Engine with explicit PROM status.
 
-Section 8: Inventory Reservation Engine
-- Statuses: AVAILABLE, RESERVED_CHANNEL, SOLD, DELIVERED
-- Decrements AVAILABLE stock on bot & website without counting as sale or revenue.
-- Protected products strictly blocked from reservation.
-- Preserves secrets, encryption, and payload unchanged.
+Status Lifecycle:
+- AVAILABLE: Active and available for purchase on bot and website.
+- PROM: Taken out of availability via Channel Automation; NOT a sale, NOT counted in revenue/profit.
+- SOLD: Genuine customer transaction.
 
-Section 9: Inventory Restore Management
-- Restore All per product
-- Restore Partial per product
-- Atomic database transactions & locking
-- 0 < REQUESTED_QUANTITY <= RESTORABLE_QUANTITY
+Flow:
+AVAILABLE -> PROM -> AVAILABLE (on restore)
+AVAILABLE -> SOLD (on genuine customer order)
 """
 import logging
 import uuid
@@ -22,11 +19,11 @@ from services import now_iso
 logger = logging.getLogger(__name__)
 
 
-async def get_reserved_inventory_summary() -> List[Dict[str, Any]]:
-    """Returns list of products having RESERVED_CHANNEL items."""
+async def get_prom_inventory_summary() -> List[Dict[str, Any]]:
+    """Returns list of products having PROM inventory."""
     pipeline = [
-        {"$match": {"status": "reserved_channel"}},
-        {"$group": {"_id": "$product_id", "reserved_count": {"$sum": 1}}},
+        {"$match": {"status": "PROM"}},
+        {"$group": {"_id": "$product_id", "prom_count": {"$sum": 1}}},
     ]
     results = []
     async for doc in db.inventory_items.aggregate(pipeline):
@@ -37,7 +34,8 @@ async def get_reserved_inventory_summary() -> List[Dict[str, Any]]:
             "product_id": pid,
             "product_name": pname,
             "sku": (product or {}).get("sku", ""),
-            "reserved_count": doc["reserved_count"],
+            "prom_count": doc["prom_count"],
+            "reserved_count": doc["prom_count"],  # backward compatibility for API
         })
     return results
 
@@ -50,10 +48,12 @@ async def reserve_channel_inventory(
     operation_type: str = "campaign_reservation",
     audit_reference: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Atomic inventory reservation for channel campaigns.
+    """Atomic inventory move: AVAILABLE -> PROM.
     
-    Status becomes 'reserved_channel'.
-    Does not register as a sale or revenue.
+    Status becomes 'PROM'.
+    Decrements AVAILABLE stock on bot and website.
+    Does NOT register as a sale, revenue, or customer order.
+    Protected products strictly asserted against.
     """
     assert_not_protected(product_id, "reserve_channel_inventory")
     quantity = int(quantity)
@@ -71,7 +71,7 @@ async def reserve_channel_inventory(
     })
     if available_count < quantity:
         raise ValueError(
-            f"Insufficient available stock for reservation. Requested: {quantity}, Available: {available_count}"
+            f"Insufficient available stock for PROM. Requested: {quantity}, Available: {available_count}"
         )
 
     reservation_id = str(uuid.uuid4())
@@ -85,7 +85,7 @@ async def reserve_channel_inventory(
             },
             {
                 "$set": {
-                    "status": "reserved_channel",
+                    "status": "PROM",
                     "channel_reservation_id": reservation_id,
                     "channel_campaign_id": campaign_id,
                     "channel_reserved_at": now_iso(),
@@ -93,7 +93,7 @@ async def reserve_channel_inventory(
                 "$push": {
                     "movement_audit": {
                         "event_id": str(uuid.uuid4()),
-                        "action": "reserved_channel",
+                        "action": "moved_to_prom",
                         "quantity": -1,
                         "at": now_iso(),
                         "reference": reservation_id,
@@ -103,13 +103,13 @@ async def reserve_channel_inventory(
             sort=[("_id", 1)],
         )
         if not item:
-            # Rollback partial reservation
+            # Rollback partial moves
             await _rollback_channel_reservation(reservation_id)
-            raise RuntimeError("Race condition detected during reservation. Operation rolled back.")
-        
+            raise RuntimeError("Race condition detected during PROM move. Operation rolled back.")
+
         reserved_items.append(item["_id"])
 
-    # Record reservation receipt
+    # Record receipt
     receipt = {
         "_id": reservation_id,
         "reservation_id": reservation_id,
@@ -118,7 +118,7 @@ async def reserve_channel_inventory(
         "quantity": quantity,
         "reserved_item_ids": reserved_items,
         "previous_status": "available",
-        "current_status": "reserved_channel",
+        "current_status": "PROM",
         "reserved_at": now_iso(),
         "reserved_by": admin_user,
         "restored_at": None,
@@ -134,7 +134,7 @@ async def reserve_channel_inventory(
 
     # Audit log
     await log_channel_action(
-        action="inventory_reserved",
+        action="inventory_moved_to_prom",
         actor=admin_user,
         details={
             "reservation_id": reservation_id,
@@ -153,9 +153,9 @@ async def reserve_channel_inventory(
 
 
 async def _rollback_channel_reservation(reservation_id: str):
-    """Rolls back an uncompleted reservation."""
+    """Rolls back an uncompleted PROM reservation."""
     await db.inventory_items.update_many(
-        {"channel_reservation_id": reservation_id, "status": "reserved_channel"},
+        {"channel_reservation_id": reservation_id, "status": "PROM"},
         {
             "$set": {
                 "status": "available",
@@ -166,7 +166,7 @@ async def _rollback_channel_reservation(reservation_id: str):
             "$push": {
                 "movement_audit": {
                     "event_id": str(uuid.uuid4()),
-                    "action": "reservation_rollback",
+                    "action": "prom_rollback",
                     "quantity": 1,
                     "at": now_iso(),
                     "reference": reservation_id,
@@ -182,11 +182,11 @@ async def restore_channel_inventory(
     admin_user: str = "admin",
     mode: str = "all",  # "all" or "partial"
 ) -> Dict[str, Any]:
-    """Restore reserved inventory back to AVAILABLE per product.
+    """Restore PROM inventory back to AVAILABLE strictly per product.
     
     Rules:
     - Never restores SOLD or DELIVERED items.
-    - Strictly per product_id.
+    - Strictly per product_id; never affects other products.
     - Validates 0 < requested_quantity <= restorable_quantity.
     - Protected products are asserted against.
     """
@@ -194,14 +194,14 @@ async def restore_channel_inventory(
 
     restorable_count = await db.inventory_items.count_documents({
         "product_id": product_id,
-        "status": "reserved_channel",
+        "status": "PROM",
     })
 
     if restorable_count == 0:
         return {
             "success": True,
             "restored_count": 0,
-            "message": "No reserved channel items to restore for this product.",
+            "message": "No PROM items to restore for this product.",
         }
 
     if mode == "partial":
@@ -209,16 +209,15 @@ async def restore_channel_inventory(
             raise ValueError("Partial restore requires quantity > 0")
         if quantity > restorable_count:
             raise ValueError(
-                f"Requested restore quantity ({quantity}) exceeds available reserved quantity ({restorable_count})"
+                f"Requested restore quantity ({quantity}) exceeds available PROM quantity ({restorable_count})"
             )
         restore_target = quantity
     else:  # mode == "all"
         restore_target = restorable_count
 
-    # Atomically update the target quantity of reserved_channel items
-    # Fetch candidate IDs first
+    # Fetch candidate items
     cursor = db.inventory_items.find(
-        {"product_id": product_id, "status": "reserved_channel"},
+        {"product_id": product_id, "status": "PROM"},
         {"_id": 1, "channel_reservation_id": 1},
     ).limit(restore_target)
 
@@ -229,7 +228,7 @@ async def restore_channel_inventory(
 
     restore_event_id = str(uuid.uuid4())
     res = await db.inventory_items.update_many(
-        {"_id": {"$in": candidate_ids}, "status": "reserved_channel"},
+        {"_id": {"$in": candidate_ids}, "status": "PROM"},
         {
             "$set": {
                 "status": "available",
@@ -240,7 +239,7 @@ async def restore_channel_inventory(
             "$push": {
                 "movement_audit": {
                     "event_id": restore_event_id,
-                    "action": "channel_restore",
+                    "action": "prom_to_available",
                     "quantity": 1,
                     "at": now_iso(),
                     "reference": f"restored_by:{admin_user}",
@@ -253,7 +252,7 @@ async def restore_channel_inventory(
 
     # Update reservations tracking records
     await db.channel_inventory_reservations.update_many(
-        {"product_id": product_id, "current_status": "reserved_channel"},
+        {"product_id": product_id, "current_status": "PROM"},
         {
             "$set": {
                 "current_status": "restored",
@@ -269,14 +268,14 @@ async def restore_channel_inventory(
 
     # Log action
     await log_channel_action(
-        action="inventory_restored",
+        action="inventory_restored_from_prom",
         actor=admin_user,
         details={
             "product_id": product_id,
             "mode": mode,
             "requested_quantity": quantity,
             "restored_count": actual_restored,
-            "remaining_reserved": restorable_count - actual_restored,
+            "remaining_prom": restorable_count - actual_restored,
         },
     )
 
@@ -284,6 +283,7 @@ async def restore_channel_inventory(
         "success": True,
         "restored_count": actual_restored,
         "remaining_reserved": restorable_count - actual_restored,
+        "remaining_prom": restorable_count - actual_restored,
     }
 
 

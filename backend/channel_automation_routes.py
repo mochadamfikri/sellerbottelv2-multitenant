@@ -41,11 +41,12 @@ from channel_automation_scheduler import (
     COMBINATION_C,
 )
 from channel_inventory_engine import (
-    get_reserved_inventory_summary,
+    get_prom_inventory_summary,
     reserve_channel_inventory,
     restore_channel_inventory,
     log_channel_action,
 )
+
 from services import now_iso
 from tgapi import tg
 
@@ -406,9 +407,10 @@ async def preview_message(
 
 @router.get("/inventory/reserved")
 async def list_reserved_inventory(admin: dict = Depends(get_current_admin)):
-    """List products that currently have reserved_channel inventory."""
-    summary = await get_reserved_inventory_summary()
-    return {"reserved_products": summary}
+    """List products that currently have PROM inventory."""
+    summary = await get_prom_inventory_summary()
+    return {"reserved_products": summary, "prom_products": summary}
+
 
 
 @router.post("/inventory/restore")
@@ -454,7 +456,8 @@ async def get_dashboard_metrics(admin: dict = Depends(get_current_admin)):
         if cnt > 0:
             eligible_count += 1
 
-    total_reserved = await db.inventory_items.count_documents({"status": "reserved_channel"})
+    total_reserved = await db.inventory_items.count_documents({"status": "PROM"})
+
     protected_count = len(PROTECTED_PRODUCT_IDS)
 
     next_run_doc = await db.channel_automation_campaigns.find_one(

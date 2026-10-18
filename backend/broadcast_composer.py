@@ -125,25 +125,21 @@ async def _build_content(body: ComposeBody):
         if lines:
             lines.append("")
 
-        # Tambahkan tabel rapi produk yang terstruktur
+        # Tambahkan tabel rapi produk yang terstruktur dengan kolom Keterangan langsung di header
         lines.append("<table bordered striped compact>")
-        lines.append("<tr><th>No</th><th>📦 Produk</th><th>🏷️ Harga</th><th>📊 Stok</th></tr>")
+        lines.append("<tr><th>No</th><th>📦 Produk</th><th>🏷️ Harga</th><th>📊 Stok</th><th>📝 Keterangan</th></tr>")
         for index, product in enumerate(products, 1):
             stk = "∞" if product.get("stock") is None else str(int(product["stock"]))
             p_name = escape(str(product.get("name") or "Produk"))
             p_price = escape(str(product.get("price") or ""))
-            lines.append(f"<tr><td>{index}</td><td>{p_name}</td><td><code>{p_price}</code></td><td>{stk}</td></tr>")
+            summary_raw = str(product.get("summary") or "").strip()
+            # Bersihkan prefix redundant 'Ringkasan Bot:' bila ada agar rapi di tabel
+            if summary_raw.lower().startswith("ringkasan bot:"):
+                summary_raw = summary_raw[14:].strip()
+            p_desc = escape(summary_raw) if summary_raw else "—"
+            lines.append(f"<tr><td>{index}</td><td><b>{p_name}</b></td><td><code>{p_price}</code></td><td>{stk}</td><td>{p_desc}</td></tr>")
         lines.append("</table>")
         lines.append("")
-
-        # Rincian summary di bawah tabel jika ada
-        has_summaries = any(p.get("summary") for p in products)
-        if has_summaries:
-            lines.append("📝 <b>Keterangan Produk:</b>")
-            for index, product in enumerate(products, 1):
-                if product["summary"]:
-                    lines.append(f"• <b>{index}. {escape(product['name'])}</b>: <i>{escape(product['summary'])}</i>")
-            lines.append("")
 
         lines.append("🛒 Order: @Idse_MarketBot")
     text = "\n".join(lines).strip()

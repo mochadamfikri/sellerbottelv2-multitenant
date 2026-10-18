@@ -44,9 +44,9 @@ from channel_automation_utils import (
 )
 from channel_automation_tables import (
     render_verified_transaction_table,
-    render_promo_product_table,
     render_simulation_table,
 )
+
 from channel_automation_scheduler import (
     parse_interval_to_seconds,
     select_next_interval_seconds,
@@ -80,15 +80,16 @@ def test_01_native_telegram_rich_table_rendered():
 # Test 2: Product Hyperlink targeting deep link
 def test_02_product_hyperlink_targets_bot_deep_link():
     pid = "prod-xyz-123"
-    rendered = render_promo_product_table(
+    rendered = render_simulation_table(
         product_name="Gemini Pro 18 Bulan",
         product_id=pid,
-        price=15000,
+        price=15106,
         bot_username="Idse_MarketBot",
     )
     expected_url = f"https://t.me/Idse_MarketBot?start=prod_{pid}"
     assert f'href="{expected_url}"' in rendered.html
     assert "Gemini Pro 18 Bulan" in rendered.html
+
 
 
 # Test 3: Username Masking

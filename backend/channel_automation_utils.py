@@ -1,15 +1,47 @@
-"""Nominal Calculation and Masking utilities for Channel Automation.
+"""Nominal Calculation, Masking, and Dummy Generator for Channel Automation V2.
 
-Section 3: Privacy & User Masking
-Section 7: Sistem Nominal
-FINAL = BASE_PRICE + FEE_0_7_PERCENT + ADMIN_FEE + UNIQUE_SEQUENCE
+Section 2: GENERATOR DATA SIMULASI
+- NAME: "@" + two random alphabet characters + 5-10 asterisks (e.g. @Ra*******, @Ms******, @Al********, @Di*****)
+- USER: Exactly 10 digits. First digit strictly in [1, 2, 4, 5, 6, 7, 8].
+  Display masking: 3 digit awal + 5 asterisk + 2 digit akhir (e.g. 129*****38, 562*****73, 481*****29)
+
+Section 5: NOMINAL CALCULATION
+- FINAL = PRODUCT_PRICE + (PRODUCT_PRICE * 0.007) + ADMIN_FEE + UNIQUE_SEQUENCE
 """
 import random
 import re
-from typing import Optional, Tuple, Any
+import string
+from typing import Optional, Tuple, Any, Dict
 
 
-def mask_username(username: Optional[str], min_asterisks: int = 5, max_asterisks: int = 7) -> str:
+def generate_dummy_username() -> str:
+    """Generates dummy Telegram username according to Section 2:
+    
+    '@' + two letters + 5 to 10 asterisks.
+    Examples: @Ra*******, @Ms******, @Al********, @Di*****
+    """
+    first_letter = random.choice(string.ascii_uppercase)
+    second_letter = random.choice(string.ascii_lowercase)
+    asterisk_count = random.randint(5, 10)
+    return f"@{first_letter}{second_letter}{'*' * asterisk_count}"
+
+
+def generate_dummy_user_id() -> Tuple[str, str]:
+    """Generates dummy 10-digit Telegram User ID according to Section 2:
+    
+    - First digit MUST be one of: 1, 2, 4, 5, 6, 7, 8
+    - Exactly 10 digits
+    - Returns (raw_id, masked_id)
+    - Masking: 3 digit awal + 5 asterisk + 2 digit akhir (e.g. 129*****38)
+    """
+    first_digit = str(random.choice([1, 2, 4, 5, 6, 7, 8]))
+    remaining_digits = "".join(random.choices(string.digits, k=9))
+    raw_id = first_digit + remaining_digits
+    masked = mask_user_id(raw_id)
+    return raw_id, masked
+
+
+def mask_username(username: Optional[str], min_asterisks: int = 5, max_asterisks: int = 10) -> str:
     """Mask Telegram username preserving @ and first 2 characters, followed by 5-10 asterisks.
     
     Example:
@@ -23,9 +55,8 @@ def mask_username(username: Optional[str], min_asterisks: int = 5, max_asterisks
     cleaned = raw.lstrip("@")
     if not cleaned:
         return "-"
-    
+
     prefix = cleaned[:2]
-    # variable asterisks between 5-10 so true username length cannot be guessed easily
     count = random.randint(min_asterisks, max(min_asterisks, max_asterisks))
     return f"@{prefix}{'*' * count}"
 
@@ -33,9 +64,8 @@ def mask_username(username: Optional[str], min_asterisks: int = 5, max_asterisks
 def mask_user_id(telegram_id: Optional[Any]) -> str:
     """Mask Telegram User ID preserving first 3 digits and last 2 digits for 10-digit IDs.
     
-    For IDs of other lengths, preserves first 3 (or 2) and last 2 digits, masking the middle.
-    Example:
-    1297810938 -> 129*****38
+    Format: 3 digit awal + 5 asterisk + 2 digit akhir (e.g. 129*****38).
+    For IDs of other lengths, preserves first 3 and last 2 digits, masking the middle.
     """
     if not telegram_id:
         return "-"
@@ -43,19 +73,22 @@ def mask_user_id(telegram_id: Optional[Any]) -> str:
     if not text.isdigit():
         return "-"
     length = len(text)
+    if length == 10:
+        return f"{text[:3]}*****{text[-2:]}"
     if length <= 4:
         return text[0] + "*" * (length - 1)
     if length <= 6:
         return text[:2] + "*" * (length - 3) + text[-1:]
-    # Default: first 3, last 2, middle asterisks
+    # Middle asterisks for other lengths
     middle_count = length - 5
     return text[:3] + ("*" * middle_count) + text[-2:]
 
 
-def calculate_nominal(base_price: int, admin_fee: int = 0, sequence: int = 1) -> dict:
-    """Calculate nominal breakdown according to Section 7:
+
+def calculate_nominal(base_price: int, admin_fee: int = 0, sequence: int = 1) -> Dict[str, Any]:
+    """Calculate nominal breakdown according to Section 5:
     
-    FINAL = BASE_PRICE + FEE_0_7_PERCENT + ADMIN_FEE + UNIQUE_SEQUENCE
+    FINAL = PRODUCT_PRICE + (PRODUCT_PRICE * 0.007) + ADMIN_FEE + UNIQUE_SEQUENCE
     Fee 0.7% = round(base_price * 0.007)
     """
     base = max(0, int(base_price))

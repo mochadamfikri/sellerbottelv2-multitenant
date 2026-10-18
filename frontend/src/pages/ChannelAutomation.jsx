@@ -786,9 +786,8 @@ export default function ChannelAutomation() {
 
           <div className="flex flex-wrap gap-2">
             {[
-              { id: "verified_transaction", label: "A. Verified Transaction" },
-              { id: "promo", label: "B. Scheduled Product Promo" },
-              { id: "simulation", label: "C. Testing & Simulation" },
+              { id: "verified_transaction", label: "A. Verified Transaction (Order Riil)" },
+              { id: "simulation", label: "B. Scheduled Simulation (Tabel 4-Field)" },
             ].map((tmpl) => (
               <button
                 key={tmpl.id}
@@ -806,6 +805,7 @@ export default function ChannelAutomation() {
               </button>
             ))}
           </div>
+
 
           {previewData && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

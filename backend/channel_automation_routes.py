@@ -1,4 +1,4 @@
-"""Channel Automation Admin API Routes.
+"""Channel Automation Admin API Routes V2.
 
 Implements all required admin controls:
 - Campaign Management (CRUD, Start, Pause, Resume, Stop, Set Runtime, Preview)
@@ -7,6 +7,7 @@ Implements all required admin controls:
 - Reserved Inventory & Restoration (Restore All, Restore Partial per product)
 - Activity Logs & Metrics
 """
+import os
 import time
 import uuid
 from typing import Dict, Any, List, Optional
@@ -22,14 +23,22 @@ from channel_automation_protection import (
 )
 from channel_automation_tables import (
     render_verified_transaction_table,
-    render_promo_product_table,
     render_simulation_table,
 )
-from channel_automation_utils import calculate_nominal, format_idr
+
+from channel_automation_utils import (
+    calculate_nominal,
+    format_idr,
+    generate_dummy_username,
+    generate_dummy_user_id,
+)
 from channel_automation_scheduler import (
     parse_interval_to_seconds,
     select_next_interval_seconds,
     send_rich_message_to_channel,
+    COMBINATION_A,
+    COMBINATION_B,
+    COMBINATION_C,
 )
 from channel_inventory_engine import (
     get_reserved_inventory_summary,
@@ -37,9 +46,6 @@ from channel_inventory_engine import (
     restore_channel_inventory,
     log_channel_action,
 )
-import os
-TELEGRAM_BOT_USERNAME = os.environ.get("TELEGRAM_BOT_USERNAME", "Idse_MarketBot")
-
 from services import now_iso
 from tgapi import tg
 
@@ -51,15 +57,17 @@ router = APIRouter(prefix="/api/admin/channel-automation", tags=["Channel Automa
 class CampaignCreate(BaseModel):
     name: str
     channel_id: str
-    schedule_mode: str = "custom_sequence"  # custom_sequence, random_pool, fixed
+    schedule_mode: str = "custom_sequence"  # combination_a, combination_b, combination_c, custom_sequence, random_pool, fixed
     sequence_seconds: Optional[List[int]] = None
     interval_pool_seconds: Optional[List[int]] = None
     interval_pool_weights: Optional[List[float]] = None
     interval_seconds: Optional[int] = 60
     target_product_ids: Optional[List[str]] = None
     target_category: Optional[str] = None
+    product_weights: Optional[Dict[str, float]] = None
     reserve_units_per_post: Optional[int] = 0
-    is_simulation: bool = False
+    admin_fee: Optional[int] = 0
+    is_simulation: bool = True  # default True for scheduled simulation
 
 
 class RestoreRequest(BaseModel):
@@ -81,7 +89,6 @@ async def get_channel_config(admin: dict = Depends(get_current_admin)):
     """Fetch current connected channel status."""
     conf = await db.channel_automation_configs.find_one({"_id": "default_channel"})
     if not conf:
-        # Fall back to settings.broadcast_channel_id if present
         settings = await db.settings.find_one({}) or {}
         b_channel = settings.get("broadcast_channel_id")
         return {
@@ -108,7 +115,6 @@ async def connect_channel(data: ChannelConnectRequest, admin: dict = Depends(get
     admin_user = admin.get("email") or "admin"
     channel_id = data.channel_id.strip()
 
-    # Validate bot permission by calling getChat
     perm_status = "valid"
     title = data.channel_title or ""
     uname = data.channel_username or ""
@@ -150,7 +156,6 @@ async def validate_channel(admin: dict = Depends(get_current_admin)):
 
     channel_id = conf["channel_id"]
     try:
-        # Check getChatAdministrators or getChat
         chat_info = await tg("getChat", chat_id=channel_id)
         if isinstance(chat_info, dict) and chat_info.get("ok"):
             await db.channel_automation_configs.update_one(
@@ -174,12 +179,17 @@ async def send_test_message(admin: dict = Depends(get_current_admin)):
     if not channel_id:
         raise HTTPException(status_code=400, detail="Channel not connected.")
 
-    bot_uname = TELEGRAM_BOT_USERNAME or "Idse_MarketBot"
+    bot_uname = os.environ.get("TELEGRAM_BOT_USERNAME", "Idse_MarketBot").strip().lstrip("@")
+    dummy_name = generate_dummy_username()
+    _, dummy_id = generate_dummy_user_id()
+
     rendered = render_simulation_table(
         product_name="[TEST] Gemini Pro 18 Bulan",
         product_id="test_sim_prd_001",
-        price=15000,
+        price=15106,
         bot_username=bot_uname,
+        dummy_name=dummy_name,
+        dummy_user_id=dummy_id,
     )
 
     resp = await send_rich_message_to_channel(channel_id, rendered.html, rendered.fallback_text)
@@ -221,7 +231,7 @@ async def create_campaign(data: CampaignCreate, admin: dict = Depends(get_curren
     admin_user = admin.get("email") or "admin"
     cid = str(uuid.uuid4())
 
-    # Validate target products if specified to make sure no protected product is included
+    # Validate target products if specified to ensure protected products are excluded
     if data.target_product_ids:
         for pid in data.target_product_ids:
             if is_product_protected(pid):
@@ -230,21 +240,34 @@ async def create_campaign(data: CampaignCreate, admin: dict = Depends(get_curren
                     detail=f"Product {pid} is permanently PROTECTED and cannot be added to campaigns.",
                 )
 
+    # Preset intervals if selected
+    seq_seconds = data.sequence_seconds
+    pool_seconds = data.interval_pool_seconds
+    if data.schedule_mode == "combination_a":
+        seq_seconds = COMBINATION_A
+    elif data.schedule_mode == "combination_b":
+        seq_seconds = COMBINATION_B
+    elif data.schedule_mode == "combination_c":
+        pool_seconds = COMBINATION_C
+
     doc = {
         "_id": cid,
         "name": data.name,
         "channel_id": data.channel_id,
         "schedule_mode": data.schedule_mode,
-        "sequence_seconds": data.sequence_seconds or [180, 120, 180, 360, 300, 330],
-        "interval_pool_seconds": data.interval_pool_seconds or [30, 60, 90, 120, 140, 150, 180, 210, 300, 330, 360, 1800],
+        "sequence_seconds": seq_seconds or COMBINATION_A,
+        "interval_pool_seconds": pool_seconds or COMBINATION_C,
         "interval_pool_weights": data.interval_pool_weights,
         "interval_seconds": data.interval_seconds or 60,
         "target_product_ids": data.target_product_ids or [],
         "target_category": data.target_category,
+        "product_weights": data.product_weights or {},
         "reserve_units_per_post": data.reserve_units_per_post or 0,
+        "admin_fee": data.admin_fee or 0,
         "is_simulation": data.is_simulation,
         "status": "STOPPED",
         "current_sequence_index": 0,
+        "current_sequence_counter": 1,
         "messages_sent": 0,
         "failed_messages": 0,
         "last_run_at": None,
@@ -322,12 +345,12 @@ async def delete_campaign(campaign_id: str, admin: dict = Depends(get_current_ad
 
 @router.get("/preview")
 async def preview_message(
-    template_type: str = Query("verified_transaction"),  # verified_transaction, promo, simulation
+    template_type: str = Query("verified_transaction"),  # verified_transaction, simulation
     product_id: Optional[str] = Query(None),
     admin: dict = Depends(get_current_admin),
 ):
-    """Renders preview of the rich table for admin."""
-    bot_uname = TELEGRAM_BOT_USERNAME or "Idse_MarketBot"
+    """Renders preview of the exact 4-field rich table for admin."""
+    bot_uname = os.environ.get("TELEGRAM_BOT_USERNAME", "Idse_MarketBot").strip().lstrip("@")
 
     # Fetch product
     p = None
@@ -340,8 +363,9 @@ async def preview_message(
     pname = p.get("name", "Gemini Pro 18 Bulan") if p else "Gemini Pro 18 Bulan"
     price = int(p.get("price_idr", 15000)) if p else 15000
 
+    calc = calculate_nominal(base_price=price, admin_fee=0, sequence=1)
+
     if template_type == "verified_transaction":
-        calc = calculate_nominal(base_price=price, admin_fee=0, sequence=1)
         rendered = render_verified_transaction_table(
             customer_name="@RapliArdn",
             customer_telegram_id="1297810938",
@@ -356,31 +380,25 @@ async def preview_message(
             "fallback": rendered.fallback_text,
             "nominal_breakdown": calc,
         }
-
-    elif template_type == "promo":
-        rendered = render_promo_product_table(
-            product_name=pname,
-            product_id=pid,
-            price=price,
-            bot_username=bot_uname,
-        )
-        return {
-            "template_type": template_type,
-            "html": rendered.html,
-            "fallback": rendered.fallback_text,
-        }
-
     else:  # simulation
+        dummy_uname = generate_dummy_username()
+        raw_tid, dummy_tid = generate_dummy_user_id()
         rendered = render_simulation_table(
             product_name=pname,
             product_id=pid,
-            price=price,
+            price=calc["final_amount"],
             bot_username=bot_uname,
+            dummy_name=dummy_uname,
+            dummy_user_id=raw_tid,
         )
+
         return {
             "template_type": template_type,
             "html": rendered.html,
             "fallback": rendered.fallback_text,
+            "dummy_user": dummy_uname,
+            "dummy_id": dummy_tid,
+            "nominal_breakdown": calc,
         }
 
 
@@ -421,16 +439,13 @@ async def restore_inventory(data: RestoreRequest, admin: dict = Depends(get_curr
 
 @router.get("/metrics")
 async def get_dashboard_metrics(admin: dict = Depends(get_current_admin)):
-    """Returns actual metrics according to Section 11 & Acceptance Criteria."""
-    # Running campaigns count
+    """Returns actual metrics according to Section 9 & Acceptance Criteria."""
     running_campaigns = await db.channel_automation_campaigns.count_documents({"status": "RUNNING"})
     total_campaigns = await db.channel_automation_campaigns.count_documents({})
-    
-    # Messages sent / failed from messages collection
+
     sent_msgs = await db.channel_automation_messages.count_documents({"status": "sent"})
     failed_msgs = await db.channel_automation_messages.count_documents({"status": "failed"})
 
-    # Eligible products count (active, inventory available > 0, NOT protected)
     eligible_count = 0
     async for p in db.products.find({"active": True}):
         if is_product_protected(p):
@@ -439,13 +454,9 @@ async def get_dashboard_metrics(admin: dict = Depends(get_current_admin)):
         if cnt > 0:
             eligible_count += 1
 
-    # Total reserved stock in channel
     total_reserved = await db.inventory_items.count_documents({"status": "reserved_channel"})
-
-    # Protected products count
     protected_count = len(PROTECTED_PRODUCT_IDS)
 
-    # Next run among running campaigns
     next_run_doc = await db.channel_automation_campaigns.find_one(
         {"status": "RUNNING", "next_run_at": {"$ne": None}},
         sort=[("next_run_epoch", 1)],

@@ -21,7 +21,7 @@ ACCENTS = ("emerald", "blue", "amber", "rose", "violet", "cyan")
 def _default_config() -> dict[str, Any]:
     return {
         "site_name": "IDSEConnect",
-        "promo_domain": "",
+        "promo_domain": os.environ.get("TENANT_BASE_DOMAIN") or "idseconnect.my.id",
         "whatsapp_number": "6285835158504",
         "accent": "emerald",
         "hero": {

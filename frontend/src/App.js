@@ -53,15 +53,20 @@ function HomeRoute() {
 function PromoDomainRoute() {
   // If the hostname matches the configured promo domain (e.g. idseconnect.my.id),
   // serve the promo landing at / instead of the storefront.
-  const [isPromo, setIsPromo] = useState(null);
+  const host = window.location.hostname.toLowerCase();
+  const [isPromo, setIsPromo] = useState(host === "idseconnect.my.id" || host === "www.idseconnect.my.id");
   useEffect(() => {
     api.get("/public/promo-config")
       .then((r) => {
-        const d = (r.data?.promo_domain || "").trim().toLowerCase();
-        setIsPromo(!!d && window.location.hostname.toLowerCase() === d);
+        const d = (r.data?.promo_domain || "idseconnect.my.id").trim().toLowerCase();
+        setIsPromo(host === d || host === `www.${d}` || host === "idseconnect.my.id");
       })
-      .catch(() => setIsPromo(false));
-  }, []);
+      .catch(() => {
+        if (host === "idseconnect.my.id" || host === "www.idseconnect.my.id") {
+          setIsPromo(true);
+        }
+      });
+  }, [host]);
   if (isPromo === null) return <div className="min-h-screen bg-[#f7f8f6]" />;
   if (isPromo) return <PromoLanding />;
   return <HomeRoute />;

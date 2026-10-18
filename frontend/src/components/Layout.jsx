@@ -30,13 +30,7 @@ const nav = [
   { to: "/deposits", label: "Deposit", icon: Wallet },
   { to: "/users", label: "Pengguna", icon: Users },
   { to: "/discounts", label: "Discount", icon: Percent },
-  {
-    label: "Broadcast & Communication", icon: Radio,
-    children: [
-      { to: "/broadcasts", label: "Broadcast", icon: Megaphone },
-      { to: "/central-broadcasts", label: "Broadcast Terpusat", icon: Radio },
-    ],
-  },
+  { to: "/broadcasts", label: "Broadcast", icon: Megaphone },
   { to: "/promotions", label: "Promotion & Customer Acquisition", icon: Megaphone },
   { to: "/resellers", label: "Bot Reseller", icon: Bot },
   { to: "/messages", label: "Bot Messages", icon: MessageSquareText },

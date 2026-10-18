@@ -23,8 +23,9 @@ from channel_automation_protection import (
 )
 from channel_automation_tables import (
     render_verified_transaction_table,
-    render_simulation_table,
+    render_scheduled_transaction_table,
 )
+
 
 from channel_automation_utils import (
     calculate_nominal,
@@ -171,7 +172,7 @@ async def validate_channel(admin: dict = Depends(get_current_admin)):
 
 @router.post("/channel/test-message")
 async def send_test_message(admin: dict = Depends(get_current_admin)):
-    """Sends a clearly labeled TEST message to verify rendering."""
+    """Sends a test message with the official 4-field transaction table."""
     conf = await db.channel_automation_configs.find_one({"_id": "default_channel"})
     channel_id = conf.get("channel_id") if conf else None
     if not channel_id:
@@ -182,15 +183,15 @@ async def send_test_message(admin: dict = Depends(get_current_admin)):
 
     bot_uname = os.environ.get("TELEGRAM_BOT_USERNAME", "Idse_MarketBot").strip().lstrip("@")
     dummy_name = generate_dummy_username()
-    _, dummy_id = generate_dummy_user_id()
+    raw_id, _ = generate_dummy_user_id()
 
-    rendered = render_simulation_table(
-        product_name="[TEST] Gemini Pro 18 Bulan",
-        product_id="test_sim_prd_001",
+    rendered = render_scheduled_transaction_table(
+        product_name="Gemini Google AI Plus 400GB 12 bulan",
+        product_id="dd1cce0a-2633-59c5-8ca3-f1ae40db80d3",
         price=15106,
         bot_username=bot_uname,
         dummy_name=dummy_name,
-        dummy_user_id=dummy_id,
+        dummy_user_id=raw_id,
     )
 
     resp = await send_rich_message_to_channel(channel_id, rendered.html, rendered.fallback_text)
@@ -203,6 +204,7 @@ async def send_test_message(admin: dict = Depends(get_current_admin)):
         )
         return {"success": True, "result": resp}
     return {"success": False, "error": resp}
+
 
 
 @router.post("/channel/disconnect")
@@ -381,10 +383,10 @@ async def preview_message(
             "fallback": rendered.fallback_text,
             "nominal_breakdown": calc,
         }
-    else:  # simulation
+    else:  # scheduled_transaction / automation
         dummy_uname = generate_dummy_username()
         raw_tid, dummy_tid = generate_dummy_user_id()
-        rendered = render_simulation_table(
+        rendered = render_scheduled_transaction_table(
             product_name=pname,
             product_id=pid,
             price=calc["final_amount"],
@@ -401,6 +403,7 @@ async def preview_message(
             "dummy_id": dummy_tid,
             "nominal_breakdown": calc,
         }
+
 
 
 # ===================== INVENTORY RESTORATION =====================

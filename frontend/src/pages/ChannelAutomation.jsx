@@ -504,15 +504,9 @@ export default function ChannelAutomation() {
                     campaigns.map((c) => (
                       <tr key={c._id} className="hover:bg-slate-800/40 transition">
                         <td className="p-3.5 font-sans font-medium text-white">
-                          <div className="flex items-center gap-2">
-                            <span>{c.name}</span>
-                            {c.is_simulation && (
-                              <span className="px-1.5 py-0.5 text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded">
-                                SIMULASI
-                              </span>
-                            )}
-                          </div>
+                          <span>{c.name}</span>
                         </td>
+
                         <td className="p-3.5 text-slate-400">
                           {c.channel_id}
                         </td>
@@ -731,11 +725,12 @@ export default function ChannelAutomation() {
                   type="button"
                   onClick={handleSendTestMessage}
                   disabled={loading}
-                  className="px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-medium transition flex items-center gap-1.5"
+                  className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-semibold rounded-lg text-xs transition flex items-center gap-1.5"
                 >
                   <Send className="w-3.5 h-3.5" />
-                  Kirim Uji Coba (SIMULASI)
+                  Kirim Pesan Uji Coba (Test Send)
                 </button>
+
               </div>
             </form>
           </div>
@@ -788,8 +783,7 @@ export default function ChannelAutomation() {
 
           <div className="flex flex-wrap gap-2">
             {[
-              { id: "verified_transaction", label: "A. Verified Transaction (Order Riil)" },
-              { id: "simulation", label: "B. Scheduled Simulation (Tabel 4-Field)" },
+              { id: "verified_transaction", label: "Transaksi Berhasil (Official 4-Field Table)" },
             ].map((tmpl) => (
               <button
                 key={tmpl.id}
@@ -797,16 +791,13 @@ export default function ChannelAutomation() {
                   setPreviewTemplate(tmpl.id);
                   loadPreview(tmpl.id);
                 }}
-                className={`px-3.5 py-2 text-xs font-semibold rounded-lg transition ${
-                  previewTemplate === tmpl.id
-                    ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20"
-                    : "bg-slate-800/80 text-slate-300 hover:bg-slate-700"
-                }`}
+                className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20"
               >
                 {tmpl.label}
               </button>
             ))}
           </div>
+
 
 
           {previewData && (
@@ -1060,24 +1051,6 @@ export default function ChannelAutomation() {
                 />
               </div>
 
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="modal_is_sim"
-                  checked={newCampaign.is_simulation}
-                  onChange={(e) =>
-                    setNewCampaign({
-                      ...newCampaign,
-                      is_simulation: e.target.checked,
-                    })
-                  }
-                  className="rounded bg-slate-950 border-slate-800 text-cyan-500"
-                />
-                <label htmlFor="modal_is_sim" className="text-slate-300 cursor-pointer">
-                  Mode Simulasi / Uji Coba (Pesan berlabel SIMULASI, tanpa reservasi nyata)
-                </label>
-              </div>
-
               <div className="pt-3 flex justify-end gap-2.5 border-t border-slate-800">
                 <button
                   type="button"
@@ -1095,6 +1068,7 @@ export default function ChannelAutomation() {
                 </button>
               </div>
             </form>
+
           </div>
         </div>
       )}

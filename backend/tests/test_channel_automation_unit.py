@@ -42,9 +42,10 @@ from channel_automation_utils import (
 )
 from channel_automation_tables import (
     render_verified_transaction_table,
-    render_simulation_table,
+    render_scheduled_transaction_table,
     make_product_url,
 )
+
 
 from channel_automation_scheduler import (
     parse_interval_to_seconds,
@@ -169,18 +170,21 @@ def test_scheduler_intervals_and_sequences():
     assert chosen in [30, 60, 90, 120]
 
 
-# Test Promo & Simulation Table Renderers
-def test_simulation_renderers():
-    sim = render_simulation_table(
+# Test Transaction Table Renderers
+def test_transaction_renderers():
+    tx = render_scheduled_transaction_table(
         product_name="Gemini Pro 18 Bulan",
         product_id="prd_gemini_18",
         price=15106,
         bot_username="Idse_MarketBot",
     )
-    assert "SIMULASI — BUKAN TRANSAKSI NYATA" in sim.html
-    assert "Informasi</th><th>Detail" in sim.html
-    assert "👤 name" in sim.html
-    assert "🆔 user" in sim.html
-    assert "📦 Produk" in sim.html
-    assert "🔢 Nominal" in sim.html
+    assert "TRANSAKSI BERHASIL" in tx.html
+    assert "SIMULASI" not in tx.html
+    assert "Informasi</th><th>Detail" in tx.html
+    assert "👤 name" in tx.html
+    assert "🆔 user" in tx.html
+    assert "📦 Produk" in tx.html
+    assert "🔢 Nominal" in tx.html
+    assert "Terima kasih sudah berbelanja 🙏" in tx.html
+
 

@@ -18,9 +18,10 @@ from typing import Dict, Any, List, Optional
 from db import db
 from channel_automation_protection import assert_not_protected, is_product_protected
 from channel_automation_tables import (
-    render_simulation_table,
+    render_scheduled_transaction_table,
     make_product_url,
 )
+
 
 from channel_automation_utils import (
     generate_dummy_username,
@@ -234,18 +235,19 @@ async def execute_campaign_job(campaign: Dict[str, Any]) -> Dict[str, Any]:
                 logger.error("Failed to reserve inventory for campaign %s: %s", campaign_id, e)
                 return {"success": False, "error": f"inventory_reservation_failed: {e}"}
 
-        # Render message: all scheduled posts use the 4-field simulation table with explicit SIMULASI label
+        # Render message: strictly 4-field table with '🥳 ㊗️🔊TRANSAKSI BERHASIL🔊㊗️'
         bot_uname = os.environ.get("TELEGRAM_BOT_USERNAME", "Idse_MarketBot").strip().lstrip("@")
         dummy_user = generate_dummy_username()
-        _, dummy_id = generate_dummy_user_id()
-        rendered = render_simulation_table(
+        raw_id, _ = generate_dummy_user_id()
+        rendered = render_scheduled_transaction_table(
             product_name=pname,
             product_id=pid,
             price=final_price,
             bot_username=bot_uname,
             dummy_name=dummy_user,
-            dummy_user_id=dummy_id,
+            dummy_user_id=raw_id,
         )
+
 
 
         # Dispatch via sendRichMessage with retry & backoff

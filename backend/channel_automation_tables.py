@@ -1,12 +1,20 @@
 """Telegram Rich Message Table Composer for Channel Automation.
 
 Strict 4-field table format:
-- sendRichMessage with InputRichMessage / InputRichBlockTable compatible HTML
+- sendRichMessage with native Telegram table
 - is_bordered: true, is_compact: true (via <table bordered striped compact>)
 - Product name deep-linking (https://t.me/<BOT_USERNAME>?start=prod_<PRODUCT_ID>)
-- Formats:
-  1. Real Verified Transaction (TRANSAKSI BERHASIL)
-  2. Scheduled Simulation (SIMULASI — BUKAN TRANSAKSI NYATA)
+
+Header resmi seragam:
+🥳 ㊗️🔊TRANSAKSI BERHASIL🔊㊗️
+
+Informasi| Detail
+👤 name| @Ra*******
+🆔 user| 129*****38
+📦 Produk| Gemini Pro 18 Bulan
+🔢 Nominal| Rp15.106
+
+Terima kasih sudah berbelanja 🙏
 """
 from dataclasses import dataclass
 from html import escape
@@ -33,15 +41,16 @@ def make_product_url(bot_username: str, product_id: str) -> str:
     return f"https://t.me/{clean_bot}?start=prod_{product_id}"
 
 
-def render_verified_transaction_table(
-    customer_name: str,
-    customer_telegram_id: str,
+def render_transaction_table(
+    name: str,
+    user_id: str,
     product_name: str,
     product_id: str,
-    final_amount: int,
+    amount: int,
     bot_username: str = "Idse_MarketBot",
+    message_type: str = "transaction",
 ) -> RenderedRichMessage:
-    """Format 1: Real Verified Transaction.
+    """Render exact official 4-field transaction table.
     
     🥳 ㊗️🔊TRANSAKSI BERHASIL🔊㊗️
     
@@ -53,9 +62,9 @@ def render_verified_transaction_table(
     
     Terima kasih sudah berbelanja 🙏
     """
-    masked_name = mask_username(customer_name)
-    masked_tid = mask_user_id(customer_telegram_id)
-    formatted_amount = format_idr(final_amount)
+    masked_name = mask_username(name)
+    masked_tid = mask_user_id(user_id)
+    formatted_amount = format_idr(amount)
     prod_url = make_product_url(bot_username, product_id)
     escaped_prod_name = escape(product_name)
 
@@ -81,10 +90,30 @@ def render_verified_transaction_table(
         "Terima kasih sudah berbelanja 🙏"
     )
 
-    return RenderedRichMessage(html=html, fallback_text=fallback, message_type="verified_transaction")
+    return RenderedRichMessage(html=html, fallback_text=fallback, message_type=message_type)
 
 
-def render_simulation_table(
+def render_verified_transaction_table(
+    customer_name: str,
+    customer_telegram_id: str,
+    product_name: str,
+    product_id: str,
+    final_amount: int,
+    bot_username: str = "Idse_MarketBot",
+) -> RenderedRichMessage:
+    """Real verified customer transaction table."""
+    return render_transaction_table(
+        name=customer_name,
+        user_id=customer_telegram_id,
+        product_name=product_name,
+        product_id=product_id,
+        amount=final_amount,
+        bot_username=bot_username,
+        message_type="verified_transaction",
+    )
+
+
+def render_scheduled_transaction_table(
     product_name: str,
     product_id: str,
     price: int,
@@ -92,47 +121,23 @@ def render_simulation_table(
     dummy_name: Optional[str] = None,
     dummy_user_id: Optional[str] = None,
 ) -> RenderedRichMessage:
-    """Format 2: Scheduled Simulation.
+    """Scheduled Channel Automation transaction table.
     
-    Tabel yang sama persis (4 field), dengan judul tegas:
-    🧪 SIMULASI — BUKAN TRANSAKSI NYATA
-    
-    Informasi| Detail
-    👤 name| @Ra*******
-    🆔 user| 129*****38
-    📦 Produk| Gemini Pro 18 Bulan
-    🔢 Nominal| Rp15.106
+    Uses identical header '🥳 ㊗️🔊TRANSAKSI BERHASIL🔊㊗️' and 4-field table.
+    No simulation labels.
     """
-    name_to_display = dummy_name or generate_dummy_username()
+    raw_name = dummy_name or generate_dummy_username()
     if dummy_user_id:
-        id_to_display = mask_user_id(dummy_user_id)
+        raw_id = dummy_user_id
     else:
-        _, id_to_display = generate_dummy_user_id()
+        raw_id, _ = generate_dummy_user_id()
 
-    formatted_amount = format_idr(price)
-    prod_url = make_product_url(bot_username, product_id)
-    escaped_prod_name = escape(product_name)
-
-    html = (
-        "<p>🧪 <b>SIMULASI — BUKAN TRANSAKSI NYATA</b></p>"
-        "<table bordered striped compact>"
-        "<tr><th>Informasi</th><th>Detail</th></tr>"
-        f"<tr><td>👤 name</td><td>{escape(name_to_display)}</td></tr>"
-        f"<tr><td>🆔 user</td><td>{escape(id_to_display)}</td></tr>"
-        f'<tr><td>📦 Produk</td><td><a href="{escape(prod_url)}">{escaped_prod_name}</a></td></tr>'
-        f"<tr><td>🔢 Nominal</td><td><code>{escape(formatted_amount)}</code></td></tr>"
-        "</table>"
-        "<p><i>Catatan: Ini adalah simulasi otomatis — bukan transaksi nyata.</i></p>"
+    return render_transaction_table(
+        name=raw_name,
+        user_id=raw_id,
+        product_name=product_name,
+        product_id=product_id,
+        amount=price,
+        bot_username=bot_username,
+        message_type="scheduled_transaction",
     )
-
-    fallback = (
-        "🧪 SIMULASI — BUKAN TRANSAKSI NYATA\n\n"
-        f"Informasi: Detail\n"
-        f"👤 name: {name_to_display}\n"
-        f"🆔 user: {id_to_display}\n"
-        f"📦 Produk: {product_name} ({prod_url})\n"
-        f"🔢 Nominal: {formatted_amount}\n\n"
-        "Catatan: Ini adalah simulasi otomatis — bukan transaksi nyata."
-    )
-
-    return RenderedRichMessage(html=html, fallback_text=fallback, message_type="simulation")

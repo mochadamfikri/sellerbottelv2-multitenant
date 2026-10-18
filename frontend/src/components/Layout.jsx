@@ -30,9 +30,14 @@ const nav = [
   { to: "/deposits", label: "Deposit", icon: Wallet },
   { to: "/users", label: "Pengguna", icon: Users },
   { to: "/discounts", label: "Discount", icon: Percent },
-  { to: "/broadcasts", label: "Broadcast", icon: Megaphone },
-  { to: "/channel-automation", label: "Channel Automation", icon: Radio },
-  { to: "/promotions", label: "Promotion & Customer Acquisition", icon: Megaphone },
+  {
+    label: "Broadcast & Channel", icon: Megaphone,
+    children: [
+      { to: "/channel-automation", label: "Channel Automation", icon: Radio },
+      { to: "/broadcasts", label: "Broadcast", icon: Megaphone },
+      { to: "/promotions", label: "Promotion & Outreach", icon: Megaphone },
+    ],
+  },
   { to: "/resellers", label: "Bot Reseller", icon: Bot },
   { to: "/messages", label: "Bot Messages", icon: MessageSquareText },
   { to: "/bot-moderation", label: "Tindak Lanjut Bot", icon: ShieldOff },
@@ -76,8 +81,9 @@ export const Layout = ({ children, title }) => {
   const [openGroups, setOpenGroups] = useState({
     "Catalog & Inventory": true,
     "Orders & Reports": true,
-    "Broadcast & Communication": false,
+    "Broadcast & Channel": true,
   });
+
 
   const toggleGroup = (groupLabel) => {
     setOpenGroups((prev) => ({

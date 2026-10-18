@@ -151,9 +151,7 @@ export default function Broadcasts() {
     }
   };
 
-  const availableProducts = products.filter(
-    (p) => p.active !== false && (p.product_kind === "service" || p.stock == null || p.stock > 0)
-  );
+  const availableProducts = products.filter((p) => p.active !== false);
   const filteredProducts = availableProducts.filter(
     (p) => (!catalogFilter || p.catalog_name === catalogFilter) && p.name?.toLowerCase().includes(search.toLowerCase())
   );

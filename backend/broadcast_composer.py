@@ -111,8 +111,6 @@ async def _build_content(body: ComposeBody):
         if not product:
             raise HTTPException(400, "Salah satu produk tidak aktif atau tidak ditemukan.")
         stock = await stock_for(product)
-        if stock is not None and stock < max(1, int(product.get("minimum_purchase_qty") or 1)):
-            raise HTTPException(400, f"Stok {product.get('name') or 'produk'} habis.")
         pricing = await price_for_product(product, "IDR", 1)
         price = fmt_amount(pricing["unit_price"], "IDR")
         discount_val = pricing.get("discount_per_unit") or 0

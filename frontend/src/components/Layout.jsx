@@ -31,6 +31,7 @@ const nav = [
   { to: "/users", label: "Pengguna", icon: Users },
   { to: "/discounts", label: "Discount", icon: Percent },
   { to: "/broadcasts", label: "Broadcast", icon: Megaphone },
+  { to: "/channel-automation", label: "Channel Automation", icon: Radio },
   { to: "/promotions", label: "Promotion & Customer Acquisition", icon: Megaphone },
   { to: "/resellers", label: "Bot Reseller", icon: Bot },
   { to: "/messages", label: "Bot Messages", icon: MessageSquareText },
@@ -53,9 +54,10 @@ export const Layout = ({ children, title }) => {
   const STOCK_PATHS = [
     "/admin", "/analytics", "/catalogs", "/products", "/inventory",
     "/orders", "/reports", "/deposits", "/users", "/discounts",
-    "/broadcasts", "/central-broadcasts", "/promotions",
+    "/broadcasts", "/channel-automation", "/central-broadcasts", "/promotions",
     "/bot-reseller", "/bot-messages", "/settings",
   ];
+
 
   const visibleNav = nav.filter((item) => {
     const checkPath = (path) => {

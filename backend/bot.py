@@ -3346,6 +3346,14 @@ async def handle_message(message):
                 await show_cart(chat_id, user)
                 return
 
+        # Deep-link product detail: prod_<product_id> or p_<product_id>
+        if raw_payload.startswith("prod_") or raw_payload.startswith("p_"):
+            target_pid = raw_payload.split("_", 1)[1].strip()
+            p = await db.products.find_one({"$or": [{"_id": target_pid}, {"sku": target_pid}], "active": True})
+            if p:
+                await show_product_detail(chat_id, user, p["_id"])
+                return
+
         await show_start_welcome(chat_id, user)
         return
 

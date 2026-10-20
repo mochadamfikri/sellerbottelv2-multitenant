@@ -440,7 +440,69 @@ def stock_button_style(stock) -> str:
     return "primary"
 
 
+async def _send_rich_catalog(chat_id, user, page=1, catalog=None):
+    from rich_tables import table_pages
+    from product_rich_views import warranty_label
+    from rich_table_transport import send_table
+    products = await db.products.find({"active": True}).to_list(None)
+    # Stable tie-breaker without changing legacy catalog order when flag is off.
+    products.sort(key=lambda p: str(p["_id"]))
+    group, entries, page, pages = catalog_slice(products, catalog, page, size=5)
+    title = (group["name"] if group else "Katalog tidak tersedia") if catalog else "Katalog produk"
+    title = str(title)[:150] + f" · Halaman {page}/{pages}"
+    buttons, records = [], []
+    def brief(value, limit):
+        value = str(value or "")
+        return value if len(value) <= limit else value[:limit-1] + "…"
+    if catalog:
+        headers = ["Product", "Stock", "Harga", "Garansi", "Deskripsi"]
+        for product in entries:
+            stock = await stock_for(product)
+            pricing = await price_for_product(product, user["currency"], 1)
+            # Legacy warranty metadata absent: never invent a warranty promise.
+            records.append([brief(product.get("name"), 80),
+                "Unlimited" if stock is None else str(int(stock)),
+                fmt_amount(pricing["unit_price"], user["currency"]),
+                brief(warranty_label(product), 80), brief(product.get("description") or "Belum dilengkapi", 120)])
+            buttons.append([{"text": brief(product.get("name"), 60), "callback_data": f"prod:{product['_id']}"}])
+        prefix = f"catalog:{catalog}:"
+    else:
+        headers = ["Kategori", "Produk aktif"]
+        for entry in entries:
+            records.append([brief(entry["name"], 80), len(entry["products"])])
+            buttons.append([{"text": brief(entry["name"], 60), "callback_data": f"catalog:{entry['token']}:1"}])
+        prefix = "products:"
+    nav = []
+    if page > 1:
+        nav.append({"text": "⬅️ Sebelumnya", "callback_data": f"{prefix}{page-1}"})
+    if page < pages:
+        nav.append({"text": "Berikutnya ➡️", "callback_data": f"{prefix}{page+1}"})
+    if nav:
+        buttons.append(nav)
+    if catalog:
+        buttons.append([{"text": "Semua katalog", "callback_data": "products:1"}])
+    buttons.append([{"text": "Menu", "callback_data": "menu:main"}])
+    for row in buttons:
+        for button in row:
+            if len(button["callback_data"].encode()) > 64:
+                raise ValueError("Callback exceeds Telegram limit")
+    rendered = table_pages(title, headers, records, page_size=5)
+    if len(rendered) != 1:
+        raise ValueError("Catalog page exceeds budget")
+    # Retain old message until confirmed successful send. Never delete after
+    # timeout or retry automatically; caller may explicitly refresh later.
+    old_id = _EDIT_TARGETS.pop(chat_id, None)
+    result = await send_table(chat_id, rendered[0], {"inline_keyboard": buttons})
+    if result.get("ok"):
+        await _remember_bot_message(chat_id, result)
+        if old_id is not None:
+            await _delete_flow_messages(chat_id, old_id)
+    return result
+
+
 async def show_products(chat_id, user, page=1, catalog=None):
+    if os.environ.get("TELEGRAM_RICH_TABLES_ENABLED", "").strip().lower() in {"1", "true", "yes"}:
+        return await _send_rich_catalog(chat_id, user, page, catalog)
     products = await db.products.find({"active": True}).to_list(None)
     group, entries, page, pages = catalog_slice(products, catalog, page)
     rows = []
@@ -795,6 +857,31 @@ async def show_stock_view(chat_id, user, page=1, *, loading=False, edit_id=None)
         {"text": t(lang, "btn_main"), "callback_data": "menu:main"},
         {"text": f"🛒 Keranjang ({count})", "callback_data": "menu:cart"},
     ])
+    if os.environ.get("TELEGRAM_RICH_TABLES_ENABLED", "").strip().lower() in {"1", "true", "yes"}:
+        from rich_tables import table_pages
+        from product_rich_views import warranty_label
+        from rich_table_transport import send_table
+        records = []
+        for _, product, number in items:
+            stock = await stock_for(product)
+            pricing = await price_for_product(product, user.get("currency") or "IDR", 1)
+            records.append([f"{number}. {str(product.get('name') or '')[:80]}",
+                "Unlimited" if stock is None else str(int(stock)),
+                fmt_amount(pricing["unit_price"], user.get("currency") or "IDR"),
+                warranty_label(product)[:80], str(product.get("description") or "Belum dilengkapi")[:120]])
+        rendered = table_pages(f"Stock · Halaman {page}/{total_pages}",
+            ["Product", "Stock", "Harga", "Garansi", "Deskripsi"], records, page_size=5)
+        previous = _EDIT_TARGETS.pop(chat_id, None)
+        old_id = edit_id if edit_id is not None else previous
+        flow = str(uuid.uuid4())
+        for index, table in enumerate(rendered):
+            result = await send_table(chat_id, table, {"inline_keyboard": rows} if index == len(rendered)-1 else None)
+            if not result.get("ok"):
+                return result
+            await _remember_bot_message(chat_id, result, flow=flow)
+        if old_id is not None:
+            await _delete_flow_messages(chat_id, old_id)
+        return
     if loading:
         # The loading helper owns the message lifecycle (reuse or replace),
         # so don't let send_message touch the callback message afterwards.
@@ -862,6 +949,20 @@ async def show_product_detail(chat_id, user, pid):
     else:
         text += "\n\n" + t(lang, "out_of_stock")
     rows.append([{"text": "← Varian katalog", "callback_data": f"catalog:{catalog_token(p)}:1"}, {"text": t(lang, "btn_menu_short"), "callback_data": "menu:main"}])
+    if os.environ.get("TELEGRAM_RICH_TABLES_ENABLED", "").strip().lower() in {"1", "true", "yes"}:
+        from product_rich_views import product_detail_pages
+        from rich_table_transport import send_table
+        pages = product_detail_pages(p, await stock_for(p), fmt_amount(price, user["currency"]))
+        old_id = _EDIT_TARGETS.pop(chat_id, None)
+        flow = str(uuid.uuid4())
+        for index, page in enumerate(pages):
+            result = await send_table(chat_id, page, {"inline_keyboard": rows} if index == len(pages)-1 else None)
+            if not result.get("ok"):
+                return result
+            await _remember_bot_message(chat_id, result, flow=flow)
+        if old_id is not None:
+            await _delete_flow_messages(chat_id, old_id)
+        return
     await send_message(chat_id, text, kb={"inline_keyboard": rows})
 
 
@@ -2304,9 +2405,25 @@ def history_button_style(status) -> str:
     return "primary"
 
 
+async def _deliver_rich_pages(chat_id, pages, kb, edit_id=None):
+    from rich_table_transport import send_table
+    previous = _EDIT_TARGETS.pop(chat_id, None)
+    old_id = edit_id if edit_id is not None else previous
+    flow = str(uuid.uuid4())
+    for index, page in enumerate(pages):
+        result = await send_table(chat_id, page, kb if index == len(pages)-1 else None)
+        if not result.get("ok"):
+            return result
+        await _remember_bot_message(chat_id, result, flow=flow)
+    if old_id is not None:
+        await _delete_flow_messages(chat_id, old_id)
+    return result
+
+
 async def show_history(chat_id, user, page=1, *, loading=False, edit_id=None):
     lang = user.get("lang", "id")
-    if loading:
+    rich_enabled = os.environ.get("TELEGRAM_RICH_TABLES_ENABLED", "").strip().lower() in {"1", "true", "yes"}
+    if loading and not rich_enabled:
         # The loading helper owns the message lifecycle (reuse or replace),
         # so don't let send_message touch the callback message afterwards.
         _EDIT_TARGETS.pop(chat_id, None)
@@ -2343,6 +2460,9 @@ async def show_history(chat_id, user, page=1, *, loading=False, edit_id=None):
     page = max(1, min(page, total_pages))
     page_events = events[(page - 1) * per_page:page * per_page]
 
+    if not page_events and rich_enabled:
+        from history_rich_views import history_pages
+        return await _deliver_rich_pages(chat_id, history_pages([], fmt_amount), back_kb(lang), edit_id)
     if not page_events:
         await _deliver(t(lang, "hist_header") + "\n\nBelum ada transaksi.", back_kb(lang))
         return
@@ -2388,6 +2508,9 @@ async def show_history(chat_id, user, page=1, *, loading=False, edit_id=None):
         rows.append(nav)
 
     rows.append([{"text": t(lang, "btn_main"), "callback_data": "menu:main"}])
+    if rich_enabled:
+        from history_rich_views import history_pages
+        return await _deliver_rich_pages(chat_id, history_pages(page_events, fmt_amount), {"inline_keyboard": rows}, edit_id)
     await _deliver("\n".join(lines), {"inline_keyboard": rows})
 
 
@@ -2397,6 +2520,12 @@ async def show_order_history_detail(chat_id, user, order_id):
     if not order:
         await send_message(chat_id, "Transaksi tidak ditemukan.", kb=back_kb(lang))
         return
+
+    if os.environ.get("TELEGRAM_RICH_TABLES_ENABLED", "").strip().lower() in {"1", "true", "yes"}:
+        from history_rich_views import transaction_detail_pages
+        return await _deliver_rich_pages(chat_id, transaction_detail_pages(order, "order", fmt_amount),
+            {"inline_keyboard": [[{"text": "Riwayat", "callback_data": "menu:history"}],
+                                  [{"text": "Menu", "callback_data": "menu:main"}]]})
 
     status_labels = {
         "pending": "⏳ Pending", "pending_payment": "📱 Menunggu QRIS", "expired": "⌛ Kedaluwarsa", "paid": "💳 Dibayar", "processing": "⚙️ Diproses",
@@ -2448,6 +2577,12 @@ async def show_deposit_history_detail(chat_id, user, dep_id):
         await send_message(chat_id, "Deposit tidak ditemukan.", kb=back_kb(lang))
         return
 
+    if os.environ.get("TELEGRAM_RICH_TABLES_ENABLED", "").strip().lower() in {"1", "true", "yes"}:
+        from history_rich_views import transaction_detail_pages
+        return await _deliver_rich_pages(chat_id, transaction_detail_pages(dep, "deposit", fmt_amount),
+            {"inline_keyboard": [[{"text": "Riwayat", "callback_data": "menu:history"}],
+                                  [{"text": "Menu", "callback_data": "menu:main"}]]})
+
     status_labels = {
         "pending": "⏳ Pending", "approved": "✅ Disetujui", "rejected": "❌ Ditolak",
         "cancelled": "🚫 Dibatalkan", "expired": "⌛ Kedaluwarsa",
@@ -2482,6 +2617,32 @@ async def show_deposit_history_detail(chat_id, user, dep_id):
     ]})
 
 
+async def show_admin_inventory_tables(chat_id, user, page=1):
+    if not await is_bot_admin(user):
+        return await send_message(chat_id, "Akses ditolak.", kb=back_kb(user.get("lang", "id")))
+    from rich_tables import table_pages
+    page = max(1, min(int(page), 100000))
+    count = await db.products.count_documents({})
+    pages = max(1, (count + 4) // 5)
+    page = min(page, pages)
+    products = await db.products.find({}).sort("_id", 1).skip((page-1)*5).limit(5).to_list(5)
+    records = []
+    for product in products:
+        counts = [await db.inventory_items.count_documents({"product_id":product['_id'], "status":status})
+                  for status in ('available', 'reserved', 'sold')]
+        records.append([str(product.get('name') or '')[:100], *counts, 'Belum terverifikasi'])
+    # Cumulative receipts cannot be reconstructed from currently retained units.
+    rendered = table_pages(f"Inventory admin · {page}/{pages}",
+        ['Product','Available','Reserved','Sold','Total Masuk'], records, page_size=5)
+    buttons = []
+    if page > 1:
+        buttons.append({'text':'Sebelumnya','callback_data':f'richadmin:stock:{page-1}'})
+    if page < pages:
+        buttons.append({'text':'Berikutnya','callback_data':f'richadmin:stock:{page+1}'})
+    kb = {'inline_keyboard': ([buttons] if buttons else []) + [[{'text':'Menu','callback_data':'menu:main'}]]}
+    return await _deliver_rich_pages(chat_id, rendered, kb)
+
+
 async def show_settings(chat_id, user):
     lang = user.get("lang", "id")
     other = "IDR" if user["currency"] == "USD" else "USD"
@@ -2491,6 +2652,8 @@ async def show_settings(chat_id, user):
     ]
     if await is_bot_admin(user):
         rows.append([{"text": "🎨 Custom Welcome Picture", "callback_data": "wmedia:menu"}])
+        if os.environ.get("TELEGRAM_RICH_TABLES_ENABLED", "").strip().lower() in {"1", "true", "yes"}:
+            rows.append([{"text": "Inventory admin", "callback_data": "richadmin:stock:1"}])
     rows.append([{"text": t(lang, "btn_main"), "callback_data": "menu:main"}])
     kb = {"inline_keyboard": rows}
     await send_message(chat_id, t(lang, "settings_title", cur=user["currency"], lang=LANG_NAMES.get(lang, lang)), kb=kb)
@@ -2834,6 +2997,15 @@ async def handle_callback(cb):
         else:
             await reseller_callback(chat_id, data, user)
         return
+
+    if data.startswith("richadmin:stock:"):
+        if os.environ.get("TELEGRAM_RICH_TABLES_ENABLED", "").strip().lower() not in {"1", "true", "yes"}:
+            return
+        try:
+            page = int(data.rsplit(":", 1)[1])
+        except ValueError:
+            return
+        return await show_admin_inventory_tables(chat_id, user, page)
 
     if data.startswith("service:wait:"):
         return

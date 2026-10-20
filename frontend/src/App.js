@@ -37,7 +37,7 @@ import PlatformControl from "./pages/PlatformControl";
 
 function Protected({ children, title }) {
   const { user } = useAuth();
-  if (user === null) return <div className="min-h-screen bg-[#0B0F17] flex items-center justify-center text-slate-500">Memuat...</div>;
+  if (user === null) return <div className="min-h-screen bg-[#f7f8f6] flex items-center justify-center text-slate-500">Memuat…</div>;
   if (user === false) return <Navigate to="/login" replace />;
   return <Layout title={title}>{children}</Layout>;
 }
@@ -62,7 +62,7 @@ function PromoDomainRoute() {
       })
       .catch(() => setIsPromo(false));
   }, []);
-  if (isPromo === null) return <div className="min-h-screen bg-slate-950" />;
+  if (isPromo === null) return <div className="min-h-screen bg-[#f7f8f6]" />;
   if (isPromo) return <PromoLanding />;
   return <HomeRoute />;
 }

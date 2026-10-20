@@ -1272,6 +1272,9 @@ class SettingsBody(BaseModel):
     require_channel_join: bool = False
     channel_url: str = ""
     channel_name: str = ""
+    # Custom popup message after payment confirmation (untuk order via Telegram)
+    telegram_order_success_enabled: bool = False
+    telegram_order_success_message: str = Field(default="", max_length=1000)
 
 
 def _normalize_required_channel(channel: dict) -> dict:

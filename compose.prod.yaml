@@ -1,0 +1,37 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sellerbottel-v2-backend
+    env_file:
+      - ./backend/.env
+    ports:
+      - "127.0.0.1:8002:8002"
+    volumes:
+      - backend-uploads:/app/uploads
+    restart: unless-stopped
+    networks:
+      - sellerbottel-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - REACT_APP_BACKEND_URL=https://idseshop.my.id
+    container_name: sellerbottel-v2-frontend
+    ports:
+      - "127.0.0.1:3001:80"
+    restart: unless-stopped
+    depends_on:
+      - backend
+    networks:
+      - sellerbottel-net
+
+networks:
+  sellerbottel-net:
+    driver: bridge
+
+volumes:
+  backend-uploads:

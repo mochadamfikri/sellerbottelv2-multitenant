@@ -38,9 +38,10 @@ def validate_tenant_id(tenant_id: str) -> str:
 
 def resolve_platform_database_name(environment: Mapping[str, str]) -> str:
     for var in _PLATFORM_DB_FALLBACK_VARS:
-        value = (environment.get(var) or "").strip()
-        if value:
-            if not _DATABASE_NAME_PATTERN.fullmatch(value):
+        if var in environment:
+            val = environment.get(var)
+            value = (val or "").strip()
+            if not value or not _DATABASE_NAME_PATTERN.fullmatch(value):
                 raise ValueError(f"{var} must be a valid database name")
             return value
     return "sellerbottel"

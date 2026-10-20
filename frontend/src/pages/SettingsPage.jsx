@@ -66,6 +66,8 @@ export default function SettingsPage() {
         require_channel_join: !!s.require_channel_join,
         channel_url: String(s.channel_url || ""),
         channel_name: String(s.channel_name || ""),
+        telegram_order_success_enabled: !!s.telegram_order_success_enabled,
+        telegram_order_success_message: String(s.telegram_order_success_message || ""),
       });
       setS(data);
       toast.success("Pengaturan disimpan.");
@@ -130,6 +132,21 @@ export default function SettingsPage() {
           <label className="block text-xs text-slate-400">Username / link Telegram
             <input className={cls} placeholder="@username atau https://t.me/username" value={s.telegram_contact_target || ""} onChange={(e) => setS({ ...s, telegram_contact_target: e.target.value })} />
             <span className="mt-1 block text-[11px] text-slate-600">Kosongkan untuk menyembunyikan tombol Telegram.</span>
+          </label>
+        </div>
+      </div>
+      <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-5 space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="font-heading font-semibold">Popup Pesanan Telegram</h2>
+            <p className="text-xs text-slate-500 mt-1">Tampilkan popup pesan sukses setelah pembayaran dikonfirmasi di Front Store. Cocok untuk instruksi pengiriman via Telegram.</p>
+          </div>
+          <Switch checked={!!s.telegram_order_success_enabled} onCheckedChange={(v) => setS({ ...s, telegram_order_success_enabled: v })} />
+        </div>
+        <div className={s.telegram_order_success_enabled ? "" : "opacity-50 pointer-events-none"}>
+          <label className="block text-xs text-slate-400">Pesan popup (maks 1000 karakter)
+            <textarea className={cls} rows={4} placeholder="Pesanan kamu sudah dikonfirmasi! Silakan hubungi admin via Telegram untuk pengiriman: https://t.me/username_admin" value={s.telegram_order_success_message || ""} onChange={(e) => setS({ ...s, telegram_order_success_message: e.target.value })} />
+            <span className="mt-1 block text-[11px] text-slate-600">Muncul otomatis saat status pembayaran berubah menjadi confirmed/delivered. Kosongkan untuk menonaktifkan.</span>
           </label>
         </div>
       </div>

@@ -3,35 +3,23 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: sellerbottel-v2-backend
+    container_name: sellerbottel-backend
+    restart: unless-stopped
+    network_mode: host
     env_file:
       - ./backend/.env
-    ports:
-      - "127.0.0.1:8002:8002"
     volumes:
-      - backend-uploads:/app/uploads
-    restart: unless-stopped
-    networks:
-      - sellerbottel-net
+      - ./backend/uploads:/app/uploads
+      - /home/reaagent/idse-ai-gateway/bot_key.txt:/home/reaagent/idse-ai-gateway/bot_key.txt:ro
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://127.0.0.1:8002/api/v2/platform/health\")' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
 
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        - REACT_APP_BACKEND_URL=https://idseshop.my.id
-    container_name: sellerbottel-v2-frontend
-    ports:
-      - "127.0.0.1:3001:80"
-    restart: unless-stopped
-    depends_on:
-      - backend
-    networks:
-      - sellerbottel-net
-
-networks:
-  sellerbottel-net:
-    driver: bridge
-
-volumes:
-  backend-uploads:

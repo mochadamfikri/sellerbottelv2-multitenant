@@ -3300,6 +3300,30 @@ async def handle_message(message):
     lang = user.get("lang", "id")
     text = (message.get("text") or "").strip()
 
+    if text.startswith("/ai") or text.startswith("/model"):
+        prompt = text.split(" ", 1)[1].strip() if " " in text else ""
+        if not prompt:
+            await send_message(chat_id, "🤖 <b>IDSE AI API Gateway</b>\n\nKirim: <code>/ai [pertanyaan]</code>\nContoh: <code>/ai Apa keunggulan model GFP?</code>\n\n🌐 Web Marketplace: https://ai.idseconnect.my.id\n⚡ Model Aktif: 77 Model Komersial (GFP, CO, LLaMA, Qwen, GLM)")
+            return
+        import urllib.request, json
+        await send_message(chat_id, "⏳ <i>Menghubungkan ke IDSE AI Gateway (Model: GFP)...</i>")
+        try:
+            req_data = json.dumps({"model": "GFP", "messages": [{"role": "user", "content": prompt}], "max_tokens": 300}).encode("utf-8")
+            with open("/home/reaagent/idse-ai-gateway/bot_key.txt") as _kf:
+                _ai_key = _kf.read().strip()
+            req = urllib.request.Request("http://127.0.0.1:8003/v1/chat/completions", data=req_data, headers={"Authorization": f"Bearer {_ai_key}", "Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=25) as r:
+                res = json.loads(r.read().decode())
+                ans = res["choices"][0]["message"]["content"]
+                await send_message(chat_id, f"🤖 <b>Jawaban IDSE AI:</b>\n\n{escape(ans)}\n\n<i>⚡ Powered by IDSE AI API Gateway</i>")
+        except Exception as e:
+            await send_message(chat_id, f"⚠️ Gagal memproses AI: {escape(str(e))}")
+        return
+
+    if text == "/models":
+        await send_message(chat_id, "📊 <b>Katalog Model AI IDSE Marketplace:</b>\n\n- <b>GFP</b> (General Fast Prompt - LLaMA 3.2 1B Failover)\n- <b>CO</b> (Cost Optimized Staging Model)\n- <b>cf/@cf/meta/llama-3.2-1b-instruct</b>\n\nTotal 77 model komersial tersedia.\n🌐 Akses Web Dashboard: https://ai.idseconnect.my.id")
+        return
+
     if text.startswith("/start"):
         raw_payload = text.split(" ", 1)[1].strip() if " " in text else ""
         payload = raw_payload.lower()

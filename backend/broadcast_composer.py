@@ -1,6 +1,7 @@
 """The simple product broadcast composer used by the admin panel."""
 import asyncio
 import base64
+import os
 import re
 import uuid
 from html import escape, unescape
@@ -96,8 +97,8 @@ async def _build_content(body: ComposeBody):
             raise HTTPException(400, str(exc)) from exc
         return format_report(body.kind, summary), render_sales_report(body.kind, summary), []
     ids = body.product_ids
-    if len(ids) != len(set(ids)) or len(ids) > 10:
-        raise HTTPException(400, "Pilih maksimal 10 produk tanpa duplikat.")
+    if len(ids) != len(set(ids)):
+        raise HTTPException(400, "Terdapat produk duplikat dalam pilihan.")
     message = body.message.strip()
     if len(message) > 1000:
         raise HTTPException(400, "Pesan utama maksimal 1000 karakter.")
@@ -110,26 +111,39 @@ async def _build_content(body: ComposeBody):
         if not product:
             raise HTTPException(400, "Salah satu produk tidak aktif atau tidak ditemukan.")
         stock = await stock_for(product)
-        if stock is not None and stock < max(1, int(product.get("minimum_purchase_qty") or 1)):
-            raise HTTPException(400, f"Stok {product.get('name') or 'produk'} habis.")
-        summary = clean_description(body.summaries.get(pid) or product.get("description") or "")
-        price = fmt_amount((await price_for_product(product, "IDR", 1))["unit_price"], "IDR")
-        products.append({"id": pid, "name": str(product.get("name") or "Produk"),
-                         "summary": summary, "price": price, "stock": stock, "catalog": catalog_name(product)})
+        pricing = await price_for_product(product, "IDR", 1)
+        price = fmt_amount(pricing["unit_price"], "IDR")
+        discount_val = pricing.get("discount_per_unit") or 0
+        discount_str = fmt_amount(discount_val, "IDR") if discount_val > 0 else "—"
+
+        products.append({
+            "id": pid,
+            "name": str(product.get("name") or "Produk"),
+            "price": price,
+            "discount": discount_str,
+            "stock": stock,
+            "catalog": catalog_name(product),
+        })
 
     lines = ["📣 <b>Pengumuman</b>", f"<blockquote>{escape(message)}</blockquote>"] if message else []
     if products:
         if not lines:
-            lines.append("🛍️ <b>Pilihan Produk</b>")
+            lines.append("🛍️ <b>Daftar Produk Promo</b>")
         if lines:
             lines.append("")
+
+        # Header: No | 📦 Produk | 🏷️ Harga | 🏷️ Potongan/Diskon | 📊 Stok
+        lines.append("<table bordered striped compact>")
+        lines.append("<tr><th>No</th><th>📦 Produk</th><th>🏷️ Harga</th><th>🏷️ Potongan/Diskon</th><th>📊 Stok</th></tr>")
         for index, product in enumerate(products, 1):
-            lines.append(f"✨ <b>{index}. {escape(product['name'])}</b> — {escape(product['price'])}")
-            if product["summary"]:
-                lines.append(f"<blockquote>{escape(product['summary'])}</blockquote>")
-            if product["stock"] is not None:
-                lines.append(f"📦 Stok: {int(product['stock'])}")
-            lines.append("")
+            stk = "∞" if product.get("stock") is None else str(int(product["stock"]))
+            p_name = escape(str(product.get("name") or "Produk"))
+            p_price = escape(str(product.get("price") or ""))
+            p_disc = escape(str(product.get("discount") or "—"))
+            lines.append(f"<tr><td>{index}</td><td><b>{p_name}</b></td><td><code>{p_price}</code></td><td>{p_disc}</td><td>{stk}</td></tr>")
+        lines.append("</table>")
+        lines.append("")
+
         lines.append("🛒 Order: @Idse_MarketBot")
     text = "\n".join(lines).strip()
     image = render_product_collection(products, title=body.title.strip()[:80] or "PILIHAN PRODUK") if products else render_message_poster(message, title=body.title.strip()[:80] or "PENGUMUMAN")
@@ -142,14 +156,35 @@ async def get_central_options():
 
 
 async def send_composed(chat_id: str | int, text: str, image: bytes | None):
+    # If text has a <table>, Telegram's default sendMessage will reject it with 400.
+    # It must be sent via sendRichMessage when rich tables are enabled.
+    has_table = "<table" in text.lower()
+    rich_enabled = os.environ.get("TELEGRAM_RICH_TABLES_ENABLED", "").strip().lower() in {"1", "true", "yes"}
+
     if image:
-        caption = text if len(text) <= 1024 else "📢 <b>Info SellerBottel</b> — rincian lengkap ada di pesan berikutnya."
-        result = await send_photo_bytes(chat_id, image, "pilihan-produk.jpg", caption=caption)
-        if not result.get("ok"):
-            return result
-        if len(text) > 1024:
+        # Caption in Telegram sendPhoto does NOT support <table>.
+        # If text has table, send photo with brief caption, then send table as rich message.
+        if has_table:
+            brief_caption = "📢 <b>Pengumuman IDSE</b> — rincian daftar tabel ada di pesan berikutnya."
+            result = await send_photo_bytes(chat_id, image, "pilihan-produk.jpg", caption=brief_caption)
+            if not result.get("ok"):
+                return result
+            if rich_enabled:
+                from rich_table_transport import tg
+                return await tg("sendRichMessage", chat_id=chat_id, rich_message={"html": text, "skip_entity_detection": True})
             return await send_message(chat_id, text)
-        return result
+        else:
+            caption = text if len(text) <= 1024 else "📢 <b>Pengumuman IDSE</b> — rincian lengkap ada di pesan berikutnya."
+            result = await send_photo_bytes(chat_id, image, "pilihan-produk.jpg", caption=caption)
+            if not result.get("ok"):
+                return result
+            if len(text) > 1024:
+                return await send_message(chat_id, text)
+            return result
+
+    if has_table and rich_enabled:
+        from rich_table_transport import tg
+        return await tg("sendRichMessage", chat_id=chat_id, rich_message={"html": text, "skip_entity_detection": True})
     return await send_message(chat_id, text)
 
 

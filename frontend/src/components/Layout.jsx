@@ -31,13 +31,13 @@ const nav = [
   { to: "/users", label: "Pengguna", icon: Users },
   { to: "/discounts", label: "Discount", icon: Percent },
   {
-    label: "Broadcast & Communication", icon: Radio,
+    label: "Broadcast & Channel", icon: Megaphone,
     children: [
+      { to: "/channel-automation", label: "Channel Automation", icon: Radio },
       { to: "/broadcasts", label: "Broadcast", icon: Megaphone },
-      { to: "/central-broadcasts", label: "Broadcast Terpusat", icon: Radio },
+      { to: "/promotions", label: "Promotion & Outreach", icon: Megaphone },
     ],
   },
-  { to: "/promotions", label: "Promotion & Customer Acquisition", icon: Megaphone },
   { to: "/resellers", label: "Bot Reseller", icon: Bot },
   { to: "/messages", label: "Bot Messages", icon: MessageSquareText },
   { to: "/bot-moderation", label: "Tindak Lanjut Bot", icon: ShieldOff },
@@ -59,9 +59,10 @@ export const Layout = ({ children, title }) => {
   const STOCK_PATHS = [
     "/admin", "/analytics", "/catalogs", "/products", "/inventory",
     "/orders", "/reports", "/deposits", "/users", "/discounts",
-    "/broadcasts", "/central-broadcasts", "/promotions",
+    "/broadcasts", "/channel-automation", "/central-broadcasts", "/promotions",
     "/bot-reseller", "/bot-messages", "/settings",
   ];
+
 
   const visibleNav = nav.filter((item) => {
     const checkPath = (path) => {
@@ -80,8 +81,9 @@ export const Layout = ({ children, title }) => {
   const [openGroups, setOpenGroups] = useState({
     "Catalog & Inventory": true,
     "Orders & Reports": true,
-    "Broadcast & Communication": false,
+    "Broadcast & Channel": true,
   });
+
 
   const toggleGroup = (groupLabel) => {
     setOpenGroups((prev) => ({

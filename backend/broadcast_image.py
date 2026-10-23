@@ -112,27 +112,27 @@ def _wrap_lines(draw, value, font, width, limit=3):
 
 
 def render_product_collection(products, title="PILIHAN PRODUK"):
-    """One readable poster for one to ten selected products."""
-    if not 1 <= len(products) <= 10:
-        raise ValueError("Jumlah produk harus 1 sampai 10.")
-    width, card_height = 1200, 260
-    height = 235 + card_height * len(products)
+    """One readable poster for selected products (compact grid if more than 10)."""
+    if not products:
+        raise ValueError("Jumlah produk minimal 1.")
+    # Batasi gambar poster agar tidak over-dimension bila produk banyak
+    items_to_render = products[:15]
+    width, card_height = 1200, 200
+    height = 235 + card_height * len(items_to_render)
     image = Image.new("RGB", (width, height), BG)
     draw = ImageDraw.Draw(image)
     draw.text((70, 45), "IDSE MARKETPLACE", font=_font(27, True), fill=PURPLE)
     draw.text((70, 95), _fit(draw, title, _font(52, True), 1050), font=_font(52, True), fill=WHITE)
-    draw.text((70, 160), f"{len(products)} pilihan produk · Pilih varian sesuai kebutuhan", font=_font(22), fill=MUTED)
-    for index, product in enumerate(products):
+    draw.text((70, 160), f"{len(products)} pilihan produk · Daftar lengkap tersedia di tabel", font=_font(22), fill=MUTED)
+    for index, product in enumerate(items_to_render):
         top = 215 + index * card_height
-        draw.rounded_rectangle((60, top, 1140, top + 235), 24, fill=PANEL, outline=(42, 83, 66), width=2)
+        draw.rounded_rectangle((60, top, 1140, top + 180), 20, fill=PANEL, outline=(42, 83, 66), width=2)
         draw.text((85, top + 20), _fit(draw, product.get("catalog") or "PRODUK DIGITAL", _font(21, True), 760), font=_font(21, True), fill=PURPLE)
-        draw.text((85, top + 55), _fit(draw, product.get("name") or "Produk", _font(34, True), 1010), font=_font(34, True), fill=WHITE)
-        draw.text((85, top + 102), _fit(draw, product.get("price") or "", _font(31, True), 740), font=_font(31, True), fill=GREEN)
+        draw.text((85, top + 55), _fit(draw, product.get("name") or "Produk", _font(30, True), 1010), font=_font(30, True), fill=WHITE)
+        draw.text((85, top + 102), _fit(draw, product.get("price") or "", _font(28, True), 740), font=_font(28, True), fill=GREEN)
         stock = product.get("stock")
         label = "Tersedia" if stock is None else f"Stok {int(stock)}"
         draw.text((890, top + 109), _fit(draw, label, _font(22), 210), font=_font(22), fill=MUTED)
-        for line_number, line in enumerate(_wrap_lines(draw, product.get("summary") or "", _font(24), 990, 2)):
-            draw.text((85, top + 155 + line_number * 30), _fit(draw, line, _font(24), 990), font=_font(24), fill=MUTED)
 
     out = BytesIO()
     image.save(out, format="JPEG", quality=88, optimize=True)

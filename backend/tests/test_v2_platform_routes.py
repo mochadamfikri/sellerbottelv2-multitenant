@@ -6,6 +6,7 @@ import os
 from functools import wraps
 from uuid import uuid4
 
+import pytest
 import httpx
 from fastapi import FastAPI
 
@@ -18,6 +19,16 @@ def async_test(function):
         return asyncio.run(function(*args, **kwargs))
 
     return wrapper
+
+
+@pytest.fixture(autouse=True)
+def isolated_registry():
+    from db import platform_db
+    async def clear():
+        await platform_db().tenants.delete_many({})
+    asyncio.run(clear())
+    yield
+    asyncio.run(clear())
 
 
 def _app():

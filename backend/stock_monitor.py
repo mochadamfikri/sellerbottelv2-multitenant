@@ -1,6 +1,7 @@
 """Watch effective inventory availability and announce zero crossings."""
 import asyncio
 import logging
+import os
 import uuid
 from html import escape
 
@@ -35,30 +36,40 @@ async def scan_stock(product_id: str | None = None):
             continue
         available = stock > 0
         previous = product.get("stock_notice_available")
-        if previous is None:
+        prev_count = product.get("stock_notice_count")
+        if previous is None or prev_count is None:
             await db.products.update_one(
-                {"_id": product["_id"], "stock_notice_available": {"$exists": False}},
+                {"_id": product["_id"]},
                 {"$set": {"stock_notice_available": available, "stock_notice_count": stock}},
             )
             continue
-        if previous == available:
-            if product.get("stock_notice_count") != stock:
-                await db.products.update_one({"_id": product["_id"]}, {"$set": {"stock_notice_count": stock}})
+
+        prev_count_int = int(prev_count)
+        curr_count_int = int(stock)
+        diff = curr_count_int - prev_count_int
+
+        # Deteksi perubahan stok (baik restock zero-crossing maupun penambahan/pengurangan stok)
+        if diff == 0:
             continue
 
         changed = await db.products.find_one_and_update(
-            {"_id": product["_id"], "stock_notice_available": previous, "active": True},
+            {"_id": product["_id"], "active": True},
             {"$set": {"stock_notice_available": available, "stock_notice_count": stock}},
             return_document=ReturnDocument.BEFORE,
         )
         if not changed or not chats:
             continue
+
+        event_type = "restocked" if (previous == False and available) else ("sold_out" if stock <= 0 else ("stock_added" if diff > 0 else "stock_reduced"))
         event = {
             "_id": str(uuid.uuid4()), "product_id": product["_id"],
             "product_name": product.get("name") or "Produk",
-            "event_type": "restocked" if available else "sold_out",
-            "from_count": 0 if available else int(changed.get("stock_notice_count") or 0),
-            "to_count": int(stock), "targets": chats, "delivered": [],
+            "catalog_name": product.get("catalog_name") or "Produk",
+            "event_type": event_type,
+            "from_count": prev_count_int,
+            "to_count": curr_count_int,
+            "diff": diff,
+            "targets": chats, "delivered": [],
             "attempts": 0, "status": "pending", "created_at": now_iso(),
         }
         await db.stock_events.insert_one(event)
@@ -71,28 +82,68 @@ async def deliver_pending():
             await db.stock_events.update_one({"_id": event["_id"]}, {"$set": {"status": "cancelled"}})
             continue
         stock = int(event["to_count"])
-        if event["event_type"] == "restocked":
-            title = "PRODUK RESTOCK"
-            heading = f"✅ <b>{escape(str(product.get('name') or 'Produk'))} tersedia kembali</b>\nStok: 0 → {stock}"
-        else:
-            title = "STOK HABIS"
-            heading = f"⚠️ <b>{escape(str(product.get('name') or 'Produk'))} habis</b>\nStok: {event['from_count']} → 0"
-        description = clean_description(product.get("description") or "", 300)
-        price = fmt_amount(await base_price(product, "IDR"), "IDR")
-        caption = heading + f"\nHarga: {escape(price)}" + (f"\n\n{escape(description)}" if description else "")
-        image = render_product_image(product.get("name") or "Produk", price, stock, description, title=title)
+        diff_val = int(event.get("diff") or (stock - int(event.get("from_count") or 0)))
+        diff_str = f"+{diff_val}" if diff_val > 0 else str(diff_val)
+
+        p_name = escape(str(product.get("name") or "Produk"))
+        cat_name = escape(str(product.get("catalog_name") or "Produk"))
+        price_val = fmt_amount(await base_price(product, "IDR"), "IDR")
+        desc_full = str(product.get("description") or "").strip()
+        if len(desc_full) > 800:
+            desc_full = desc_full[:797] + "..."
+        desc_escaped = escape(desc_full)
+
+        # Tabel format resmi sesuai instruksi Owner:
+        # Katalog | Product | Penambahan/pengurangan | Total Stock | Harga | Deskripsi
+        table_html = (
+            "<p><b>📢 UPDATE STOK PRODUK</b></p>\n"
+            "<table bordered striped compact>\n"
+            "<tr><th>Katalog</th><th>Product</th><th>Penambahan/pengurangan</th><th>Total Stock</th><th>Harga</th><th>Deskripsi</th></tr>\n"
+            f"<tr><td>{cat_name}</td><td><b>{p_name}</b></td><td><b>{diff_str}</b></td><td>{stock}</td><td><code>{price_val}</code></td><td>{desc_escaped}</td></tr>\n"
+            "</table>\n"
+            "<p>🛒 <i>Klik tombol di bawah untuk pesan langsung via bot:</i></p>"
+        )
+
+        settings = await get_settings()
+        bot_username = (settings.get("bot_username") or os.environ.get("TELEGRAM_BOT_USERNAME") or "Idse_MarketBot").strip().lstrip("@")
+        buy_url = f"https://t.me/{bot_username}?start=buy_{product['_id']}"
+        kb = {
+            "inline_keyboard": [
+                [{"text": "🛍️ Beli Sekarang", "url": buy_url}]
+            ]
+        }
+
         delivered = set(event.get("delivered") or [])
+
         for chat in event.get("targets") or []:
             if chat in delivered:
                 continue
             try:
-                result = await send_photo_bytes(chat, image, "status-produk.jpg", caption=caption)
+                # Kirim langsung tabel Telegram Rich Message beserta tombol Beli Sekarang
+                from rich_table_transport import tg
+                result = await tg("sendRichMessage", chat_id=chat, rich_message={"html": table_html, "skip_entity_detection": True}, reply_markup=kb)
+                if not result.get("ok"):
+                    # Fallback plain text jika channel/client tidak support rich table
+                    plain_fallback = (
+                        f"📢 <b>UPDATE STOK PRODUK</b>\n\n"
+                        f"📦 <b>{p_name}</b>\n"
+                        f"• Katalog: {cat_name}\n"
+                        f"• Perubahan: <b>{diff_str}</b>\n"
+                        f"• Total Stok: <b>{stock}</b>\n"
+                        f"• Harga: <code>{price_val}</code>\n"
+                        f"• Deskripsi: {desc_escaped}\n\n"
+                        f"🛒 Order: @{bot_username}"
+                    )
+                    from tgapi import send_message
+                    result = await send_message(chat, plain_fallback, kb=kb)
+
                 if result.get("ok"):
                     delivered.add(chat)
                 else:
                     logger.warning("Stock notification %s to %s failed: %s", event["_id"], chat, result.get("description"))
             except Exception as exc:
                 logger.warning("Stock notification %s to %s failed: %s", event["_id"], chat, type(exc).__name__)
+
         done = len(delivered) >= len(event.get("targets") or [])
         await db.stock_events.update_one({"_id": event["_id"]}, {"$set": {
             "delivered": list(delivered), "status": "sent" if done else "pending",

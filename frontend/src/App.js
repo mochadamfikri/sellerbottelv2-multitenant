@@ -22,6 +22,8 @@ import UsersPage from "./pages/Users";
 import SettingsPage from "./pages/SettingsPage";
 import Broadcasts from "./pages/Broadcasts";
 import CentralBroadcasts from "./pages/CentralBroadcasts";
+import ChannelAutomation from "./pages/ChannelAutomation";
+
 import Discounts from "./pages/Discounts";
 import Messages from "./pages/Messages";
 import Orders from "./pages/Orders";
@@ -53,15 +55,20 @@ function HomeRoute() {
 function PromoDomainRoute() {
   // If the hostname matches the configured promo domain (e.g. idseconnect.my.id),
   // serve the promo landing at / instead of the storefront.
-  const [isPromo, setIsPromo] = useState(null);
+  const host = window.location.hostname.toLowerCase();
+  const [isPromo, setIsPromo] = useState(host === "idseconnect.my.id" || host === "www.idseconnect.my.id");
   useEffect(() => {
     api.get("/public/promo-config")
       .then((r) => {
-        const d = (r.data?.promo_domain || "").trim().toLowerCase();
-        setIsPromo(!!d && window.location.hostname.toLowerCase() === d);
+        const d = (r.data?.promo_domain || "idseconnect.my.id").trim().toLowerCase();
+        setIsPromo(host === d || host === `www.${d}` || host === "idseconnect.my.id");
       })
-      .catch(() => setIsPromo(false));
-  }, []);
+      .catch(() => {
+        if (host === "idseconnect.my.id" || host === "www.idseconnect.my.id") {
+          setIsPromo(true);
+        }
+      });
+  }, [host]);
   if (isPromo === null) return <div className="min-h-screen bg-[#f7f8f6]" />;
   if (isPromo) return <PromoLanding />;
   return <HomeRoute />;
@@ -143,7 +150,9 @@ function App() {
           <Route path="/users" element={<Protected title="Kelola Pengguna"><UsersPage /></Protected>} />
           <Route path="/settings" element={<Protected title="Pengaturan"><SettingsPage /></Protected>} />
           <Route path="/broadcasts" element={<Protected title="Broadcast"><Broadcasts /></Protected>} />
+          <Route path="/channel-automation" element={<Protected title="Channel Automation"><ChannelAutomation /></Protected>} />
           <Route path="/central-broadcasts" element={<Protected title="Broadcast Terpusat"><CentralBroadcasts /></Protected>} />
+
           <Route path="/discounts" element={<Protected title="Discount"><Discounts /></Protected>} />
           <Route path="/messages" element={<Protected title="Bot Messages"><Messages /></Protected>} />
           <Route path="/bot-moderation" element={<Protected title="Tindak Lanjut Bot"><BotModeration /></Protected>} />

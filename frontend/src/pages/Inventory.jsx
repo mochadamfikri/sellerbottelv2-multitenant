@@ -263,9 +263,8 @@ export default function Inventory() {
     finally { setBusy(false); }
   };
 
-  const selectedStock = selectedProduct?.stock_mode === "manual"
-    ? Math.min(Math.max(0, Number(selectedProduct?.manual_stock ?? selectedProduct?.stock ?? 0) - Number(meta.marketing_allocated || 0)), Number(meta.available ?? 0))
-    : Number(meta.available ?? 0);
+  // Di halaman Inventory, angka Available harus selalu mencerminkan data inventory riil yang ada di database (meta.available)
+  const selectedStock = Number(meta.available ?? 0);
 
   return (
     <div className="space-y-5">

@@ -1,4 +1,5 @@
 """QRIS orders for the main bot. Payments go directly to an order, not a deposit."""
+from product_metadata import warranty_snapshot
 import asyncio
 import base64
 import logging
@@ -134,6 +135,7 @@ async def create_qris_order(user, cart_items, coupon_code=None, preserve_cart=Fa
                 stock_qty = qty
             order_items.append({
                 "product_id": product["_id"], "name": product["name"], "qty": qty,
+                "warranty_snapshot": warranty_snapshot(product),
                 "unit_price": item["unit_price"], "base_unit_price": item["base_unit_price"],
                 "discount_per_unit": item["discount_per_unit"], "discount_total": item["discount_total"],
                 "discount_id": item["discount_id"], "discount_name": item["discount_name"],
@@ -243,6 +245,7 @@ async def create_store_qris_order(customer, cart_items, coupon_code=None, idempo
                 stock_qty = qty
             order["items"].append({
                 "product_id": product["_id"], "name": product["name"], "qty": qty,
+                "warranty_snapshot": warranty_snapshot(product),
                 "unit_price": item["unit_price"], "base_unit_price": item["base_unit_price"],
                 "discount_per_unit": item["discount_per_unit"], "discount_total": item["discount_total"],
                 "discount_id": item["discount_id"], "discount_name": item["discount_name"],

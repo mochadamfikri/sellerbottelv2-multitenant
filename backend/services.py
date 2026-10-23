@@ -236,6 +236,30 @@ async def notify_transaction_channel(order: dict):
     from telegram_identity import purchase_identity, purchase_source, purchase_heading
     source = purchase_source(order)
     masked_id, masked_username = await purchase_identity(order)
+
+    # Use Channel Automation Native Telegram Rich Table if rich tables are enabled
+    rich_tables_enabled = os.environ.get("TELEGRAM_RICH_TABLES_ENABLED", "").lower().strip() in {"1", "true", "yes"}
+    rich_table_rendered = None
+    if rich_tables_enabled and order.get("items"):
+        try:
+            from channel_automation_tables import render_verified_transaction_table
+            bot_uname = os.environ.get("TELEGRAM_BOT_USERNAME", "Idse_MarketBot")
+            first_item = order["items"][0]
+            prod_name = first_item.get("name") or "Produk"
+            prod_id = first_item.get("product_id") or ""
+            final_total = int(order.get("total") or 0)
+
+            rich_table_rendered = render_verified_transaction_table(
+                customer_name=masked_username if masked_username != "-" else "@Customer",
+                customer_telegram_id=masked_id if masked_id != "-" else "1290000038",
+                product_name=prod_name,
+                product_id=prod_id,
+                final_amount=final_total,
+                bot_username=bot_uname,
+            )
+        except Exception:
+            rich_table_rendered = None
+
     identity_lines = ""
     if source != "WEB" or masked_id != "-" or masked_username != "-":
         if masked_id != "-":
@@ -254,11 +278,20 @@ async def notify_transaction_channel(order: dict):
     results = []
     for channel_id in channels:
         try:
-            from broadcast_composer import send_composed
-            result = await send_composed(channel_id, body, image)
+            if rich_table_rendered and not image:
+                from channel_automation_scheduler import send_rich_message_to_channel
+                result = await send_rich_message_to_channel(
+                    channel_id=channel_id,
+                    html_content=rich_table_rendered.html,
+                    fallback_text=rich_table_rendered.fallback_text,
+                )
+            else:
+                from broadcast_composer import send_composed
+                result = await send_composed(channel_id, body, image)
             results.append({"chat_id": channel_id, "ok": bool(result.get("ok"))})
         except Exception:
             results.append({"chat_id": channel_id, "ok": False})
+
     return {"ok": all(row["ok"] for row in results), "results": results}
 
 

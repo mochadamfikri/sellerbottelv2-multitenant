@@ -188,6 +188,14 @@ app.include_router(v2_tenant_router, prefix="/api/v2/tenant")
 # Import and mount v2_commerce_routes
 from v2_commerce_routes import router as v2_commerce_router
 app.include_router(v2_commerce_router, prefix="/api/v2/tenant")
+from idse_import_routes import router as idse_import_router
+from channel_automation_routes import router as channel_automation_router
+from channel_automation_scheduler import start_channel_scheduler, stop_channel_scheduler
+
+app.include_router(idse_import_router)
+app.include_router(channel_automation_router)
+
+
 
 if os.environ.get("PROMOTION_ENABLED", "").lower() in {"1", "true", "yes"}:
     app.include_router(promo_router)
@@ -237,6 +245,12 @@ async def startup():
     logger.info("Platform indexes ensured")
 
     await ensure_settings()
+    try:
+        start_channel_scheduler()
+        logger.info("Channel automation scheduler started")
+    except Exception as e:
+        logger.error("Failed to start channel automation scheduler: %s", e)
+
     await ensure_indexes()
     await load_overrides(db.bot_messages)
     await seed_admin()
@@ -321,6 +335,10 @@ async def startup():
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
+    try:
+        stop_channel_scheduler()
+    except Exception:
+        pass
     app.state.marketing_stop.set()
     app.state.marketing_task.cancel()
     await asyncio.gather(app.state.marketing_task, return_exceptions=True)

@@ -40,7 +40,7 @@ def table_pages(title, headers, rows, *, page_size=8, align=None):
         normalized.append(tuple(str(x) if x is not None else '—' for x in row))
 
     def render(batch):
-        html = '<h3>' + escape(title) + '</h3><table bordered striped compact><tr>'
+        html = '<p><sub>' + escape(title) + '</sub></p><table bordered striped compact><tr>'
         html += ''.join('<th>' + escape(x) + '</th>' for x in headers) + '</tr>'
         text = [title]
         for row in batch:

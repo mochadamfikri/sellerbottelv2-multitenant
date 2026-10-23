@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import pytest
 import os
 import sys
 from pathlib import Path
@@ -26,6 +27,14 @@ import inventory  # noqa: E402
 def run(coro):
     return asyncio.run(coro)
 
+
+@pytest.fixture(autouse=True)
+def offline_qr_transport(monkeypatch):
+    monkeypatch.setattr(bot2, "_run_node", lambda *a, **k: {
+        "image_base64": base64.b64encode(b"fake-qr").decode()})
+    for name in ("send2", "send_photo2"):
+        monkeypatch.setattr(bot2, name, lambda *a, **k: asyncio.sleep(
+            0, result={"ok": True, "result": {"message_id": 123}}))
 
 def setup_function():
     async def reset():
@@ -70,13 +79,6 @@ def setup_function():
 
 
 def test_bot2_checkout_uses_shared_invoice_and_inventory():
-    async def fake_node(*args, **kwargs):
-        return {"image_base64": base64.b64encode(b"fake-qr").decode()}
-
-    bot2._run_node = lambda *args, **kwargs: {"image_base64": base64.b64encode(b"fake-qr").decode()}
-    bot2.send2 = lambda *args, **kwargs: asyncio.sleep(0)
-    bot2.send_photo2 = lambda *args, **kwargs: asyncio.sleep(0)
-
     user = run(bot2.get_user2({
         "id": 123,
         "username": "buyer",
@@ -122,12 +124,12 @@ def test_bot2_paid_checkout_commits_inventory_and_marks_delivered(monkeypatch):
     assert sold is not None
 
 
-def test_bot2_deposit_qris_is_tagged_and_credits_idr(monkeypatch):
+def test_bot2_deposit_qris_is_tagged_and_remembers_message(monkeypatch):
     monkeypatch.setenv("GOPAY_ENABLED", "true")
     monkeypatch.setattr(bot2, "_run_node", lambda *args, **kwargs: {
         "image_base64": base64.b64encode(b"fake-qr").decode()
     })
-    monkeypatch.setattr(bot2, "send_photo2", lambda *args, **kwargs: asyncio.sleep(0))
+    monkeypatch.setattr(bot2, "send_photo2", lambda *args, **kwargs: asyncio.sleep(0, result={"ok": True, "result": {"message_id": 123}}))
 
     user = run(bot2.get_user2({
         "id": 789,
@@ -143,6 +145,7 @@ def test_bot2_deposit_qris_is_tagged_and_credits_idr(monkeypatch):
     assert dep["currency"] == "IDR"
     assert payment["payment_scope"] == "bot2"
     assert payment["payment_type"] == "deposit"
+    assert dep["qr_message_id"] == payment["qr_message_id"] == 123
 
 
 def test_bot2_balance_checkout_is_idr_only_without_changing_bot1_currency(monkeypatch):
@@ -188,7 +191,7 @@ def test_bot2_product_menu_and_product_detail_are_callable(monkeypatch):
     run(bot2.show_products(123, 1))
     run(bot2.show_product(123, "p1"))
 
-    assert any("LIST PRODUCT" in (args[1] if len(args) > 1 else "") for args, _ in sent)
+    assert any("Katalog produk" in (args[1] if len(args) > 1 else "") for args, _ in sent)
     assert any("EMAIL KAMPUS" in (args[1] if len(args) > 1 else "") for args, _ in sent)
 
 

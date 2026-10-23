@@ -183,8 +183,10 @@ async def build_central_content(body):
         description = " ".join(description.split())[:550]
         heading = "📦 <b>Produk Tersedia</b>" if topic == "product_update" else "🔄 <b>Produk Sudah Restock</b>"
         text = (f"{heading}\n\n✨ <b>{escape(title)}</b>\n"
-                f"💰 Harga: <b>{price}</b>\n"
-                f"📊 Stok: {'tersedia' if stock is None else int(stock)}\n"
+                f"<table bordered striped compact>\n"
+                f"<tr><th>📦 Produk</th><th>💰 Harga</th><th>📊 Stok</th></tr>\n"
+                f"<tr><td>{escape(title)}</td><td><code>{price}</code></td><td>{'tersedia' if stock is None else int(stock)}</td></tr>\n"
+                f"</table>\n"
                 + (f"🎉 Diskon aktif: hemat {fmt_amount(pricing['discount_per_unit'], 'IDR')} per unit\n"
                    if pricing["discount_per_unit"] > 0 else "")
                 + (f"\n<blockquote>{escape(description)}</blockquote>\n" if description else "")

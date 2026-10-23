@@ -14,6 +14,7 @@ os.environ["DB_NAME"] = "sellerbottel_mock_only"
 # resolves to the same mock DB the test helpers seed (db.admins, etc.).
 os.environ["PLATFORM_DB_NAME"] = "sellerbottel_mock_only"
 os.environ["JWT_SECRET"] = "offline-test-secret-at-least-32-characters"
+os.environ.setdefault("ENVIRONMENT", "test")
 import motor.motor_asyncio
 from mongomock_motor import AsyncMongoMockClient
 

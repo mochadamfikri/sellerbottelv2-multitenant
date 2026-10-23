@@ -1,3 +1,4 @@
+from product_metadata import warranty_snapshot
 import uuid
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
@@ -230,6 +231,7 @@ async def execute_checkout(user, cart_items, preserve_cart=False, coupon_code=No
             {
                 "product_id": item["product"]["_id"],
                 "name": item["product"]["name"],
+                "warranty_snapshot": warranty_snapshot(item["product"]),
                 "qty": item["qty"],
                 "unit_price": item["unit_price"],
                 "base_unit_price": item["base_unit_price"],

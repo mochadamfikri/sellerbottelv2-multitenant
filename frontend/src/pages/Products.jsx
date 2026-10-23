@@ -1,3 +1,4 @@
+import IdseExcelPreview from "../components/IdseExcelPreview";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -7,6 +8,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/
 import { Switch } from "../components/ui/switch";
 
 const empty = {
+  warranty_status: "unknown",
+  warranty_duration: "",
+  warranty_coverage: "",
+  warranty_terms: "",
+  warranty_claim_process: "",
   name: "",
   description: "",
   price_usd: "",
@@ -85,6 +91,11 @@ export default function Products() {
   const openEdit = (p) => {
     const kind = p.product_kind || (p.delivery_type === "inventory" ? "digital" : "service");
     setForm({
+      warranty_status: p.warranty?.enabled === true ? "yes" : p.warranty?.enabled === false ? "no" : "unknown",
+      warranty_duration: p.warranty?.duration || "",
+      warranty_coverage: p.warranty?.coverage || "",
+      warranty_terms: p.warranty?.terms || "",
+      warranty_claim_process: p.warranty?.claim_process || "",
       name: p.name || "",
       description: p.description || "",
       price_usd: p.price_usd ?? "",
@@ -99,7 +110,7 @@ export default function Products() {
       catalog_name: p.catalog_name || "",
       inventory_fields: (p.inventory_schema || []).join(","),
       delivery_type: p.delivery_type || "link",
-      content: p.service_message_template || p.content || "",
+      content: p.custom_order_template || p.service_message_template || p.content || "",
       wait_minutes: p.service_wait_minutes || 5,
       active: p.active !== false,
     });
@@ -111,13 +122,26 @@ export default function Products() {
   };
 
   const save = async () => {
+    if (!form.name.trim() || !form.description.trim()) {
+      toast.error("Nama dan deskripsi wajib diisi."); return;
+    }
+    if (form.warranty_status === "unknown") {
+      toast.error("Pilih Ada atau Tidak Ada untuk garansi."); return;
+    }
+    if (form.warranty_status === "yes" && !form.warranty_duration.trim()) {
+      toast.error("Durasi garansi wajib diisi."); return;
+    }
     setSaving(true);
     try {
       const fd = new FormData();
+      fd.append("warranty_json", JSON.stringify(form.warranty_status === "yes" ? {
+        enabled: true, duration: form.warranty_duration, coverage: form.warranty_coverage,
+        terms: form.warranty_terms, claim_process: form.warranty_claim_process,
+      } : { enabled: false }));
       fd.append("name", form.name);
       fd.append("description", form.description);
-      fd.append("price_usd", form.price_usd);
-      if (form.price_idr !== "") fd.append("price_idr", form.price_idr);
+      fd.append("price_usd", form.price_usd !== "" && form.price_usd != null ? String(form.price_usd) : "0");
+      if (form.price_idr !== "" && form.price_idr != null) fd.append("price_idr", String(form.price_idr));
       fd.append("product_kind", form.product_kind);
       fd.append("stock_mode", form.product_kind === "digital" ? form.stock_mode : "auto");
       fd.append("inventory_mode", form.product_kind === "digital" ? form.inventory_mode : "table");
@@ -126,6 +150,7 @@ export default function Products() {
       fd.append("content", "");
       fd.append("service_wait_minutes", form.product_kind === "service" ? String(form.wait_minutes || 5) : "");
       fd.append("service_message_template", form.product_kind === "service" ? form.content : "");
+      fd.append("custom_order_template", form.product_kind === "service" ? form.content : "");
       fd.append("active", form.active);
       fd.append("minimum_purchase_qty", String(form.minimum_purchase_qty || 1));
       fd.append("catalog_name", form.catalog_name.trim());
@@ -264,8 +289,8 @@ export default function Products() {
   };
 
   const kindLabel = (p) => p.product_kind === "service"
-    ? "B. Produk Jasa"
-    : "A. Produk Digital / Data";
+    ? "🛠️ Jasa / Fresh by Made"
+    : "📦 Produk Digital";
 
   const renderStock = (p) => {
     if (p.product_kind === "service") return <span className="text-cyan-400">Unlimited</span>;
@@ -286,6 +311,7 @@ export default function Products() {
 
   return (
     <div className="space-y-4">
+      <IdseExcelPreview />
       <div className="flex justify-between items-center gap-3 flex-wrap">
         <div>
           <p className="text-sm text-slate-400">{products.length} produk</p>
@@ -460,7 +486,7 @@ export default function Products() {
           <DialogHeader><DialogTitle>{editId ? "Edit Produk" : "Tambah Produk"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div>
-              <label className="text-xs text-slate-400">Jenis Product</label>
+              <label className="text-xs text-slate-400">Jenis Produk</label>
               <select
                 className={cls}
                 value={form.product_kind}
@@ -471,13 +497,13 @@ export default function Products() {
                     product_kind: kind,
                     delivery_type: kind === "digital" ? "inventory" : "service",
                     content: kind === "service"
-                      ? (form.content || "Jasa {product_name} sedang dalam antrean, harap tunggu {wait_minutes} untuk dapat menghubungi admin.")
+                      ? (form.content || "Halo! Pesanan {product_name} sedang diproses manual oleh admin.")
                       : "",
                   });
                 }}
               >
-                <option value="digital">A. Produk Digital / sudah ada datanya</option>
-                <option value="service">B. Produk Jasa</option>
+                <option value="digital">📦 Produk Digital / Stok Akun (Otomatis)</option>
+                <option value="service">🛠️ Jasa / FRESH BY MADE (Proses Manual / Custom)</option>
               </select>
             </div>
 
@@ -505,18 +531,39 @@ export default function Products() {
             </div>
 
             <div>
+              <label className="text-xs text-slate-400">Garansi</label>
+              <select className={cls} value={form.warranty_status} onChange={(e) => setForm({ ...form, warranty_status: e.target.value })}>
+                <option value="unknown">Perlu dilengkapi</option><option value="yes">Ada</option><option value="no">Tidak Ada</option>
+              </select>
+              {form.warranty_status === "yes" && [["duration", "Durasi (mis. 7 hari)"], ["coverage", "Cakupan"], ["terms", "Syarat"], ["claim_process", "Cara klaim"]].map(([key, label]) => <label key={key} className="block text-xs text-slate-400 mt-2">{label}<textarea className={cls} maxLength={key === "duration" ? 120 : 4000} value={form[`warranty_${key}`]} onChange={(e) => setForm({ ...form, [`warranty_${key}`]: e.target.value })} /></label>)}
+              <table className="w-full text-sm mt-3"><caption>Preview sebelum simpan</caption><tbody>
+                {[["Product", form.name], ["Stock", form.product_kind === "service" ? "Unlimited" : "Terhitung dari inventory tersedia"], ["Harga", form.price_idr ? fmtIDR(form.price_idr) : "Mengikuti konversi harga existing"], ["Garansi", form.warranty_status === "yes" ? form.warranty_duration : form.warranty_status === "no" ? "Tidak Ada" : "Perlu dilengkapi"], ["Deskripsi", form.description]].map(([label, value]) => <tr key={label}><th className="text-left align-top pr-3">{label}</th><td className="whitespace-pre-wrap break-words">{value}</td></tr>)}
+              </tbody></table>
               <label className="text-xs text-slate-400">Deskripsi</label>
               <textarea rows={3} className={cls} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-slate-400">Harga USD</label>
-                <input type="number" step="0.01" className={cls} value={form.price_usd} onChange={(e) => setForm({ ...form, price_usd: e.target.value })} />
+                <label className="text-xs text-slate-400">Harga IDR</label>
+                <input
+                  type="number"
+                  className={cls}
+                  placeholder="Contoh: 25000"
+                  value={form.price_idr}
+                  onChange={(e) => setForm({ ...form, price_idr: e.target.value })}
+                />
               </div>
               <div>
-                <label className="text-xs text-slate-400">Harga IDR (opsional)</label>
-                <input type="number" className={cls} value={form.price_idr} onChange={(e) => setForm({ ...form, price_idr: e.target.value })} />
+                <label className="text-xs text-slate-400">Harga USD (opsional)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  className={cls}
+                  placeholder="0.00"
+                  value={form.price_usd}
+                  onChange={(e) => setForm({ ...form, price_usd: e.target.value })}
+                />
               </div>
             </div>
 
@@ -570,19 +617,25 @@ export default function Products() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-slate-400">Pesan antrean jasa</label>
+                  <label className="text-xs text-slate-400">Pesan Order / Instruksi Jasa & Fresh By Made</label>
                   <textarea
                     rows={4}
                     className={cls}
+                    placeholder="Contoh: Pesanan {product_name} sedang diproses. Silakan kirimkan email Anda..."
                     value={form.content}
                     onChange={(e) => setForm({ ...form, content: e.target.value })}
                   />
-                  <p className="text-[11px] text-slate-500 mt-1">Placeholder: {"{product_name}"} dan {"{wait_minutes}"}.</p>
+                  <p className="text-[11px] text-slate-500 mt-1">Placeholder: {"{product_name}"} dan {"{wait_minutes}"}. Teks ini dikirim saat pembeli memesan produk Jasa / Fresh By Made.</p>
                 </div>
               </div>
             )}
 
-            <button onClick={save} disabled={saving || !form.name || !form.price_usd} className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold rounded-lg py-2.5">
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving || !form.name.trim() || (!form.price_usd && form.price_usd !== 0 && !form.price_idr && form.price_idr !== 0)}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold rounded-lg py-2.5 transition"
+            >
               {saving ? "Menyimpan..." : "Simpan Produk"}
             </button>
           </div>
